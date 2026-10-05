@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+allowBuilds:
+  better-sqlite3: false
+  esbuild: true
+  msgpackr-extract: false
+minimumReleaseAgeExclude:
+  - '@vitejs/plugin-react@6.1.2'
+  - mapshaper@0.7.76

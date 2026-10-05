@@ -1,0 +1,26 @@
+{
+  "name": "@datara/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.3",
+    "hono": "4.13.13"
+  },
+  "devDependencies": {
+    "@datara/eslint": "workspace:*",
+    "@datara/prettier": "workspace:*",
+    "@types/node": "26.6.4",
+    "eslint": "10.12.0",
+    "prettier": "3.9.9",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  }
+}

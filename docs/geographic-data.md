@@ -1,0 +1,62 @@
+# Geographic data
+
+## Sources and scope
+
+| Country       | Source and edition                                 | Included layers                                                                             |
+| ------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Brazil        | IBGE boundary API, 2025 geometry                   | 27 states/federal district and municipalities                                               |
+| United States | Census Cartographic Boundary Files 2025, 1:500,000 | 51 state-level units, 3,144 counties/equivalents, 32,058 places, 35,396 county subdivisions |
+
+Authoritative source entry points are [IBGE geographic boundaries](https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774--malhas.html) and the [Census 2025 catalog](https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.2025.html). Exact US download URLs, SHA-256 hashes, sizes, acquisition timestamps and inventories are recorded in `apps/web/public/maps/us/2025/manifest.json`.
+
+These are simplified visualization boundaries, not surveying data. US geography includes Alaska, Hawaii and D.C.; the explicit state-code allowlist excludes territories. County equivalents preserve their source identity, including parishes, boroughs, independent cities and planning regions. Places do not cover all land and can cross counties. Do not infer a single county parent from a place's name or centroid. Subdivisions and places are separate, potentially overlapping layers.
+
+## Files served by the web app
+
+```text
+apps/web/public/maps/
+  brazil.json
+  brazil-outline.svg
+  us/2025/
+    national.json
+    outline.svg
+    search.json
+    manifest.json
+    details/<STATEFP>.json
+```
+
+National TopoJSON has `states` and `regions` objects. `regions` means municipalities for Brazil and counties for the US. Detail TopoJSON has `places` and `subdivisions`. US search is metadata-only and is loaded independently; detailed coordinates are requested by state. SVG silhouettes are generated from the same country geometry for skeletons.
+
+`Area` properties include `id`, `countryCode`, `geoid`, `name`, `stateCode`, `stateAbbr` and `type`, with an optional official name. Brazilian IDs retain their IBGE code. US IDs are namespaced as `US:<type>:<GEOID>`, preventing collisions between levels. Preserve codes as strings. Prepared US files also retain source-year/type metadata and county/place/subdivision code fields where supplied; the compact search index intentionally retains fewer fields.
+
+## Regeneration
+
+Run from the repository root:
+
+```sh
+pnpm --filter @datara/web map:update
+pnpm --filter @datara/web map:update:us
+pnpm --filter @datara/web map:check
+```
+
+Regeneration overwrites the corresponding static artifacts. Normal development/builds use the checked-in files and do not contact IBGE or Census. Regeneration needs outbound network access. US processing also requires `unzip`, temporary disk space and memory; its script sets Node's heap ceiling to 8 GB. Mapshaper is a development-only preparation dependency.
+
+### Brazil
+
+`update-map.mjs` fetches the 2025 minimum-quality municipal geometry and locality/state naming catalogs. The geometry year is pinned; locality naming endpoints are live catalogs. It validates basic counts and names, adjusts ring orientation for D3, and passes municipalities to `map-topology.mjs`. State shapes are merged from municipal arcs, eliminating independently simplified state outlines.
+
+The output contains source URLs and edition metadata, but the Brazil pipeline currently has no download hash manifest. Do not assume byte-for-byte reproducibility of live catalogs or parity with the US provenance manifest.
+
+### United States
+
+`update-us-map.mjs` downloads national state, county, place and county-subdivision ZIPs from `GENZ2025/shp`. ZIP signatures, HTTP status and cached hashes are checked. The temporary download cache is `<OS temporary directory>/datara-us-data`; deleting it forces reacquisition on the next run.
+
+The pipeline extracts shapefile components, checks source DBF record counts, converts NAD83 using `.prj` to WGS84, and simplifies all layers together at a 300 m interval with `keep-shapes`. Coordinates are rounded to seven decimal places. It preserves Polygon/MultiPolygon geometry and D3-compatible winding, then creates TopoJSON with shared boundaries. States are derived from county arcs. Per-state files and the search index preserve all included entities; the manifest reconciles source counts with deliberate territorial exclusions.
+
+The display uses `geoAlbersUsa`; Brazil uses `geoMercator`. Alaska's antimeridian geometry and all retained entities are checked for finite projected bounds and positive projected area. Changing projection, source edition or simplification requires rerunning the geographic checks and checking relevant boundary cases, not merely updating a filename.
+
+## Verification and maintenance
+
+`check-map.mjs` covers Brazil counts, identities, search, fitting, geometry and shared arcs. `check-us-map.mjs` checks every retained US geometry and state inventory, identifiers, exclusions, source provenance and administrative distinctions. It includes New York city, Alaska, Hawaii, D.C., an unincorporated place and county-equivalent labels. `check-map-location.mjs` verifies URL code handling.
+
+When updating an edition, update source paths, country asset configuration, worker detail/search paths, regeneration scripts and tests together. Record provenance and inspect changed counts before accepting the new assets. Do not silently remove small entities to improve performance.
