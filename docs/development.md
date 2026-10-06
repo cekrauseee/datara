@@ -5,7 +5,7 @@
 The root pnpm workspace contains `apps/*` and `packages/*`. Turborepo runs development tasks without caching and caches build outputs under `dist/**`. Shared ESLint configuration enables TypeScript unused-variable and deprecation checks; it is intentionally narrower than a comprehensive recommended rule set. Shared Prettier uses single quotes, no semicolons, 100-column lines and import organization; the web package adds Tailwind class ordering.
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 pnpm build
 pnpm lint
@@ -13,7 +13,9 @@ pnpm typecheck
 pnpm format:check
 ```
 
-`pnpm format` writes formatting throughout the repository. Prefer targeted formatting for small changes. Generated geographic JSON should be regenerated rather than manually edited. Dependency build permissions are explicit in `pnpm-workspace.yaml`: esbuild is allowed, optional SQLite/msgpack native builds are disabled. Respect existing versions and lockfile pins.
+Use the frozen lockfile when setting up an existing checkout. Change dependencies deliberately with pnpm and commit the resulting lockfile with their manifests.
+
+`pnpm format` writes formatting throughout the repository. Prefer targeted formatting for small changes. Generated geographic JSON is excluded recursively from Prettier and should be regenerated rather than manually edited. Dependency build permissions are explicit in `pnpm-workspace.yaml`: esbuild is allowed, optional SQLite/msgpack native builds are disabled. Respect existing versions and lockfile pins.
 
 ## API contract
 

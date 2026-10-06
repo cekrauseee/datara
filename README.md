@@ -9,7 +9,7 @@ The current product displays geography, not election results or statistical over
 Requirements: Node.js **24.11.0 or newer** and **pnpm 11.10.0**. Use the version pinned in `package.json`; keep `pnpm-lock.yaml` committed with dependency changes.
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 

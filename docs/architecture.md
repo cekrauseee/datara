@@ -55,4 +55,4 @@ Deep-link initialization, reduced motion, retained-country navigation and resize
 
 Use the reproducible browser scenarios in [development.md](development.md), including cold and warm selections. Measure frame intervals and long tasks, not only time spent calling Canvas methods: rasterization may be deferred, and decoding can dominate before drawing begins.
 
-A local comparison during optimization, with Chromium CPU throttled 4×, reduced the cold Massachusetts selection's peak measured frame interval from about 134 ms to 34 ms, with no long tasks detected after the change. These are development measurements, not a service-level guarantee or a production benchmark. Keep viewport, pixel ratio, CPU settings and cold/warm state identical when comparing.
+Keep viewport, pixel ratio, CPU settings and cold/warm state identical when comparing. Record measurements with those conditions; results from another machine are not a performance baseline for the current checkout.
