@@ -44,16 +44,19 @@ try {
   const before = (await pool.query('SELECT count(*)::int n FROM publications')).rows[0].n
   const active = (await pool.query('SELECT active_publication_id FROM editions')).rows[0]
     .active_publication_id
-  await appendFile(join(directory, '.env'), '# User configuration\nUSER_NOTE="preserve this"\n')
-  const original = await readFile(join(directory, '.env'), 'utf8')
+  await appendFile(
+    join(directory, 'apps/api/.env'),
+    '# User configuration\nUSER_NOTE="preserve this"\n',
+  )
+  const original = await readFile(join(directory, 'apps/api/.env'), 'utf8')
   await setup(directory, env, { offline: true })
   assert.equal((await pool.query('SELECT count(*)::int n FROM publications')).rows[0].n, before)
   assert.equal(
     (await pool.query('SELECT active_publication_id FROM editions')).rows[0].active_publication_id,
     active,
   )
-  assert.equal(await readFile(join(directory, '.env'), 'utf8'), original)
-  assert.equal((await stat(join(directory, '.env'))).mode & 0o777, 0o600)
+  assert.equal(await readFile(join(directory, 'apps/api/.env'), 'utf8'), original)
+  assert.equal((await stat(join(directory, 'apps/api/.env'))).mode & 0o777, 0o600)
   console.log(
     'Local setup check passed: repeated setup preserves publication/config and rejects unowned/remote targets',
   )

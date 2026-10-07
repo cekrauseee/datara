@@ -4,7 +4,7 @@ The Hono API reads locally published PostgreSQL data. Import scripts and HTTP st
 
 ## Start and query
 
-Run from the repository root. `pnpm run setup` saves root `.env`, prepares the database and imports the limited official pilot; `pnpm dev` starts web/API and restarts the project-managed database when needed. No repeated shell exports are required.
+Run from the repository root. `pnpm run setup` saves `apps/api/.env`, prepares the database and imports the limited official pilot; `pnpm dev` starts web/API and restarts the project-managed database when needed. No repeated shell exports are required.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -12,7 +12,7 @@ pnpm run setup
 pnpm dev
 ```
 
-In another terminal (API defaults to port 3000; use the saved `.env` `PORT` if customized):
+In another terminal (API defaults to port 3000; use the saved `apps/api/.env` `PORT` if customized):
 
 ```sh
 curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'

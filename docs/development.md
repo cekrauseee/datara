@@ -20,7 +20,7 @@ Use the frozen lockfile when setting up an existing checkout. Change dependencie
 
 ## API and local election data
 
-`pnpm run setup` prepares ignored root `.env`, the project-managed native PostgreSQL cluster, migrations, the limited official pilot and two photos. `pnpm dev` reloads this configuration, ensures the managed database is running, and launches web/API through Turbo. Dev explicitly passes API configuration through Turbo’s strict environment filtering. Vite uses strict port 5173; API `PORT` defaults to 3000. Occupied IPv4 or IPv6 localhost ports fail clearly.
+`pnpm run setup` prepares ignored `apps/api/.env`, the project-managed native PostgreSQL cluster, migrations, the limited official pilot and two photos. `pnpm dev` reloads this configuration, ensures the managed database is running, and launches web/API through Turbo. Dev explicitly passes API configuration through Turbo’s strict environment filtering. Vite uses strict port 5173; API `PORT` defaults to 3000. Occupied IPv4 or IPv6 localhost ports fail clearly.
 
 `@datara/api` uses Hono and PostgreSQL. `DATABASE_URL` is required and is saved by setup; `PORT` defaults to 3000. The web geography explorer remains independent of the API. The backend imports and serves the official Brazilian 2026 first round with local published snapshots; it does not fetch sources during user requests.
 
@@ -36,7 +36,7 @@ curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
 curl -fsS 'http://localhost:3000/openapi.json'
 ```
 
-The root route still returns `{"message":"datara"}`. Root local commands and API runtime/ingestion commands read the saved root `.env` with Node’s native environment-file support. Existing shell variables retain precedence. Test commands still require an explicitly selected `TEST_DATABASE_URL`. Build copies migrations to `dist/db`; production must also retain validated local presentation configuration and photo assets.
+The root route still returns `{"message":"datara"}`. Root local commands and API runtime/ingestion commands read the saved `apps/api/.env` with Node’s native environment-file support. Existing shell variables retain precedence. Test commands still require an explicitly selected `TEST_DATABASE_URL`. Build copies migrations to `dist/db`; production must also retain validated local presentation configuration and photo assets.
 
 ## Web verification
 

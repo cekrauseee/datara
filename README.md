@@ -14,10 +14,10 @@ pnpm run setup
 pnpm dev
 ```
 
-Use `pnpm run setup`: bare `pnpm setup` is pnpm's own installation command. Project setup saves ignored root `.env`, creates a persistent local database, migrates it, imports the limited official AC/DF/PE/ZZ pilot and acquires two representative presidential photos. Repeating setup preserves configuration and reuses the published dataset, including a national publication if one already exists. Interrupted initial imports resume on the next setup.
+Use `pnpm run setup`: bare `pnpm setup` is pnpm's own installation command. Project setup saves ignored `apps/api/.env`, creates a persistent local database, migrates it, imports the limited official AC/DF/PE/ZZ pilot and acquires two representative presidential photos. Repeating setup preserves configuration and reuses the published dataset, including a national publication if one already exists. Interrupted initial imports resume on the next setup.
 
 - Web: <http://localhost:5173/br>.
-- API: <http://localhost:3000/elections> by default; edit `PORT` in root `.env` if occupied.
+- API: <http://localhost:3000/elections> by default; edit `PORT` in `apps/api/.env` if occupied.
 - `pnpm dev` loads saved configuration, starts the project-managed database when needed and launches web/API together. Ctrl+C stops them; `pnpm dev:stop` explicitly stops the managed database without deleting data.
 - Web-only development remains `pnpm --filter @datara/web dev`.
 
