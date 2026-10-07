@@ -3,7 +3,15 @@
   "tasks": {
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": [
+        "DATABASE_URL",
+        "PORT",
+        "CORS_ORIGIN",
+        "ASSET_BASE_URL",
+        "ELECTION_PRESENTATION_FILE",
+        "PHOTO_DIRECTORY"
+      ]
     },
     "build": {
       "dependsOn": ["^build"],

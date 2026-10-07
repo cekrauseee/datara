@@ -4,16 +4,15 @@ The Hono API reads locally published PostgreSQL data. Import scripts and HTTP st
 
 ## Start and query
 
-Run from the repository root with an existing populated database. Shell variables are used directly; `.env` is not automatically loaded.
+Run from the repository root. `pnpm run setup` saves root `.env`, prepares the database and imports the limited official pilot; `pnpm dev` starts web/API and restarts the project-managed database when needed. No repeated shell exports are required.
 
 ```sh
-export DATABASE_URL='postgresql://YOUR_USER:YOUR_PASSWORD@127.0.0.1:5432/datara'
-export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
-pnpm --filter @datara/api elections --scope pilot --archive "$ELECTION_ARCHIVE_DIR"
-pnpm --filter @datara/api dev
+pnpm install --frozen-lockfile
+pnpm run setup
+pnpm dev
 ```
 
-In another terminal:
+In another terminal (API defaults to port 3000; use the saved `.env` `PORT` if customized):
 
 ```sh
 curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
@@ -82,7 +81,7 @@ Errors use `error.code`, `message`, `requestId` and optional field details. Inva
 }
 ```
 
-Put local files in `apps/api/public/photos/`; they are served under `/assets/photos/`. Official local photos are acquired by `pnpm --filter @datara/api elections:photos`, optionally with `--contest ID --limit N`, as documented in [ingestion](election-ingestion.md). Use the same `PHOTO_DIRECTORY` for acquisition and API startup; official photo provenance remains in the archive without mutating the voting publication. Presentation resolves an available JSON photo override, then the downloaded official file, then `null`. Restart the API after changing photos or overrides; the file inventory is read once at startup. Overrides accept JPG/JPEG/PNG/WebP filenames, not arbitrary paths. `ELECTION_PRESENTATION_FILE`, `PHOTO_DIRECTORY` (directory containing `photos/`), and `ASSET_BASE_URL` can select durable configuration/assets without changing HTTP fields. A production artifact must include them or supply durable equivalents.
+Put local files in `apps/api/public/photos/`; they are served under `/assets/photos/`. Official local photos are acquired by `pnpm --filter @datara/api elections:photos`, optionally with `--contest ID --limit N`, as documented in [ingestion](election-ingestion.md). Use the same `PHOTO_DIRECTORY` for acquisition and API startup; official photo provenance remains in the archive without mutating the voting publication. Presentation resolves an available JSON photo override, then the downloaded official file, then `null`. Restart the API after changing photos or overrides; the file inventory is read once at startup. Overrides accept JPG/JPEG/PNG/WebP filenames, not arbitrary paths. `ELECTION_PRESENTATION_FILE`, `PHOTO_DIRECTORY` (directory containing `photos/`; setup uses `.data/public`), and `ASSET_BASE_URL` can select durable configuration/assets without changing HTTP fields. A production artifact must include them or supply durable equivalents.
 
 `DATABASE_URL` is required; `PORT` defaults to 3000, `CORS_ORIGIN` to `http://localhost:5173`, and `ASSET_BASE_URL` to `/assets`. Configuration is validated before listening. Allowed CORS origin must be a full origin without a trailing slash/path. Frontend integration is not part of this change.
 

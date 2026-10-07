@@ -92,8 +92,8 @@ export class Archive {
 export function hash(bytes: Buffer) {
   return createHash('sha256').update(bytes).digest('hex')
 }
-export async function atomicWrite(path: string, bytes: Buffer) {
+export async function atomicWrite(path: string, bytes: Buffer, mode = 0o666) {
   const temporary = `${path}.${randomUUID()}.tmp`
-  await writeFile(temporary, bytes)
+  await writeFile(temporary, bytes, { mode })
   await rename(temporary, path)
 }

@@ -4,19 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --env-file-if-exists=../../.env --import tsx --watch src/index.ts",
     "build": "tsc && cp src/db/*.sql dist/db/",
-    "start": "node dist/index.js",
+    "start": "node --env-file-if-exists=../../.env dist/index.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && tsc -p scripts/tsconfig.json",
-    "elections": "tsx scripts/elections.ts",
-    "db:migrate": "tsx scripts/elections.ts --migrate",
+    "elections": "node --env-file-if-exists=../../.env --import tsx scripts/elections.ts",
+    "db:migrate": "node --env-file-if-exists=../../.env --import tsx scripts/elections.ts --migrate",
     "check:bu": "tsx scripts/check-bu.ts",
     "check:ingestion": "tsx scripts/check-ingestion.ts",
     "check:api": "tsx scripts/check-api.ts",
     "check:presentation": "tsx scripts/check-presentation.ts",
-    "elections:photos": "tsx scripts/election-photos.ts",
-    "check:photos": "tsx scripts/check-photos.ts"
+    "elections:photos": "node --env-file-if-exists=../../.env --import tsx scripts/election-photos.ts",
+    "check:photos": "tsx scripts/check-photos.ts",
+    "check:local": "tsx scripts/check-local.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.3",

@@ -2,6 +2,30 @@
 
 The API reads PostgreSQL; visits never fetch TSE files. The CLI imports the official 2026 first round, discovers its poll/election/office codes through EA11, reads EA12 catalogs, EA20 official aggregates, EA16 primary/aggregated sections and EA18's totalized BU. This includes president, governor, senator, federal/state/district deputies, Fernando de Noronha's district council and presidential exterior results where applicable.
 
+## Integrated local setup
+
+From the repository root:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run setup
+pnpm dev
+# Ctrl+C ends the development session.
+pnpm dev:stop
+```
+
+Bare `pnpm setup` is a built-in pnpm command; always use `pnpm run setup` for this project. PostgreSQL 18 must already be installed. The script finds the Homebrew `postgresql@18` binaries on macOS, an explicit `PG_BIN`, or compatible tools on PATH. It installs no system packages and registers no login service.
+
+With no supplied database connection, setup initializes `.data/postgres`, binds it only to `127.0.0.1:55431`, and creates `datara` using local trust authentication for development. An ownership marker prevents taking over or resetting an existing manually initialized directory. Root `.env` stores this connection plus absolute archive/photo locations; existing values and comments are preserved. The archive remains `.data/elections`; managed photos are `.data/public/photos`. Database, sources, photos and configuration remain on disk when stopped. Back them up together.
+
+Setup applies migrations and imports the default AC/DF/PE/ZZ pilot only when the edition has no published dataset. It reuses existing publications, including national ones. An initial publication UUID is checkpointed in `.data/local-setup.json`, so rerunning setup resumes an interrupted import; it never runs national acquisition automatically. Two presidential photos are prepared once for the active publication. `pnpm run setup --offline` can bootstrap entirely from an already complete pilot/photo archive.
+
+`pnpm dev` does not import again. It loads saved configuration, restarts only the marked project-managed database, checks API and web localhost ports, and runs both apps. API defaults to port 3000 and Vite to strict port 5173. If occupied, stop the conflicting service or edit the API `PORT` in `.env`; unrelated processes are never killed. `pnpm dev:stop` stops only the marked managed cluster and preserves its contents. External databases are never started or stopped.
+
+To select an existing local development database before first setup, provide `DATABASE_URL` in root `.env` or the setup environment. Setup migrates/populates that explicitly selected database. It refuses non-loopback URLs and host overrides unless invoked with `--allow-external-database`; that flag is only for an explicitly chosen development target and does not provision any service. A conflicting shell `DATABASE_URL` versus saved `.env` fails rather than silently changing targets. Root `.env` is private and ignored; the script never prints credentials.
+
+API dev/start, migrations and ingestion/photo CLI commands also load root `.env` natively. Shell variables can override it for advanced commands. The manual database commands below are alternatives; they are not required after integrated setup.
+
 ## Local database
 
 Use an existing PostgreSQL 18 connection with `DATABASE_URL`, or start the optional Docker Compose database. Docker is not installed by this project:
@@ -13,7 +37,7 @@ export DATABASE_URL='postgresql://datara:your-local-password@127.0.0.1:5432/data
 pnpm --filter @datara/api db:migrate
 ```
 
-Compose binds to localhost and persists PostgreSQL in a named volume. Use `docker compose stop` to stop it; do not remove the volume unless intentionally discarding the database. `.env.example` documents configuration; load environment variables in the shell or your process manager. The scripts do not automatically load `.env`.
+Compose binds to localhost and persists PostgreSQL in a named volume. Use `docker compose stop` to stop it; do not remove the volume unless intentionally discarding the database. `apps/api/.env.example` documents API configuration. Runtime and ingestion commands load root `.env`; explicit shell variables take precedence.
 
 The native macOS setup keeps PostgreSQL on persistent ignored local disk. It does not register a login service:
 
