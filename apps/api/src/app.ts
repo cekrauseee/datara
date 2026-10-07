@@ -8,6 +8,16 @@ import { ApiError, type HttpEnvironment } from './http/errors.js'
 import { loadPresentation } from './modules/elections/presentation.js'
 import { electionRoutes } from './modules/elections/routes.js'
 
+export const openapiConfig = {
+  openapi: '3.1.0',
+  info: {
+    title: 'Datara election API',
+    version: '0.1.0',
+    description:
+      'Queries immutable published electoral data. publicationId is a data snapshot, not an API version. Counts and percentages preserve BU versus official judicial-totalization semantics.',
+  },
+}
+
 export async function createApp(pool: pg.Pool, config: Config) {
   const present = await loadPresentation(
     config.presentationFile,
@@ -38,15 +48,7 @@ export async function createApp(pool: pg.Pool, config: Config) {
     }),
   )
   app.route('/', electionRoutes(pool, present))
-  app.doc('/openapi.json', {
-    openapi: '3.1.0',
-    info: {
-      title: 'Datara election API',
-      version: '0.1.0',
-      description:
-        'Queries immutable published electoral data. publicationId is a data snapshot, not an API version. Counts and percentages preserve BU versus official judicial-totalization semantics.',
-    },
-  })
+  app.doc31('/openapi.json', openapiConfig)
   app.notFound((c) =>
     c.json(
       {

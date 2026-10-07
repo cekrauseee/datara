@@ -1,0 +1,44 @@
+{
+  "name": "@datara/docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --silent generate && next dev --port 3002",
+    "build": "pnpm --silent generate && next build",
+    "start": "next start --port 3002",
+    "generate": "pnpm --silent --filter @datara/api openapi:export ../docs/.generated/openapi.json && tsx scripts/generate-reference.ts && fumadocs-mdx",
+    "typecheck": "pnpm --silent generate && next typegen && tsc --noEmit",
+    "lint": "eslint .",
+    "check:i18n": "tsx scripts/check-i18n.ts",
+    "check:generation": "pnpm --silent generate && tsx scripts/check-generation.ts"
+  },
+  "dependencies": {
+    "@datara/theme": "workspace:*",
+    "@base-ui/react": "^1.8.0",
+    "fumadocs-core": "16.16.2",
+    "fumadocs-mdx": "15.4.6",
+    "fumadocs-openapi": "12.3.0",
+    "fumadocs-ui": "npm:@fumadocs/base-ui@16.16.2",
+    "lucide-react": "^1.52.0",
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "shiki": "4.5.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@datara/eslint": "workspace:*",
+    "@datara/prettier": "workspace:*",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/mdx": "2.0.13",
+    "@types/node": "26.6.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "10.12.0",
+    "prettier": "3.9.9",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  }
+}

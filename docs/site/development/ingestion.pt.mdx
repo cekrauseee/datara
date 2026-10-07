@@ -1,0 +1,175 @@
+---
+title: Ingestão e publicação eleitoral
+description: Adquira, retome, valide e publique datasets eleitorais locais.
+---
+
+A API lê PostgreSQL; visitas não baixam arquivos do TSE. A CLI importa o primeiro turno oficial de 2026, descobre códigos de pesquisa/eleição/cargo pelo EA11, lê catálogos EA12, agregados oficiais EA20, seções principais/agregadas EA16 e BU totalizado do EA18. Inclui presidente, governador, senador, deputados federais/estaduais/distritais, conselho distrital de Fernando de Noronha e resultados presidenciais do exterior quando aplicáveis.
+
+## Setup local integrado
+
+Na raiz:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run setup
+pnpm dev
+# Ctrl+C encerra a sessão.
+pnpm dev:stop
+```
+
+Use sempre `pnpm run setup`: `pnpm setup` é comando interno do pnpm. PostgreSQL 18 deve estar instalado. O script procura Homebrew `postgresql@18`, `PG_BIN` explícito ou ferramentas compatíveis no PATH. Não instala pacotes do sistema nem serviço de login.
+
+Sem conexão fornecida, setup inicializa `.data/postgres`, ligado só a `127.0.0.1:55431`, e cria `datara` com autenticação trust local de desenvolvimento. Um marcador de propriedade impede assumir/resetar um diretório inicializado manualmente. `apps/api/.env` armazena conexão e caminhos absolutos de arquivo/fotos, preservando valores/comentários. Fontes ficam em `.data/elections` e fotos em `.data/public/photos`. Ao parar, banco, fontes, fotos e configuração permanecem; faça backup juntos.
+
+Setup aplica migrações e importa AC/DF/PE/ZZ apenas se não houver publicação. Reaproveita publicações existentes, inclusive nacionais. Um UUID inicial é checkpointado em `.data/local-setup.json`; repetir retoma import interrompido, sem aquisição nacional automática. Duas fotos presidenciais são preparadas uma vez por publicação ativa. `pnpm run setup --offline` funciona com arquivo completo de piloto/fotos existente.
+
+`pnpm dev` não reimporta. Lê configuração salva, reinicia apenas banco gerenciado/marcado, verifica portas e executa web/API. API padrão 3000 e Vite fixo 5173. Se ocupadas, pare o serviço conflitante ou mude `PORT`; processos não relacionados não são encerrados. `pnpm dev:stop` para só o cluster marcado e preserva seus dados. Bancos externos não são iniciados/parados.
+
+Para banco de desenvolvimento existente, forneça `DATABASE_URL` em `apps/api/.env` ou no ambiente do primeiro setup. Setup migra/popula esse banco escolhido. Recusa URLs não loopback/host overrides sem `--allow-external-database`; a opção só se aplica a um alvo de desenvolvimento explicitamente escolhido e não provisiona serviços. Conflito entre shell e `.env` falha em vez de mudar alvo silenciosamente. O `.env` é privado/ignorado; credenciais não são impressas.
+
+Configuração nova usa `.env.example`, preservando comentários, ordem e opções. Repetições preservam configuração e acrescentam apenas valores ausentes. Ao migrar do antigo `.env` da raiz, mova-o para `apps/api/.env` antes do setup. Runtime/migração/ingestão/fotos também leem esse arquivo nativamente; shell pode sobrescrever para usos avançados. Comandos manuais abaixo são alternativas.
+
+## Banco local
+
+Use PostgreSQL 18 existente com `DATABASE_URL` ou Compose opcional; o projeto não instala Docker:
+
+```sh
+export POSTGRES_PASSWORD='choose-a-local-password'
+docker compose up -d postgres
+export DATABASE_URL='postgresql://datara:your-local-password@127.0.0.1:5432/datara'
+pnpm --filter @datara/api db:migrate
+```
+
+Compose liga localhost e preserva PostgreSQL em volume nomeado. `docker compose stop` para sem apagar volume. Não remova o volume sem intenção de descartar dados. `.env.example` documenta as opções; shell tem prioridade sobre `.env`.
+
+Setup nativo macOS com armazenamento persistente e sem serviço de login:
+
+```sh
+HOMEBREW_NO_AUTO_UPDATE=1 brew install postgresql@18
+export PG_BIN="$(brew --prefix postgresql@18)/bin"
+mkdir -p "$PWD/.data"
+# Cria cluster novo; nunca use diretório com dados existentes.
+# -W pede uma senha local.
+"$PG_BIN/initdb" -D "$PWD/.data/postgres" -A scram-sha-256 -W --encoding=UTF8
+"$PG_BIN/pg_ctl" -D "$PWD/.data/postgres" -l "$PWD/.data/postgres.log" -o '-h 127.0.0.1 -p 5432' start
+"$PG_BIN/createdb" -h 127.0.0.1 -p 5432 -U "$(whoami)" datara
+export DATABASE_URL='postgresql://YOUR_USER:YOUR_PASSWORD@127.0.0.1:5432/datara'
+pnpm --filter @datara/api db:migrate
+# Preserva .data/postgres:
+"$PG_BIN/pg_ctl" -D "$PWD/.data/postgres" stop
+```
+
+Use o papel criado pelo `initdb` (usuário do sistema por padrão). Codifique caracteres especiais da senha na URL. Se 5432 estiver ocupada, escolha outra porta em todos os comandos/conexão. Reiniciar o mesmo cluster exige só `pg_ctl start`, não `initdb`.
+
+Para verificação isolada descartável:
+
+```sh
+# Pré-requisito macOS somente se ainda não instalado:
+HOMEBREW_NO_AUTO_UPDATE=1 brew install postgresql@18
+export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"
+initdb -D /tmp/datara-postgres-test -A trust --no-locale
+pg_ctl -D /tmp/datara-postgres-test -l /tmp/datara-postgres-test.log -o '-h 127.0.0.1 -p 55432' start
+createdb -h 127.0.0.1 -p 55432 datara_test
+export DATABASE_URL="postgresql://$(whoami)@127.0.0.1:55432/datara_test"
+# Pare ao concluir:
+pg_ctl -D /tmp/datara-postgres-test stop
+```
+
+Esses comandos usam trust local e ligam só localhost. Para banco durável, use diretório separado e autenticação apropriada. Nunca sobrescreva cluster existente.
+
+## Popular e retomar
+
+O arquivo de fontes é persistente, ignorado pelo Git, e deve ser preservado junto ao banco. `--archive` resolve relativo ao pacote API sob filtro pnpm; forneça caminho absoluto:
+
+```sh
+export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
+# Catálogos/agregados por disputa são nacionais; observações municipais/zonais
+# e até dois BUs principais por UF ficam limitados a AC/DF/PE/ZZ.
+# A seleção inclui Noronha e prioriza principais com seções agregadas.
+pnpm --filter @datara/api elections --scope pilot --archive "$ELECTION_ARCHIVE_DIR" --pilot-ufs ac,df,pe,zz --municipalities 1 --sections 2
+
+# Aquisição nacional completa, com todas as unidades aplicáveis:
+pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR"
+
+# Retome com o MESMO UUID, escopo, limites e arquivo:
+pnpm --filter @datara/api elections --scope pilot --resume PUBLICATION_UUID --archive "$ELECTION_ARCHIVE_DIR" --pilot-ufs ac,df,pe,zz --municipalities 1 --sections 2
+
+# Nova publicação a partir do arquivo local, sem rede:
+pnpm --filter @datara/api elections --scope pilot --offline --archive "$ELECTION_ARCHIVE_DIR" --pilot-ufs ac,df,pe,zz --municipalities 1 --sections 2
+
+# Versões novas das fontes em nova publicação:
+pnpm --filter @datara/api elections --scope pilot --refresh --archive "$ELECTION_ARCHIVE_DIR"
+
+# Preparar sem tornar ativo, depois publicar explicitamente:
+pnpm --filter @datara/api elections --scope pilot --no-publish --archive "$ELECTION_ARCHIVE_DIR"
+pnpm --filter @datara/api elections --publish PUBLICATION_UUID
+```
+
+A CLI imprime UUID imediatamente. `--stop-after N` pausa após N unidades para verificar interrupção. O piloto marca `scope=pilot, complete=false`; votos de seções ausentes nunca são zeros nacionais. Tem catálogos de disputas aplicáveis, mas só observações/BUs escolhidos. Áreas só catalogadas podem não ter resultado. Limites de piloto não limitam `--scope national`.
+
+Aquisição nacional é comando separado: pode baixar centenas de milhares de documentos e consumir bastante tempo/disco. Há um importador sequencial retomável, sem workers de fundo. O arquivo por hash deduplica bytes; cache de URLs permite reutilização. `--refresh` substitui esse cache apenas para novas aquisições; retomadas usam manifesto congelado. `--offline` falha se fonte exigida estiver ausente/corrompida. Preserve banco e arquivo para procedência/replay.
+
+## Publicação e integridade
+
+Migração `001-election` aplica uma vez com transação/advisory lock. Cada import tem UUID/publicação em preparação. PostgreSQL guarda manifesto, tarefas esperadas, conclusão, catálogos e observações normalizadas. Normalização e marcador de conclusão de cada unidade commitam juntos; retry substitui unidade, sem somar deltas. Bytes brutos são gravados atomicamente por SHA-256 antes da linha de manifesto. Bytes corruptos falham verificação.
+
+Publicações são imutáveis pelo importador. Imports novos preservam anteriores. Validação exige todas as unidades esperadas, observações EA20/BU e nenhuma diferença inexplicada de cédulas em zonas completas. Publicação e ponteiro ativo mudam na mesma transação. Falhas/pausas não mudam dataset ativo. Seções explicitamente não instaladas exigem estado auxiliar oficial; arquivos ausentes, estados desconhecidos e hashes ambíguos falham em vez de virar zero.
+
+Seções agregadas preservam IDs e `principal_area_id`, sem resultado duplicado. Zonas são fatias municipais; consumidores de zona completa precisam combiná-las. IDs são códigos eleitorais com correspondência opcional ao mapa; exterior não tem geometria. Chaves estrangeiras compostas impedem ligações entre publicações/disputas diferentes.
+
+EA20 preserva grupos brutos em metadados e colunas numéricas explícitas. `vap`, destino e `pvapn` oficial permanecem. Votos nominais/legenda computados e válidos são separados. Votos válidos EA20 e votos impressos BU são medidas diferentes: `valid_votes` no BU é null, e Senado pode ter cédulas impressas em dobro do comparecimento. Votáveis sem candidatura verificada ficam em `votable_results`, sem candidaturas inventadas. Linhas ausentes são desconhecidas salvo garantia de zero pelo contrato. Não materializa produto cartesiano candidatura/seção.
+
+O leitor BU2026 usa ASN.1 oficial de setembro de 2026, valida identidade pelo inventário e rejeita estruturas não suportadas/criptografadas. Não autentica assinatura. Bytes originais/SHA-256 preservam evidência; hash não verifica assinatura TSE. O fluxo nacional não foi executado no desenvolvimento; variantes além do piloto seguem validação que falha em caso de dúvida.
+
+## Verificação
+
+```sh
+pnpm --filter @datara/api check:bu
+pnpm --filter @datara/api check:settings
+pnpm --filter @datara/api typecheck
+pnpm --filter @datara/api lint
+pnpm --filter @datara/api build
+```
+
+Fixtures oficiais versionadas de Porto Walter, Abu Dhabi SA e Noronha cobrem presidente, legenda proporcional, duas escolhas do Senado, campos opcionais, cargo 25, participação por eleição e rejeição de truncamento. Foram decodificadas independentemente com `asn1tools`/ASN.1 preservado. Checks de banco/API estão em [desenvolvimento](/development/setup).
+
+Integração de ingestão exige arquivo padrão completo do piloto e banco PostgreSQL isolado explícito. Cria/remove schema temporário, importa documentos reais offline, verifica interrupção/repetição, retenção de publicação e integridade composta. Redução sintética de um voto ocorre em transação revertida só para testar substituição; nunca é publicada como dado oficial.
+
+```sh
+createdb -h 127.0.0.1 -p 55432 datara_ingestion_check
+export TEST_DATABASE_URL="postgresql://$(whoami)@127.0.0.1:55432/datara_ingestion_check"
+export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
+pnpm --filter @datara/api check:ingestion
+# Cleanup do schema é automático:
+dropdb -h 127.0.0.1 -p 55432 datara_ingestion_check
+```
+
+## Fotos oficiais e apresentação
+
+Fotos são aquisição opcional separada. A CLI lê diretório EA11 `ft` congelado da publicação e IDs de candidaturas, baixa `<sqcand>.jpeg` e grava JPEGs nomeados pelo SHA-256 do ID público completo. Inicialização da API descobre esses arquivos e prioriza override manual disponível, foto oficial e `null`. Reinicie após mudanças.
+
+```sh
+export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
+export PHOTO_DIRECTORY="$PWD/.data/presentation" # contém photos/; use o mesmo no servidor
+# Piloto real rápido: presidente e deputado federal do Acre.
+pnpm --filter @datara/api elections:photos --contest BR-2026-1:6257:1:br --limit 1
+pnpm --filter @datara/api elections:photos --contest BR-2026-1:6259:6:ac --limit 1
+# Todas as candidaturas principais da publicação ativa:
+pnpm --filter @datara/api elections:photos
+# Publicação específica, replay ou atualização:
+pnpm --filter @datara/api elections:photos --publication PUBLICATION_UUID --offline
+pnpm --filter @datara/api elections:photos --refresh
+```
+
+O output padrão é `apps/api/public/photos/`. Checkpoints de URL, SHA-256 originais e manifestos por publicação ficam no arquivo eleitoral ignorado, separados do manifesto imutável de votos. Registram URLs, coleta, HTTP e hashes. Fotos opcionais 404/410 não bloqueiam publicação; outras falhas saem com erro para retry. Replay offline exige todas as fontes solicitadas; use o mesmo contest/limite de um piloto parcial.
+
+Arquivos gerados modificados manualmente e JSON de apresentação são preservados. Refresh só substitui gerado se o hash atual corresponder ao original adquirido. Faça backup do diretório de fotos também.
+
+Para check focado de fotos/API, use banco com piloto publicado e as duas fontes acima:
+
+```sh
+export TEST_DATABASE_URL="$DATABASE_URL" # precisa ser dataset local de testes populado
+pnpm --filter @datara/api check:photos
+```
+
+O check reprocessa JPEGs reais em diretório temporário, verifica `photoUrl`, bytes HTTP/hash, manifesto de votos inalterado e remove só seu output temporário. `check:presentation` cobre precedência e ausência de imagem separadamente.

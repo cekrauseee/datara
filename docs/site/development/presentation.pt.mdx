@@ -1,0 +1,31 @@
+---
+title: Apresentação de candidaturas e fotos
+description: Configure nomes, cores, fotos e assets duráveis da API.
+---
+
+## Configuração local
+
+`apps/api/config/election-presentation.json` é validado uma vez na inicialização. As chaves de candidaturas são os IDs públicos completos; as de partidos são os números partidários. Reimportar não reescreve esse arquivo. Nomes oficiais e dados de partido são o padrão; fotos ausentes são `null` e a cor padrão é `#64748b`.
+
+```json
+{
+  "candidates": {
+    "CANDIDATE_ID": {
+      "displayName": "Nome local",
+      "color": "#2563eb",
+      "photo": "photos/candidate.jpg"
+    }
+  },
+  "parties": { "13": { "displayName": "Nome local do partido", "color": "#dc2626" } }
+}
+```
+
+Arquivos locais ficam em `apps/api/public/photos/`, servidos em `/assets/photos/`. Fotos oficiais são adquiridas com `pnpm --filter @datara/api elections:photos`, opcionalmente `--contest ID --limit N`, conforme [ingestão](/development/ingestion). Use o mesmo `PHOTO_DIRECTORY` na aquisição e no servidor. A procedência das fotos permanece no arquivo de origem, sem alterar a publicação de votos.
+
+A resolução usa primeiro um override JSON disponível, depois a foto oficial baixada e depois `null`. Reinicie a API após modificar fotos/overrides: o inventário é lido uma vez. Overrides aceitam nomes JPG/JPEG/PNG/WebP, não caminhos arbitrários.
+
+`ELECTION_PRESENTATION_FILE`, `PHOTO_DIRECTORY` (diretório que contém `photos/`; setup usa `.data/public`) e `ASSET_BASE_URL` selecionam configuração/assets duráveis sem alterar os campos HTTP. Um artefato de produção precisa incluí-los ou fornecer equivalentes duráveis.
+
+## Ambiente
+
+`DATABASE_URL` é obrigatório; `PORT` tem padrão 3000, `CORS_ORIGIN` padrão `http://localhost:5173` e `ASSET_BASE_URL` padrão `/assets`. A configuração é validada antes de ouvir requisições. A origem CORS precisa ser completa, sem barra final ou caminho. A integração eleitoral no frontend ainda não existe.

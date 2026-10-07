@@ -1,0 +1,58 @@
+---
+title: Arquitetura e desempenho
+description: Como o mapa geográfico e a API eleitoral independente se organizam.
+---
+
+## Responsabilidades
+
+A web é uma aplicação React cliente. `app.tsx` controla seleção de país/área e registra páginas de países já visitados. Cada página permanece montada e é ocultada quando inativa, preservando câmera e busca sem reconstruir geometria.
+
+| Arquivo ou grupo                           | Responsabilidade                                               |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| `app.tsx`, `country-map.tsx`               | Estado do produto e páginas retidas                            |
+| `map-location.ts`                          | País, parâmetros canônicos, histórico e restauração            |
+| `map-search.tsx`, `map-selection.tsx`      | Busca e apresentação da seleção                                |
+| `use-map-data.ts`                          | Carregamento, erro, tentativa novamente e resultados obsoletos |
+| `map-countries.ts`                         | Países, assets e atribuição                                    |
+| `map-data.ts`                              | Tipos geográficos, decodificação, nomes e busca                |
+| `map-cache.ts`, `map-requests.ts`          | Requisições em memória; remove falhas do cache                 |
+| `map-worker-api.ts`, `map-worker-types.ts` | Mensagens, pendências, cancelamento e ciclo do worker          |
+| `map-worker.ts`                            | Download, decodificação, malhas e projeção fora da UI          |
+| `map-projection.ts`                        | Cache projetado e criação gradual de `Path2D`                  |
+| `map-canvas.ts`                            | Desenho, hit testing, pan/zoom, câmera, resize e cleanup       |
+| `map-geometry.ts`                          | Projeção, limites, zoom e posicionamento de tooltip            |
+| `map-skeleton.tsx`, `map-tooltip.tsx`      | Silhueta de carregamento e cartão de hover                     |
+
+A API Hono não participa do fluxo atual do mapa. Seu módulo eleitoral independente lê publicações PostgreSQL através de rotas OpenAPI validadas, SQL parametrizado, métricas e apresentação local. Scripts de ingestão controlam aquisição, normalização, migrações e publicação atômica; handlers não baixam dados do TSE nem leem BUs brutos. Veja [API](/api/usage) e [ingestão](/development/ingestion). A web não usa biblioteca de roteamento cliente, autenticação ou renderização no servidor.
+
+A documentação é uma aplicação Next separada: páginas localizadas e índice de busca são gerados durante a build. Proxy negocia `Accept-Language` em entradas sem idioma. Não há ligação runtime ao banco/API para ler a documentação.
+
+## Fluxo dos dados
+
+1. A URL identifica país e área opcional. Alterar país retém páginas visitadas, sem recriar Canvas.
+2. O hook solicita metadados via cache/worker. O worker mantém coordenadas decodificadas; React recebe metadados, não geometria nacional completa.
+3. O worker projeta a cena do viewport e envia caminhos SVG e limites. Seis casas decimais limitam arredondamento em zoom alto.
+4. A UI converte caminhos em `Path2D`, com cache do viewport mais recente por mapa. O desenho usa os caminhos prontos, sem reprojetar todos os vértices a cada frame.
+5. Detalhes dos EUA são baixados por estado e projetados sob demanda. Selecionar um lugar pode solicitar primeiro essa feature, sem esperar todas as formas locais.
+6. Callbacks atualizam seleção, hover, prontidão e zoom concluído. A navegação grava a seleção na URL.
+
+## Responsividade
+
+- Rede, parsing, topologia, malhas e projeção em lote ficam no worker; caminhos cruzam a fronteira em vez de grandes arrays de coordenadas.
+- Criar `Path2D` divide um orçamento alvo de 3 ms por frame entre preparações. Não é limite rígido de uma conversão.
+- Um viewport novo cancela cenas obsoletas. Loops de projeção cedem periodicamente para receber mensagens.
+- Promessas, metadados, dados e cenas são reutilizados. A cena mais recente por país fica em cache; detalhes reaproveitam caminhos por estado. Não há cache persistente controlado pela app em localStorage/IndexedDB. Cache HTTP do navegador é separado.
+- Desenho e hover usam `requestAnimationFrame`. Zoom evita atualizar React em todo frame; progresso é limitado para evitar frames negativos.
+- Seleção verifica bounds e `isPointInPath` sob demanda, sem reconstruir listas clicáveis a cada frame.
+- Contornos estaduais unem os mesmos arcos dos níveis inferiores. Preenchimentos opacos permanecem estáveis no zoom; limites compartilhados são desenhados separadamente.
+- Formas fora da tela são omitidas quando possível, nomes não são pintados e pixel ratio é limitado a 2.
+
+Caches e páginas retidas trocam memória por retorno rápido. Detalhes acumulam conforme estados são explorados. Não há promessa de memória constante ou frame rate fixo em todos os aparelhos.
+
+## Ciclo de vida e medição
+
+React controla estado do produto; Canvas controla câmera e desenho transitório; worker controla geografia em lote. Cleanup cancela RAF, desconecta ResizeObserver e remove handlers. Erros do worker rejeitam pendências; trabalho em cache com falha pode repetir. Hot replacement do Vite encerra o worker; ele é compartilhado pelo restante da vida da página.
+
+Inicialização por link, movimento reduzido, retorno a país retido e resize são caminhos distintos: seleção inicial anima; voltar ao mesmo país não deve resetar ou reenquadrar a câmera.
+
+Use [cenários de desenvolvimento](/development/setup) frios e quentes. Meça intervalos entre frames e tarefas longas, não apenas chamadas Canvas: rasterização pode ser adiada e decodificação pode dominar. Mantenha viewport, pixel ratio, CPU e cache iguais; medições de outra máquina não são uma baseline para este checkout.

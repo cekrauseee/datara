@@ -1,0 +1,14 @@
+{
+  "title": "Endpoint reference",
+  "pages": [
+    "elections",
+    "elections-electionId",
+    "elections-electionId-contests",
+    "elections-electionId-areas",
+    "contests-contestId-candidates",
+    "contests-contestId-results",
+    "contests-contestId-distribution",
+    "contests-contestId-map",
+    "sources-sourceId"
+  ]
+}

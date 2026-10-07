@@ -18,7 +18,8 @@
     "elections:photos": "node --env-file-if-exists=.env --import tsx scripts/election-photos.ts",
     "check:photos": "tsx scripts/check-photos.ts",
     "check:settings": "tsx scripts/check-settings.ts",
-    "check:local": "tsx scripts/check-local.ts"
+    "check:local": "tsx scripts/check-local.ts",
+    "openapi:export": "tsx scripts/export-openapi.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.3",
