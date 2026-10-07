@@ -5,19 +5,31 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && cp src/db/*.sql dist/db/",
     "start": "node dist/index.js",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p scripts/tsconfig.json",
+    "elections": "tsx scripts/elections.ts",
+    "db:migrate": "tsx scripts/elections.ts --migrate",
+    "check:bu": "tsx scripts/check-bu.ts",
+    "check:ingestion": "tsx scripts/check-ingestion.ts",
+    "check:api": "tsx scripts/check-api.ts",
+    "check:presentation": "tsx scripts/check-presentation.ts",
+    "elections:photos": "tsx scripts/election-photos.ts",
+    "check:photos": "tsx scripts/check-photos.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.3",
-    "hono": "4.13.13"
+    "@hono/zod-openapi": "1.6.3",
+    "hono": "4.13.13",
+    "pg": "8.23.1",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@datara/eslint": "workspace:*",
     "@datara/prettier": "workspace:*",
     "@types/node": "26.6.4",
+    "@types/pg": "8.23.1",
     "eslint": "10.12.0",
     "prettier": "3.9.9",
     "tsx": "4.23.15",

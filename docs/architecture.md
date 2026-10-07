@@ -21,7 +21,7 @@ The map feature is in `apps/web/src/features/map/`:
 | `map-geometry.ts`                          | projections, bounds, zoom limits and tooltip positioning                                  |
 | `map-skeleton.tsx`, `map-tooltip.tsx`      | loading silhouette and measured hover card                                                |
 
-The Hono API does not participate in the map flow. No client-side router dependency, database, authentication or server-side rendering is currently used.
+The Hono API does not participate in the current web map flow. Its independent election module reads PostgreSQL publications through validated OpenAPI routes, explicit parameterized queries, electoral metrics and local presentation resolution. Ingestion scripts own acquisition, normalization, migrations and atomic publication; request handlers never fetch TSE or read raw BUs. See [API contracts](election-api.md) and [ingestion](election-ingestion.md). No client-side router dependency, authentication or server-side rendering is used.
 
 ## Data flow
 

@@ -17,28 +17,23 @@ Use the frozen lockfile when setting up an existing checkout. Change dependencie
 
 `pnpm format` writes formatting throughout the repository. Prefer targeted formatting for small changes. Generated geographic JSON is excluded recursively from Prettier and should be regenerated rather than manually edited. Dependency build permissions are explicit in `pnpm-workspace.yaml`: esbuild is allowed, optional SQLite/msgpack native builds are disabled. Respect existing versions and lockfile pins.
 
-## API contract
+## API and local election data
 
-`@datara/api` uses Hono and `@hono/node-server`. It binds port **3000**, currently hardcoded in `apps/api/src/index.ts`.
+`@datara/api` uses Hono and PostgreSQL. `DATABASE_URL` is required; `PORT` defaults to 3000. The web geography explorer remains independent of the API. The backend imports and serves the official Brazilian 2026 first round with local published snapshots; it does not fetch sources during user requests.
 
-```http
-GET /
-```
-
-Response: HTTP 200, JSON:
-
-```json
-{ "message": "datara" }
-```
-
-There are no other application-defined routes, authentication, database, migrations or geographic/election endpoints. The web app does not call this API. Do not describe future electoral ingestion plans as implemented services.
+See [database setup and ingestion](election-ingestion.md) for native PostgreSQL or optional Compose, migration, pilot/national population and replay. See [API contracts and verification](election-api.md) for routes, OpenAPI, exact HTTP examples, metric bases, local presentation and isolated database checks.
 
 ```sh
+export DATABASE_URL='postgresql://YOUR_USER:YOUR_PASSWORD@127.0.0.1:5432/datara'
+export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
+pnpm --filter @datara/api db:migrate
+pnpm --filter @datara/api elections --scope pilot --archive "$ELECTION_ARCHIVE_DIR"
 pnpm --filter @datara/api dev
-pnpm --filter @datara/api build
-pnpm --filter @datara/api start
-curl http://localhost:3000/
+curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
+curl -fsS 'http://localhost:3000/openapi.json'
 ```
+
+The root route still returns `{"message":"datara"}`. Export variables in the shell or process manager; scripts do not automatically read `.env`. Build copies migrations to `dist/db`; production must also retain validated local presentation configuration and photo assets.
 
 ## Web verification
 
@@ -97,7 +92,7 @@ The app uses `import.meta.env.BASE_URL` for runtime navigation/assets. When serv
 | Reload of `/us?...` fails              | Static-host SPA fallback                                                                                            |
 | Geography appears angular at high zoom | Source simplification; not necessarily a rendering defect                                                           |
 | Stutter during cold selections         | Profile worker messages, path creation and frame intervals; do not infer rasterization cost from vector count alone |
-| API cannot start                       | Port 3000 already occupied; no environment override currently exists                                                |
+| API cannot start                       | Check DATABASE_URL, local PostgreSQL availability, configuration paths and PORT (default 3000)                      |
 
 ## Contribution boundaries
 
