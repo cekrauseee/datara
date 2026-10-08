@@ -1,0 +1,59 @@
+{
+  "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+  "coverage": {
+    "scope": "pilot",
+    "complete": false,
+    "expected": 268,
+    "completed": 268,
+    "officialAbsences": 0,
+    "results": 293,
+    "buResults": 32,
+    "buFiles": 7,
+    "aggregates": 261,
+    "reconciliation": "total ballots in fully imported zones",
+    "reconciledZoneResults": 1,
+    "unreconciledZoneResults": null,
+    "discrepancies": [],
+    "officialSectionStatuses": null,
+    "sectionsWithoutAuxiliaryFile": null,
+    "selection": {
+      "ufs": ["ac", "df", "pe", "zz"],
+      "municipalitiesPerUf": 1,
+      "primarySectionsPerUf": 2
+    }
+  },
+  "contest": {
+    "id": "BR-2026-1:6257:1:br",
+    "officeCode": "1",
+    "officeName": "Presidente",
+    "electionId": "6257",
+    "scopeAreaId": "br",
+    "seats": 1,
+    "voteType": "majoritarian"
+  },
+  "area": {
+    "id": "ac:01392",
+    "level": "municipality",
+    "name": "RIO BRANCO",
+    "uf": "ac",
+    "municipalityCode": "01392",
+    "zoneCode": null,
+    "sectionCode": null,
+    "featureId": "1200401",
+    "parentId": "ac",
+    "principalAreaId": null
+  },
+  "resultAreaId": "ac:01392",
+  "state": "unavailable",
+  "complete": false,
+  "officialStatus": null,
+  "officialStatusLabel": null,
+  "officialStatusCode": null,
+  "totals": null,
+  "provenance": null,
+  "summary": null,
+  "candidates": [],
+  "pagination": { "limit": 25, "offset": 0, "total": 0, "hasMore": false },
+  "parties": [],
+  "unresolvedVotables": []
+}

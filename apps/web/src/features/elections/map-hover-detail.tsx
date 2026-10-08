@@ -1,8 +1,9 @@
 import { Badge } from '@/components/ui/badge'
 
 import type { Area } from '../map/map-data'
+import { formatPercent, formatPoints, formatVotes } from './format'
 import type { ClassifiedMap, MapDataItem } from './map-classes'
-import { formatPercent, formatPoints, formatVotes, swatchColor } from './map-format'
+import { swatchColor } from './map-format'
 import type { MapLayerState } from './use-map-layer'
 
 export type HoverTarget = { classified: ClassifiedMap; featureId: string; prefix?: string }
@@ -46,9 +47,11 @@ function metricLine(classified: ClassifiedMap, item: MapDataItem) {
     case 'turnout':
       return value === null ? 'Comparecimento —' : `Comparecimento ${formatPercent(value)}`
     case 'candidateShare':
-      return value === null ? 'Apoio —' : `Apoio ${formatPercent(value)}`
+      return value === null ? 'Apoio —' : `Apoio ${formatPercent(value, { fine: true })}`
     case 'contribution':
-      return value === null ? 'Contribuição —' : `Contribuição ${formatPercent(value)}`
+      return value === null
+        ? 'Contribuição —'
+        : `Contribuição ${formatPercent(value, { fine: true })}`
     case 'candidateVotes':
       return value === null ? 'Votos —' : formatVotes(value)
   }

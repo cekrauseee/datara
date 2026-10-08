@@ -87,6 +87,15 @@ canvas.checkTooltip()
 
 Eles alteram view/histórico e criam Canvas temporários. O teste de cache solicita intencionalmente o estado inexistente `99` dos EUA e espera rejeição. Cobrem reutilização/retry, seleção/histórico, animação inicial fria/quente, detalhes, retenção por país, controles, resize e cleanup. Não são rotas de produção nem testes CLI Node.
 
+O check do painel de resultados substitui `fetch` para a origem de `VITE_API_URL` por fixtures derivadas do piloto em `scripts/fixtures/election-panel`, portanto não exige a API em execução:
+
+```js
+const panel = await import('/scripts/check-election-panel.mjs')
+for (const check of Object.values(panel)) console.log(await check())
+```
+
+Rode uma vez na largura de desktop e outra com emulação de dispositivo abaixo de 640 px, quando entram as asserções da folha inferior. Cobre seletores sem requisição, resumo de presidente e Senado (vantagem, corte da 2ª vaga, situação com escopo), ranking paginado com votos por partido, visão nacional de governador, área sem resultado, erro 503 e falha de rede com retry, resposta atrasada, `/us` sem painel e as variáveis `--panel-inset`. Os passos que dependem do Canvas só correm com a página visível.
+
 ```js
 const benchmark = await import('/scripts/benchmark-map.mjs')
 await benchmark.benchmarkMap()

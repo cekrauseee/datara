@@ -89,6 +89,15 @@ canvas.checkTooltip()
 
 These checks change the current view/history and create temporary canvases. Cache tests intentionally request nonexistent US state `99` and expect rejection. They cover request reuse/retry, selection/history, initial animation with cold/warm scenes, detail fade-in, country state preservation, controls, resize and cleanup. They are not production routes or Node CLI tests.
 
+The results panel check replaces `fetch` for the `VITE_API_URL` origin with fixtures derived from the pilot under `scripts/fixtures/election-panel`, so it does not need a running API:
+
+```js
+const panel = await import('/scripts/check-election-panel.mjs')
+for (const check of Object.values(panel)) console.log(await check())
+```
+
+Run it once at desktop width and once with device emulation below 640 px, where the bottom-sheet assertions apply. It covers the selectors without requests, the president and Senate summaries (margin, second-seat cutoff, status with scope), the paginated ranking with party totals, the national governor view, an area without results, a 503 and a network failure with retry, a delayed response, `/us` without a panel and the `--panel-inset` variables. The steps that depend on the Canvas only run while the page is visible.
+
 For performance measurements:
 
 ```js

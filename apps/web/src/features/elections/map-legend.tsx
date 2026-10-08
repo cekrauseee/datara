@@ -12,8 +12,9 @@ import {
 } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
+import { formatInteger } from './format'
 import type { LegendRow } from './map-classes'
-import { formatCount, METRIC_TITLES, METRIC_UNITS, swatchColor } from './map-format'
+import { METRIC_TITLES, METRIC_UNITS, swatchColor } from './map-format'
 import type { MapLayerState } from './use-map-layer'
 
 const SCOPE_NAMES = { pilot: 'Piloto', national: 'Nacional' } as const
@@ -24,7 +25,7 @@ function LeaderRow({ row }: { row: LegendRow }) {
       className="flex items-center gap-2"
       data-count={row.count}
       title={`${row.title ? `${row.title} · ` : ''}${row.bands
-        .map((band) => `${band.label}: ${formatCount(band.count)}`)
+        .map((band) => `${band.label}: ${formatInteger(band.count)}`)
         .join(' · ')}`}
     >
       <span
@@ -40,7 +41,7 @@ function LeaderRow({ row }: { row: LegendRow }) {
         ))}
       </span>
       <span className="min-w-0 flex-1 truncate">{row.label}</span>
-      <span className="text-muted-foreground tabular-nums">{formatCount(row.count)}</span>
+      <span className="text-muted-foreground tabular-nums">{formatInteger(row.count)}</span>
     </li>
   )
 }
@@ -54,7 +55,7 @@ function BandRow({ row, band }: { row: LegendRow; band: LegendRow['bands'][numbe
         style={{ background: swatchColor(row.color, band.alpha) }}
       />
       <span className="min-w-0 flex-1 truncate tabular-nums">{band.label}</span>
-      <span className="text-muted-foreground tabular-nums">{formatCount(band.count)}</span>
+      <span className="text-muted-foreground tabular-nums">{formatInteger(band.count)}</span>
     </li>
   )
 }
@@ -151,26 +152,26 @@ export function MapLegend({ layer, scopeLabel }: { layer: MapLayerState; scopeLa
                 )}
                 <p className="flex flex-wrap gap-x-2 text-muted-foreground">
                   <span data-count={legend.tie} title="Liderança dividida entre candidaturas">
-                    Empate {formatCount(legend.tie)}
+                    Empate {formatInteger(legend.tie)}
                   </span>
                   <span
                     data-partial={legend.partial}
                     title="Totalização não concluída; cor atenuada"
                   >
-                    Parcial {formatCount(legend.partial)}
+                    Parcial {formatInteger(legend.partial)}
                   </span>
                   <span data-count={legend.missing} title="Sem resultado nesta publicação">
-                    Sem dados {formatCount(legend.missing)}
+                    Sem dados {formatInteger(legend.missing)}
                   </span>
                 </p>
                 {coverage && (
                   <p className="text-muted-foreground" data-map-legend-coverage="">
-                    {SCOPE_NAMES[coverage.scope]} · {formatCount(legend.painted)} de{' '}
-                    {formatCount(legend.total)} com dado
+                    {SCOPE_NAMES[coverage.scope]} · {formatInteger(legend.painted)} de{' '}
+                    {formatInteger(legend.total)} com dado
                     {coverage.missingResults > 0 &&
-                      ` · ${formatCount(coverage.missingResults)} resultados ausentes`}
+                      ` · ${formatInteger(coverage.missingResults)} resultados ausentes`}
                     {coverage.omittedWithoutGeometry > 0 &&
-                      ` · ${formatCount(coverage.omittedWithoutGeometry)} no exterior sem geometria`}
+                      ` · ${formatInteger(coverage.omittedWithoutGeometry)} no exterior sem geometria`}
                   </p>
                 )}
               </>
