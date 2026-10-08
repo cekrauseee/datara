@@ -28,6 +28,7 @@ import {
 
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
+import { ElectionControls, ElectionStatus, useElection } from '../elections'
 import { loadDetailFeature } from './map-cache'
 import { createMap, type MapControls, type MapHover } from './map-canvas'
 import { countries, type CountryCode } from './map-countries'
@@ -115,6 +116,7 @@ function CountryMap({
   const [scale, setScale] = useState(1)
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const election = useElection({ countryCode, selectionId })
 
   const deferredQuery = useDeferredValue(query)
 
@@ -213,31 +215,34 @@ function CountryMap({
     <div className="flex h-dvh min-h-[28rem] flex-col bg-background text-foreground">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4 sm:px-7">
         <h1 className="sr-only">datara</h1>
-        <ToggleGroup
-          aria-label="País"
-          variant="outline"
-          spacing={0}
-          value={[countryCode]}
-          onValueChange={(values) => {
-            const code = values[0]
-            if (code === 'BR' || code === 'US') onCountryChange(code)
-          }}
-        >
-          <ToggleGroupItem
-            ref={countryCode === 'BR' ? countryButton : undefined}
-            value="BR"
-            className="h-10 px-4"
+        <div className="flex flex-wrap items-center gap-4">
+          <ToggleGroup
+            aria-label="País"
+            variant="outline"
+            spacing={0}
+            value={[countryCode]}
+            onValueChange={(values) => {
+              const code = values[0]
+              if (code === 'BR' || code === 'US') onCountryChange(code)
+            }}
           >
-            Brasil
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            ref={countryCode === 'US' ? countryButton : undefined}
-            value="US"
-            className="h-10 px-4"
-          >
-            Estados Unidos
-          </ToggleGroupItem>
-        </ToggleGroup>
+            <ToggleGroupItem
+              ref={countryCode === 'BR' ? countryButton : undefined}
+              value="BR"
+              className="h-10 px-4"
+            >
+              Brasil
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              ref={countryCode === 'US' ? countryButton : undefined}
+              value="US"
+              className="h-10 px-4"
+            >
+              Estados Unidos
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {countryCode === 'BR' && <ElectionControls election={election} />}
+        </div>
         <div className="w-full sm:w-80">
           <label htmlFor={`map-search-${countryCode}`} className="sr-only">
             {country.searchPlaceholder}
@@ -327,7 +332,7 @@ function CountryMap({
           Use a busca para selecionar uma localidade.
         </canvas>
 
-        <div className="pointer-events-none absolute top-5 right-5 left-5 flex items-start justify-between gap-3 sm:right-7 sm:left-7">
+        <div className="pointer-events-none absolute top-5 right-5 left-5 flex flex-col items-start gap-2 sm:right-7 sm:left-7">
           <Breadcrumb
             aria-label="Localidade selecionada"
             className="pointer-events-auto rounded-md bg-background/90 px-2 py-1"
@@ -372,6 +377,7 @@ function CountryMap({
               )}
             </BreadcrumbList>
           </Breadcrumb>
+          {election.active && <ElectionStatus election={election} />}
         </div>
 
         {selected && (
