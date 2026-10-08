@@ -63,7 +63,7 @@ export async function checkElectionFlow() {
   const publication = field('electionPublication')
   assert(/^[0-9a-f-]{36}$/.test(publication), 'The publication must be pinned')
   assert(
-    activeRoot().querySelector('[data-election-office]').value === 'president',
+    activeRoot().querySelector('[data-election-office]').dataset.electionOffice === 'president',
     'The office control must reflect the URL',
   )
   navigateMap('BR', await area('12'))
@@ -166,7 +166,7 @@ export async function checkGeographyOnly() {
     assert(calls === 0, `No API request may leave the page without the collection (${calls})`)
     assert(!status(), 'No election status without the collection')
     assert(
-      activeRoot().querySelector('[data-election-collection]').value === '',
+      activeRoot().querySelector('[data-election-collection]').dataset.electionCollection === '',
       'The collection control shows Geografia',
     )
     assert(

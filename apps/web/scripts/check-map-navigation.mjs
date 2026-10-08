@@ -225,7 +225,7 @@ export async function checkCountryState() {
   await wait(100)
   const brView = { ...brazilCanvas.__zoom }
   const brURL = location.pathname + location.search
-  const input = activeRoot().querySelector('input')
+  const input = activeRoot().querySelector('input[id^="map-search-"]')
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Campinas')
   input.dispatchEvent(new Event('input', { bubbles: true }))
   await wait(50)
@@ -264,7 +264,10 @@ export async function checkCountryState() {
     JSON.stringify(brazilCanvas.__zoom) === JSON.stringify(brView),
     'Restore Brazil zoom and pan exactly',
   )
-  assert(activeRoot().querySelector('input').value === query, 'Preserve the country search text')
+  assert(
+    activeRoot().querySelector('input[id^="map-search-"]').value === query,
+    'Preserve the country search text',
+  )
   navigateCountry('US')
   await until(
     () => location.pathname === '/us' && activeRoot().getAttribute('data-map-country') === 'US',
