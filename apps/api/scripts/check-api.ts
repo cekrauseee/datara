@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { gunzipSync } from 'node:zlib'
 import { createApp } from '../src/app.js'
 import { readConfig } from '../src/config.js'
 import { createPool, migrate } from '../src/db/index.js'
@@ -35,6 +36,11 @@ try {
     assert.equal(response.status, status, JSON.stringify(body))
     assert.ok(response.headers.get('X-Request-Id'))
     return body
+  }
+  async function cacheControl(path: string, status = 200) {
+    const response = await app.request(path)
+    assert.equal(response.status, status)
+    return response.headers.get('Cache-Control')
   }
   const list = await request('/elections?country=BR&year=2026&round=1')
   assert.equal(list.items[0].publication.id, publicationId)
@@ -136,14 +142,75 @@ try {
   )
   assert.equal(distribution.items.length, 1)
   assert.equal(distribution.publicationId, publicationId)
-  const mapResponse = await app.request(`/contests/${contest}/map?level=municipality&metric=leader`)
-  const map = await mapResponse.json()
+  // Territory expansion stops at the requested level without changing which areas are counted.
+  const acMunicipalities = Number(
+    (
+      await pool.query(
+        "SELECT count(*) FROM areas WHERE publication_id=$1 AND level='municipality' AND uf='ac'",
+        [publicationId],
+      )
+    ).rows[0].count,
+  )
+  assert.equal(distribution.pagination.total, acMunicipalities)
+  const within = (query: string, status?: number) =>
+    request(`/contests/${contest}/distribution?candidateId=${candidate.id}&${query}`, status)
+  assert.equal((await within('areaId=br&level=state&limit=1')).pagination.total, 28)
+  assert.equal((await within('areaId=ac&level=country')).pagination.total, 0)
+  // Rankings are computed for the requested page only and match the full listing.
+  const listed = await within('areaId=ac&level=municipality&limit=100')
+  const index = listed.items.findIndex((item: { state: string }) => item.state === 'available')
+  assert.ok(index >= 0, 'Pilot needs an AC municipality with results')
+  const paged = await within(`areaId=ac&level=municipality&limit=1&offset=${index}`)
+  assert.equal(paged.items[0].support.state, 'available')
+  assert.deepEqual(paged.items, listed.items.slice(index, index + 1))
+  // Levels more than two navigation steps below the area are refused; regions are not a step, so
+  // the national default (every municipality) stays available.
+  const municipality = listed.items[index].area
+  const sections = Number(
+    (
+      await pool.query(
+        "SELECT count(*) FROM areas WHERE publication_id=$1 AND level='section' AND uf='ac' AND municipality_code=$2",
+        [publicationId, municipality.municipalityCode],
+      )
+    ).rows[0].count,
+  )
+  assert.ok(sections > 0, 'Pilot needs sections in the AC municipality with results')
+  const sectionLevel = await within(`areaId=${municipality.id}&level=section&limit=1`)
+  assert.equal(sectionLevel.pagination.total, sections)
+  const municipalities = Number(
+    (
+      await pool.query(
+        "SELECT count(*) FROM areas WHERE publication_id=$1 AND level='municipality'",
+        [publicationId],
+      )
+    ).rows[0].count,
+  )
+  const national = await within('limit=1')
+  assert.equal(national.scopeAreaId, 'br')
+  assert.equal(national.pagination.total, municipalities)
+  for (const query of [
+    'areaId=br&level=zone',
+    'areaId=br&level=section',
+    'areaId=ac&level=section',
+  ])
+    assert.equal((await within(query, 400)).error.code, 'LEVEL_TOO_DEEP')
+  const mapPath = `/contests/${contest}/map?level=municipality&metric=leader`
+  const mapResponse = await app.request(mapPath)
+  const mapText = await mapResponse.text()
+  const map = JSON.parse(mapText)
   assert.equal(mapResponse.status, 200)
+  assert.equal(mapResponse.headers.get('Content-Encoding'), null)
   assert.equal(map.items.length, 5571)
   assert.ok(
     map.items.some((r: { value: number | null }) => r.value === null),
     'Pilot missing results must remain null',
   )
+  const gzipResponse = await app.request(mapPath, { headers: { 'Accept-Encoding': 'gzip' } })
+  assert.equal(gzipResponse.status, 200)
+  assert.equal(gzipResponse.headers.get('Content-Encoding'), 'gzip')
+  assert.match(gzipResponse.headers.get('Vary') ?? '', /(^|,)\s*Accept-Encoding\s*(,|$)/i)
+  const mapGzip = Buffer.from(await gzipResponse.arrayBuffer())
+  assert.equal(gunzipSync(mapGzip).toString(), mapText)
   const states = await request(`/contests/${contest}/map?level=state&metric=turnout`)
   assert.ok(states.items.some((r: { featureId: string }) => r.featureId === '12'))
   const region = await request(`/contests/${contest}/results?areaId=region:north`)
@@ -207,11 +274,16 @@ try {
   })
   const current = await request('/elections/BR-2026-1')
   assert.equal(current.publication.id, replacement.publicationId)
-  const pinned = await request(
-    `/contests/${contest}/results?areaId=br&publicationId=${publicationId}`,
-  )
+  const pinnedPath = `/contests/${contest}/results?areaId=br&publicationId=${publicationId}`
+  const pinned = await request(pinnedPath)
   assert.equal(pinned.publicationId, publicationId)
   assert.deepEqual(pinned.totals, first.totals)
+  // Only successful reads of an explicitly pinned publication are cacheable, for one hour because
+  // editorial presentation can change without a new publication.
+  assert.equal(await cacheControl(pinnedPath), 'public, max-age=3600')
+  assert.equal(await cacheControl('/elections/BR-2026-1'), null)
+  assert.equal(await cacheControl(`/elections?publicationId=${publicationId}`), null)
+  assert.equal(await cacheControl(`/elections/BR-2026-1?publicationId=${randomUUID()}`, 404), null)
   const pinnedMap = await request(
     `/contests/${contest}/map?areaId=ac&publicationId=${publicationId}`,
   )
@@ -223,6 +295,7 @@ try {
         publicationId,
         mapFeatures: map.items.length,
         mapBytes: Buffer.byteLength(JSON.stringify(map)),
+        mapGzipBytes: mapGzip.byteLength,
         sourceKind: 'official archived pilot',
       },
       null,

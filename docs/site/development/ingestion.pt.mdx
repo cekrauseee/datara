@@ -111,7 +111,7 @@ Aquisição nacional é comando separado: pode baixar centenas de milhares de do
 
 ## Publicação e integridade
 
-Migração `001-election` aplica uma vez com transação/advisory lock. Cada import tem UUID/publicação em preparação. PostgreSQL guarda manifesto, tarefas esperadas, conclusão, catálogos e observações normalizadas. Normalização e marcador de conclusão de cada unidade commitam juntos; retry substitui unidade, sem somar deltas. Bytes brutos são gravados atomicamente por SHA-256 antes da linha de manifesto. Bytes corruptos falham verificação.
+Migrações `001-election` e `002-areas-parent` aplicam em ordem, uma vez cada, na mesma transação com advisory lock; `db:migrate` aplica as pendentes num banco existente. Cada import tem UUID/publicação em preparação. PostgreSQL guarda manifesto, tarefas esperadas, conclusão, catálogos e observações normalizadas. Normalização e marcador de conclusão de cada unidade commitam juntos; retry substitui unidade, sem somar deltas. Bytes brutos são gravados atomicamente por SHA-256 antes da linha de manifesto. Bytes corruptos falham verificação.
 
 Publicações são imutáveis pelo importador. Imports novos preservam anteriores. Validação exige todas as unidades esperadas, observações EA20/BU e nenhuma diferença inexplicada de cédulas em zonas completas. Publicação e ponteiro ativo mudam na mesma transação. Falhas/pausas não mudam dataset ativo. Seções explicitamente não instaladas exigem estado auxiliar oficial; arquivos ausentes, estados desconhecidos e hashes ambíguos falham em vez de virar zero.
 
