@@ -9,6 +9,7 @@ import { measure } from '../src/modules/elections/metrics.js'
 
 if (!process.env.TEST_DATABASE_URL || !process.env.ELECTION_ARCHIVE_DIR)
   throw new Error('TEST_DATABASE_URL and ELECTION_ARCHIVE_DIR are required')
+const archiveDir = process.env.ELECTION_ARCHIVE_DIR
 const basePool = createPool(process.env.TEST_DATABASE_URL)
 const name = `api_check_${randomUUID().replaceAll('-', '')}`
 const url = new URL(process.env.TEST_DATABASE_URL!)
@@ -19,9 +20,7 @@ try {
   await migrate(pool)
   const imported = await importElection(pool, {
     scope: 'pilot',
-    archiveDir:
-      process.env.ELECTION_ARCHIVE_DIR ??
-      new URL('../../../.data/elections', import.meta.url).pathname,
+    archiveDir,
     offline: true,
     pilotUfs: ['ac', 'df', 'pe', 'zz'],
     municipalitiesPerUf: 1,
@@ -264,9 +263,7 @@ try {
   // A new active data publication does not change explicitly pinned related reads.
   const replacement = await importElection(pool, {
     scope: 'pilot',
-    archiveDir:
-      process.env.ELECTION_ARCHIVE_DIR ??
-      new URL('../../../.data/elections', import.meta.url).pathname,
+    archiveDir,
     offline: true,
     pilotUfs: ['ac', 'df', 'pe', 'zz'],
     municipalitiesPerUf: 1,

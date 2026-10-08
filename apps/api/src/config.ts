@@ -1,4 +1,5 @@
 import { z } from '@hono/zod-openapi'
+import { fileURLToPath } from 'node:url'
 
 const Environment = z.object({
   DATABASE_URL: z.url().refine((v) => /^postgres(ql)?:/.test(v)),
@@ -22,7 +23,7 @@ export function readConfig(env = process.env) {
     presentationFile:
       parsed.ELECTION_PRESENTATION_FILE ??
       new URL('../config/election-presentation.json', import.meta.url),
-    photoDirectory: parsed.PHOTO_DIRECTORY ?? new URL('../public', import.meta.url).pathname,
+    photoDirectory: parsed.PHOTO_DIRECTORY ?? fileURLToPath(new URL('../public', import.meta.url)),
   }
 }
 export type Config = ReturnType<typeof readConfig>
