@@ -22,6 +22,18 @@ Arraste para mover; use roda do mouse, pinça no trackpad ou botões para amplia
 
 O zoom vai de 1 a 100. A animação de seleção dura 260 ms e pode ser interrompida. A preferência por movimento reduzido desativa animação da câmera e pulsação do skeleton. Uma URL com seleção mostra primeiro o país e depois aproxima a área; voltar a um país retido preserva sua câmera.
 
+## Coleções e resultados
+
+No Brasil, o seletor **Coleção** do cabeçalho alterna entre **Geografia**, o mapa puro, e **Eleições 2026 · 1º turno**. Escolher a coleção abre o grupo de cargos e seleciona Presidente. Os cargos listados dependem da área selecionada: Deputado distrital só no Distrito Federal, Conselho só em Fernando de Noronha. Clicar no cargo pressionado desmarca o cargo e mantém a coleção aberta; um cargo sem disputa na nova área é removido da URL com um aviso.
+
+Com um cargo, o painel de resultados substitui o cartão da seleção e usa o mesmo esqueleto para país, estado e município: título e cargo, linha de cobertura e procedência (Piloto ou Nacional, seções apuradas, tipo da fonte, data de geração, situação oficial da totalização e link para a fonte), candidaturas, totais e a lista de navegação para o nível abaixo.
+
+- **Resumo** (presidente, governador, senador): as vagas mais o primeiro suplente, com foto ou iniciais, número e partido, votos, percentual e sua base, "Mais votado aqui" (nunca "eleito"), situação oficial com o escopo ("2º turno · Brasil", "Eleito · Acre"), destino do voto quando não é válido, vantagem em pontos percentuais e votos, corte da segunda vaga no Senado e a soma dos demais candidatos. "Ver todos" expande a lista.
+- **Ranking** (deputados e Conselho de Noronha): lista paginada com posição, situação oficial e, nos cargos proporcionais, os votos por partido (nominais, legenda e soma). As vagas não são inferidas pelo ranking; a situação oficial vem do TSE.
+- **Visão nacional** de governador e senador: os 27 estados com o mais votado e a vantagem do mapa por cargo; selecione um estado para ver a disputa. Para deputados, só os nomes.
+
+Um traço (—) é dado não informado pela fonte, nunca zero. Uma área sem resultado nesta publicação mostra o recorte do piloto; a falha da API mostra o erro com "Tentar novamente" sem derrubar o mapa, a busca e a seleção. Abaixo de 640 px o painel é uma folha inferior recolhida com o mais votado e o percentual; o cabeçalho da folha a expande.
+
 ## URLs
 
 | Exemplo                               | Seleção                          |
@@ -34,6 +46,16 @@ O zoom vai de 1 a 100. A animação de seleção dura 260 ms e pode ser interrom
 | `/us?state=06&county=06037`           | Los Angeles County               |
 | `/us?state=36&place=3651000`          | New York city                    |
 | `/us?state=36&subdivision=3606150617` | Subdivisão pelo código de origem |
+
+Com a coleção de eleições, `collection=elections` e `office` acompanham a seleção geográfica:
+
+| Exemplo                                                   | Painel                                  |
+| --------------------------------------------------------- | --------------------------------------- |
+| `/br?collection=elections&office=president`               | Presidente no Brasil, estados abaixo    |
+| `/br?collection=elections&office=governor`                | Governador por UF (visão nacional)      |
+| `/br?collection=elections&office=senator&state=12`        | Senadores do Acre, com corte da 2ª vaga |
+| `/br?collection=elections&office=federal-deputy&state=12` | Deputados federais do Acre (ranking)    |
+| `/br?collection=elections&state=12`                       | Coleção aberta sem cargo (geografia)    |
 
 Os caminhos de país são minúsculos e os parâmetros são em inglês. Códigos são strings e preservam zeros iniciais. A análise valida comprimentos numéricos: estado 2, município/lugar 7, county 5, subdivisão 10. No Brasil, resolve município antes do estado; nos EUA, lugar, subdivisão, county e estado. Um ID bem formado desconhecido mostra mensagem de não encontrado. Valores malformados são ignorados em favor de outro nível válido.
 

@@ -22,6 +22,18 @@ Drag to pan; use the mouse wheel, trackpad pinch or zoom buttons to zoom. With t
 
 Zoom is limited to 1–100. Selection animation lasts 260 ms and is interruptible. Reduced-motion preferences disable camera animation and skeleton pulsing. A direct URL with selection first displays the country, then approaches the selected area; returning to a retained country preserves its camera instead.
 
+## Collections and results
+
+In Brazil, the **Collection** selector in the header switches between **Geografia**, the plain map, and **Eleições 2026 · 1º turno**. Choosing the collection opens the office group and selects the presidency. The offices listed depend on the selected area: district deputy only in the Federal District, council only in Fernando de Noronha. Pressing the selected office again clears the office and keeps the collection open; an office that the new area does not contest is removed from the URL with a notice.
+
+With an office, the results panel replaces the selection card and uses one skeleton for country, state and municipality: title and office, coverage and provenance line (Piloto or Nacional, counted sections, source kind, generation time, official totalization status and a link to the source), candidates, totals and the navigation list to the level below.
+
+- **Summary** (president, governor, senator): the seats plus the first runner-up, with photo or initials, number and party, votes, share and its basis, "Mais votado aqui" (never "elected"), official status with its scope ("2º turno · Brasil", "Eleito · Acre"), vote destination when it is not valid, margin in percentage points and votes, the cutoff of the second Senate seat and the share of the other candidates. "Ver todos" expands the list.
+- **Ranking** (deputies and the Noronha council): paginated list with position, official status and, for proportional offices, votes by party (nominal, party-list and sum). Seats are never inferred from the ranking; the official status comes from the TSE.
+- **National view** of governor and senator: the 27 states with the most voted candidate and the margin from the office map; select a state to see the contest. For deputies, names only.
+
+A dash (—) is a value the source did not report, never zero. An area without a result in this publication shows the pilot scope; an API failure shows the error with "Tentar novamente" while the map, the search and the selection keep working. Below 640 px the panel is a collapsed bottom sheet with the leader and the share; its header expands it.
+
 ## URLs
 
 | Example                               | Selection                                   |
@@ -34,6 +46,16 @@ Zoom is limited to 1–100. Selection animation lasts 260 ms and is interruptibl
 | `/us?state=06&county=06037`           | Los Angeles County                          |
 | `/us?state=36&place=3651000`          | New York city                               |
 | `/us?state=36&subdivision=3606150617` | A subdivision identified by its source code |
+
+With the elections collection, `collection=elections` and `office` accompany the geographic selection:
+
+| Example                                                   | Panel                                         |
+| --------------------------------------------------------- | --------------------------------------------- |
+| `/br?collection=elections&office=president`               | President in Brazil, states below             |
+| `/br?collection=elections&office=governor`                | Governor by state (national view)             |
+| `/br?collection=elections&office=senator&state=12`        | Senators of Acre, with the second-seat cutoff |
+| `/br?collection=elections&office=federal-deputy&state=12` | Federal deputies of Acre (ranking)            |
+| `/br?collection=elections&state=12`                       | Collection open without an office (geography) |
 
 Country paths are lowercase; query parameters are English. Codes are strings and retain leading zeros. Parsing checks numeric lengths: state 2, municipality/place 7, county 5, subdivision 10. Brazil resolves municipality before state; the US resolves place, subdivision, county, then state. A valid-looking but unknown ID produces a not-found message. Malformed values are ignored in favor of another valid level.
 
