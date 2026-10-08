@@ -278,8 +278,9 @@ try {
   const pinned = await request(pinnedPath)
   assert.equal(pinned.publicationId, publicationId)
   assert.deepEqual(pinned.totals, first.totals)
-  // Only successful reads of an explicitly pinned publication are cacheable.
-  assert.equal(await cacheControl(pinnedPath), 'public, max-age=31536000, immutable')
+  // Only successful reads of an explicitly pinned publication are cacheable, for one hour because
+  // editorial presentation can change without a new publication.
+  assert.equal(await cacheControl(pinnedPath), 'public, max-age=3600')
   assert.equal(await cacheControl('/elections/BR-2026-1'), null)
   assert.equal(await cacheControl(`/elections?publicationId=${publicationId}`), null)
   assert.equal(await cacheControl(`/elections/BR-2026-1?publicationId=${randomUUID()}`, 404), null)

@@ -42,8 +42,9 @@ export async function createApp(pool: pg.Pool, config: Config) {
       exposeHeaders: ['X-Request-Id'],
     }),
   )
-  // Published data is immutable, so a successful read pinned to an explicit publication never
-  // changes. Without publicationId the active publication may move, so no cache header is sent.
+  // Published data is immutable, but responses also carry editorial presentation (color, photo,
+  // display name) that can change without a new publication, so pinned reads are cached for an
+  // hour. Without publicationId the active publication may move, so no cache header is sent.
   app.use('*', async (c, next) => {
     await next()
     if (
@@ -51,7 +52,7 @@ export async function createApp(pool: pg.Pool, config: Config) {
       /^\/(elections\/|contests\/|sources\/)/.test(c.req.path) &&
       pinnedPublication.safeParse(c.req.query('publicationId')).success
     )
-      c.res.headers.set('Cache-Control', 'public, max-age=31536000, immutable')
+      c.res.headers.set('Cache-Control', 'public, max-age=3600')
   })
   app.get('/', (c) => c.json({ message: 'datara' }))
   app.get(
