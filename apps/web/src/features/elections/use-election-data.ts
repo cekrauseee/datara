@@ -78,17 +78,26 @@ export function useElectoralArea(featureId: string | null): ElectoralAreaQuery {
   }
 }
 
-/** Child areas (zones, sections, exterior localities, regions), paginated. */
+/** Child areas (zones, sections, exterior localities, regions), paginated; `q` filters by code. */
 export function useAreas(
   parentId: string | null,
   level: AreaLevel | null = null,
   page: Page = {},
+  filter: { q?: string } = {},
 ): ApiQuery<AreaList> {
   return usePublished<AreaList>(parentId ? (id) => `/elections/${id}/areas` : null, {
     parentId,
     level,
+    ...filter,
     ...page,
   })
+}
+
+/** Areas by code filters (an exterior locality by `uf=zz` and its `municipalityCode`). */
+export function useAreaSearch(
+  filter: { level: AreaLevel; uf: string; municipalityCode: string } | null,
+): ApiQuery<AreaList> {
+  return usePublished<AreaList>(filter ? (id) => `/elections/${id}/areas` : null, filter ?? {})
 }
 
 /** Map values of one contest: `(contestId, level, metric, candidateId[, areaId])`. */

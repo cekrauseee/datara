@@ -3,6 +3,14 @@ import { useEffect, useState } from 'react'
 import type { CountryCode } from '../map/map-countries'
 import type { ApiClientError } from './api-client'
 import type { AreaResult, Candidate, Contest, Coverage, Election, ElectoralArea } from './api-types'
+import {
+  AREA_OFFICE_NOTICE,
+  areaAllowed,
+  areaKind,
+  sectionNotFound,
+  zoneNotFound,
+  type DepthKind,
+} from './depth'
 import type { ElectionState, OfficeKey } from './election-location'
 import {
   availableOffices,
@@ -16,6 +24,7 @@ import {
 } from './election-model'
 import { retrySession, useElectionSession, type SessionState } from './election-session'
 import type { ApiQuery } from './use-api-query'
+import { useDepth, type DepthResolution } from './use-area-list'
 import { useCandidate, useContests, useElectoralArea, useResults } from './use-election-data'
 import { navigateElection, useElectionLocation } from './use-election-location'
 
@@ -34,6 +43,10 @@ export type ElectionSnapshot = {
   baseAreaId: string | null
   /** Most specific area: zone and section appended to the municipality. */
   areaId: string | null
+  /** Kind of the `area` parameter in effect (exterior, locality, region), or `null`. */
+  areaKind: DepthKind | null
+  /** Zone and section of the URL resolved against `/areas`. */
+  depth: DepthResolution
   electoralArea: ElectoralArea | null
   areaStatus: 'idle' | 'loading' | 'ready' | 'missing' | 'error'
   office: OfficeKey | null
@@ -81,10 +94,15 @@ export function useElection(input: {
       ? input.selectionId
       : null
   const areaQuery = useElectoralArea(featureId)
+  // `area` (exterior, locality, region) only has results for president; otherwise it is ignored.
+  const areaParameter = active && state.area && areaAllowed(state.office) ? state.area : null
+  const areaIgnored = active && !!state.area && !areaParameter
   const baseAreaId = !active
     ? null
-    : (state.area ?? (featureId ? (areaQuery.area?.id ?? null) : 'br'))
+    : (areaParameter ?? (featureId ? (areaQuery.area?.id ?? null) : 'br'))
   const areaId = baseAreaId ? specificAreaId(baseAreaId, state.zone, state.section) : null
+  const depth = useDepth(state.zone ? baseAreaId : null, state.zone, state.section)
+  const depthReady = !state.zone || depth.status === 'ready'
 
   const office = active ? state.office : null
   const contest = office && areaId && contests ? deriveContest(contests, office, areaId) : null
@@ -113,7 +131,8 @@ export function useElection(input: {
           areaId,
         })
       : null
-  const resultsRequest = contest && areaId ? { contestId: contest.id, areaId } : null
+  const resultsRequest =
+    contest && areaId && depthReady && !depth.missing ? { contestId: contest.id, areaId } : null
   const results = useResults(resultsRequest?.contestId ?? null, resultsRequest?.areaId ?? null)
 
   // An unknown zone, section or `area` (400/404 on /results) is cleared from the URL with a
@@ -143,6 +162,26 @@ export function useElection(input: {
   useEffect(() => {
     if (!active) setNotice(null)
   }, [active])
+  // Zone or section codes absent below their parent; `area` with another office or none.
+  const { missing } = depth
+  useEffect(() => {
+    if (areaIgnored) {
+      setNotice({ areaId: 'br', message: `${AREA_OFFICE_NOTICE} Área ignorada.` })
+      navigateElection({ area: null }, true)
+    } else if (missing === 'zone' && zone && baseAreaId) {
+      setNotice({
+        areaId: baseAreaId,
+        message: zoneNotFound(zone, areaKind(baseAreaId) ?? 'municipality'),
+      })
+      navigateElection({ zone: null, section: null }, true)
+    } else if (missing === 'section' && zone && section && baseAreaId) {
+      setNotice({
+        areaId: specificAreaId(baseAreaId, zone, null),
+        message: sectionNotFound(section, zone),
+      })
+      navigateElection({ section: null }, true)
+    }
+  }, [areaIgnored, missing, zone, section, baseAreaId])
 
   const warnings = [...state.warnings]
   if (notice && notice.areaId === areaId) warnings.push(notice.message)
@@ -159,11 +198,13 @@ export function useElection(input: {
     (session.status === 'error' ? session.error : null) ??
     contestsQuery.error ??
     areaQuery.error ??
+    depth.error ??
     candidateQuery.error
   const loading =
     session.status === 'loading' ||
     contestsQuery.status === 'loading' ||
     areaQuery.status === 'loading' ||
+    depth.status === 'loading' ||
     candidateQuery.status === 'loading'
 
   return {
@@ -177,6 +218,8 @@ export function useElection(input: {
     offices,
     baseAreaId,
     areaId,
+    areaKind: areaKind(areaParameter),
+    depth,
     electoralArea: areaQuery.area,
     areaStatus: areaQuery.status,
     office,
@@ -194,6 +237,7 @@ export function useElection(input: {
       if (session.status === 'error') retrySession()
       if (contestsQuery.status === 'error') contestsQuery.retry()
       if (areaQuery.status === 'error') areaQuery.retry()
+      if (depth.status === 'error') depth.retry()
       if (candidateQuery.status === 'error') candidateQuery.retry()
     },
   }

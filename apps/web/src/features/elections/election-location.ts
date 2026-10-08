@@ -71,7 +71,10 @@ export type ElectionState = {
   candidate: string | null
   zone: string | null
   section: string | null
-  /** Electoral area outside the IBGE mesh: `exterior`, `zz:NNNNN` or `region:x`, verbatim. */
+  /**
+   * Electoral area outside the IBGE mesh: `exterior`, `zz:NNNNN` or `region:x`, verbatim. An
+   * exterior locality (`zz:NNNNN`) keeps `zone` and `section` like a municipality.
+   */
   area: string | null
   /** Publication UUID, read only; never written by the explorer. */
   publication: string | null
@@ -89,6 +92,8 @@ export type ElectionPatch = Partial<
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const AREA = /^(exterior|zz:\d{5}|region:[a-z]+)$/
+/** Exterior locality: municipality-like, it has zones and sections of its own. */
+const LOCALITY = /^zz:\d{5}$/
 const CODE = /^\d{4}$/
 const DIGITS = /^\d+$/
 const STATE = /^\d{2}$/
@@ -134,7 +139,9 @@ export function readElection(url: URL, basePath = '/'): ElectionState {
   const level: Level = params.get('level') === 'state' ? 'state' : 'municipality'
   const areaValue = params.get('area')
   const area = areaValue && AREA.test(areaValue) ? areaValue : null
-  const hasMunicipality = !area && MUNICIPALITY.test(params.get('municipality') ?? '')
+  const hasMunicipality = area
+    ? LOCALITY.test(area)
+    : MUNICIPALITY.test(params.get('municipality') ?? '')
   const zoneValue = params.get('zone')
   let zone = zoneValue && CODE.test(zoneValue) ? zoneValue : null
   if (zone && !hasMunicipality) {
@@ -173,7 +180,7 @@ export function readElection(url: URL, basePath = '/'): ElectionState {
 function consistent(state: ElectionState, hasMunicipality: boolean): ElectionState {
   const next = { ...state }
   if (!next.collection) Object.assign(next, subDefaults)
-  if (next.area || !hasMunicipality) next.zone = next.section = null
+  if (!hasMunicipality) next.zone = next.section = null
   if (!next.zone) next.section = null
   if (!next.candidate && CANDIDATE_METRICS.includes(next.metric)) next.metric = 'leader'
   return next
@@ -187,7 +194,10 @@ export function writeElection(url: URL, state: ElectionState): void {
     params.delete('state')
     params.delete('municipality')
   }
-  const next = consistent(state, !state.area && MUNICIPALITY.test(params.get('municipality') ?? ''))
+  const next = consistent(
+    state,
+    state.area ? LOCALITY.test(state.area) : MUNICIPALITY.test(params.get('municipality') ?? ''),
+  )
   if (next.collection) params.set('collection', next.collection)
   if (next.office) params.set('office', next.office)
   if (next.level !== 'municipality') params.set('level', next.level)
@@ -217,6 +227,9 @@ export function electionURL(url: URL, patch: ElectionPatch, basePath = '/'): str
   if (patch.zone !== undefined) state.zone = patch.zone
   if (patch.section !== undefined) state.section = patch.section
   if (patch.area !== undefined) state.area = patch.area
+  // Zones and sections belong to the area they were chosen in (a municipality or a locality).
+  if (state.area !== previous.area && patch.zone === undefined) state.zone = state.section = null
+  if (state.zone !== previous.zone && patch.section === undefined) state.section = null
   if (state.office !== previous.office && patch.candidate === undefined) state.candidate = null
   writeElection(next, state)
   return `${next.pathname}${next.search}${next.hash}`
