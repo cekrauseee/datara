@@ -1,7 +1,22 @@
 import type { ApiErrorBody } from './api-types'
 
+const DEFAULT_API_URL = 'http://localhost:3000'
+
 // Absolute API origin, without a trailing slash. `pnpm dev` injects VITE_API_URL from the API PORT.
-export const API_URL = new URL(import.meta.env.VITE_API_URL ?? 'http://localhost:3000')
+// An empty value means the default; an unparsable one falls back to the default so the geographic
+// explorer still renders, and every request then fails with INVALID_API_URL.
+function resolveApiURL(): { url: URL; invalid: string | null } {
+  const configured = import.meta.env.VITE_API_URL || DEFAULT_API_URL
+  try {
+    return { url: new URL(configured), invalid: null }
+  } catch {
+    return { url: new URL(DEFAULT_API_URL), invalid: configured }
+  }
+}
+const resolved = resolveApiURL()
+export const API_URL = resolved.url
+/** The rejected VITE_API_URL value, or null when the configuration is valid. */
+export const API_URL_ERROR = resolved.invalid
 const base = API_URL.href.replace(/\/+$/, '')
 
 export type ApiParams = Record<string, string | number | boolean | null | undefined>
@@ -9,7 +24,7 @@ export type RequestOptions = { signal?: AbortSignal; timeout?: number }
 
 // Client-side codes complete the API's own `error.code` values.
 export type ClientErrorCode =
-  'NETWORK_ERROR' | 'TIMEOUT' | 'INVALID_RESPONSE' | 'SUPERSEDED' | 'UNKNOWN'
+  'INVALID_API_URL' | 'NETWORK_ERROR' | 'TIMEOUT' | 'INVALID_RESPONSE' | 'SUPERSEDED' | 'UNKNOWN'
 
 export class ApiClientError extends Error {
   readonly status: number
@@ -78,6 +93,12 @@ export async function apiRequest<T>(
   url: string,
   { signal, timeout = 20_000 }: RequestOptions = {},
 ): Promise<T> {
+  if (API_URL_ERROR !== null)
+    throw new ApiClientError({
+      status: 0,
+      code: 'INVALID_API_URL',
+      message: `VITE_API_URL inválida ("${API_URL_ERROR}"); configure uma origem absoluta como ${DEFAULT_API_URL}.`,
+    })
   const signals = [AbortSignal.timeout(timeout)]
   if (signal) signals.push(signal)
   let response: Response
