@@ -370,6 +370,12 @@ try {
   // Rankings are computed for the requested page only and match the full listing.
   const listed = await within('areaId=ac&level=municipality&limit=100')
   const index = listed.items.findIndex((item: { state: string }) => item.state === 'available')
+  const withoutResult = listed.items.find((item: { state: string }) => item.state === 'unavailable')
+  const absent = await request(`/contests/${contest}/results?areaId=${withoutResult.area.id}`)
+  assert.deepEqual(
+    [absent.state, absent.totals, absent.officialStatus],
+    ['unavailable', null, null],
+  )
   assert.ok(index >= 0, 'Pilot needs an AC municipality with results')
   const paged = await within(`areaId=ac&level=municipality&limit=1&offset=${index}`)
   assert.equal(paged.items[0].support.state, 'available')
@@ -571,6 +577,11 @@ try {
     (Object.keys(node).length === 0 || Object.values(node).some(untyped))
   for (const name of ['Candidate', 'Coverage'])
     assert.equal(untyped(schema.components.schemas[name].properties), false, name)
+  // Nullable references to named schemas keep their null in the exported document.
+  const nullableRef = (node: { anyOf?: { $ref?: string; type?: string }[] }, ref: string) =>
+    assert.deepEqual(node.anyOf, [{ $ref: `#/components/schemas/${ref}` }, { type: 'null' }])
+  nullableRef(schema.components.schemas.Election.properties.publication, 'Publication')
+  nullableRef(schema.components.schemas.AreaResult.properties.totals, 'ResultTotals')
   for (const path of ['/contests/{contestId}/map', '/elections/{electionId}/map'])
     assert.equal(
       untyped(schema.paths[path].get.responses['200'].content['application/json'].schema),

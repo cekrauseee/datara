@@ -131,7 +131,8 @@ export const Edition = z
     year: z.number(),
     round: z.number(),
     electionDate: z.string(),
-    publication: Publication.nullable(),
+    // A union, not .nullable(): a nullable named schema loses its null in the OpenAPI output.
+    publication: z.union([Publication, z.null()]),
   })
   .openapi('Election')
 export const EditionsResponse = z.object({ items: z.array(Edition) })
@@ -304,7 +305,8 @@ export const ResultsResponse = z
     officialStatus: ResultStatus.nullable(),
     officialStatusLabel: z.string().nullable(),
     officialStatusCode: z.string().nullable(),
-    totals: Totals.nullable(),
+    // A union, not .nullable(): see Election.publication.
+    totals: z.union([Totals, z.null()]),
     provenance: Provenance.nullable(),
     summary: Summary.nullable(),
     candidates: z.array(CandidateVote),
