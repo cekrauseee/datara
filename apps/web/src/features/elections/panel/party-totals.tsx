@@ -5,8 +5,8 @@ import type { PartyInfo } from './panel-model'
 type PartyVote = AreaResult['parties'][number]
 
 function sum(party: PartyVote): number | null {
-  if (party.nominalVotes === null && party.legendVotes === null) return null
-  return (party.nominalVotes ?? 0) + (party.legendVotes ?? 0)
+  if (party.nominalVotes === null || party.legendVotes === null) return null
+  return party.nominalVotes + party.legendVotes
 }
 
 /**
