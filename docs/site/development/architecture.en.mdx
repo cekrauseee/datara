@@ -1,0 +1,63 @@
+---
+title: Architecture and performance
+description: How geography rendering and the independent election API fit together.
+---
+
+## Runtime boundaries
+
+`apps/web/src/main.tsx` mounts React in Strict Mode. `app/app.tsx` renders `MapExplorer`. Vite uses the React Compiler, Tailwind CSS v4 and the `@/` source alias. UI primitives are local shadcn/Base UI components; semantic CSS tokens and Geist typography are defined in `src/index.css`.
+
+The map feature is in `apps/web/src/features/map/`:
+
+| Module                                     | Responsibility                                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `map-explorer.tsx`                         | country pages, search, selection, breadcrumbs, controls and feedback                      |
+| `use-map-location.ts`, `map-location.ts`   | History API subscription, country navigation and pure URL parsing/serialization           |
+| `use-map-data.ts`                          | React loading/error/retry state; ignores obsolete view results                            |
+| `map-countries.ts`                         | country labels, asset paths and attribution                                               |
+| `map-data.ts`                              | geographic types, TopoJSON decoding, source labels and search matching                    |
+| `map-cache.ts`, `map-requests.ts`          | deduplicated in-memory requests; rejected entries are evicted                             |
+| `map-worker-api.ts`, `map-worker-types.ts` | typed worker messages, pending requests, cancellation and worker lifecycle                |
+| `map-worker.ts`                            | downloads, JSON/TopoJSON decoding, boundary meshes and projection away from the UI thread |
+| `map-projection.ts`                        | projected-scene cache and paced `Path2D` creation on the UI thread                        |
+| `map-canvas.ts`                            | painting, hit testing, D3 pan/zoom, camera animation, resize and cleanup                  |
+| `map-geometry.ts`                          | projections, bounds, zoom limits and tooltip positioning                                  |
+| `map-skeleton.tsx`, `map-tooltip.tsx`      | loading silhouette and measured hover card                                                |
+
+The Hono API does not participate in the current web map flow. Its independent election module reads PostgreSQL publications through validated OpenAPI routes, explicit parameterized queries, electoral metrics and local presentation resolution. Ingestion scripts own acquisition, normalization, migrations and atomic publication; request handlers never fetch TSE or read raw BUs. Responses are compressed, reads pinned to an explicit publication are cacheable for an hour, territory queries expand only the levels above the requested one through the `areas_parent` index, and distribution and map refuse scopes beyond their depth and area limits instead of scanning them. See [API contracts](/api/usage) and [ingestion](/development/ingestion). The geographic web application uses no client-side router dependency, authentication or server-side rendering.
+
+The documentation is a separate Next.js application: localized content and search indexes are prerendered during the build. Proxy negotiates `Accept-Language` only on unprefixed entry URLs; reading the documentation needs no API/database connection.
+
+## Data flow
+
+1. The URL identifies a country and optional area. Country changes retain already visited pages instead of recreating their Canvas.
+2. The data hook requests country metadata through the cache and worker. The worker owns decoded coordinate arrays; React receives area metadata rather than full national geometry.
+3. The worker projects a scene for the current viewport and sends serialized SVG paths and bounds. Six decimal places limit serialization rounding at high zoom.
+4. The UI converts paths to `Path2D`, caching the latest viewport for each map. Rendering uses those prepared paths without reprojecting vertices on every frame.
+5. US details are downloaded by state and projected on demand. Selecting a locality can request that one feature first, so camera movement need not await preparation of every local shape.
+6. Canvas callbacks update selection, hover, readiness and completed zoom. Navigation writes the selection into the URL.
+
+## Keeping interaction responsive
+
+- **Worker isolation:** network response parsing, topology decoding, mesh construction and bulk projection do not block the UI thread. Paths cross the boundary instead of large nested coordinate arrays.
+- **Shared frame budget:** `Path2D` creation shares a target budget of 3 ms per frame across concurrent preparation tasks. This is a scheduling target, not a hard maximum for a single path conversion.
+- **Cancellation:** a newer viewport cancels obsolete scene preparation. Worker projection loops yield periodically to receive cancellation messages.
+- **Memory reuse:** promises, metadata, decoded data and projected scenes are reused. The latest scene per country is cached; scene detail caches reuse paths by state. There is no application-managed localStorage, IndexedDB or persistent cache. Ordinary browser HTTP caching is separate.
+- **Frame coalescing:** draw and hover work use `requestAnimationFrame`. Zoom avoids notifying React on every animation step. Progress is clamped to avoid a negative first frame when RAF timestamps precede animation creation.
+- **Picking on demand:** bounds and `isPointInPath` checks run for pointer interaction, rather than rebuilding clickable-area lists every animation frame.
+- **Stable geometry:** state outlines are unions of the same lower-level arcs. Opaque land fills remain stable during zoom; shared boundaries are stroked separately.
+- **Bounded display work:** offscreen bounds are skipped where applicable; geographic labels are not painted; device pixel ratio is capped at 2.
+
+Cached geometry and visited pages trade memory for fast returns. Local details accumulate for explored states during a session. The implementation does not promise constant memory regardless of exploration, or a fixed frame rate on every device.
+
+## Ownership and cleanup
+
+React owns product state; Canvas owns camera transforms and transient drawing state; the worker owns bulk geography. Canvas teardown cancels RAF work, disconnects the resize observer and removes handlers. Worker errors reject pending requests; failed cached work can retry. Vite hot replacement terminates the worker. The worker is otherwise shared for the page lifetime.
+
+Deep-link initialization, reduced motion, retained-country navigation and resize are different paths and must stay distinct: initial selection should animate, while returning to the same country should not reset or refit its camera.
+
+## Measuring changes
+
+Use the reproducible browser scenarios in [development.md](/development/setup), including cold and warm selections. Measure frame intervals and long tasks, not only time spent calling Canvas methods: rasterization may be deferred, and decoding can dominate before drawing begins.
+
+Keep viewport, pixel ratio, CPU settings and cold/warm state identical when comparing. Record measurements with those conditions; results from another machine are not a performance baseline for the current checkout.

@@ -1,0 +1,50 @@
+---
+title: Candidate presentation and photos
+description: Configure local names, colors, photos and durable API assets.
+---
+
+## Local configuration
+
+`apps/api/config/election-presentation.json` is validated once at startup. Candidate keys are their full public IDs; party keys are party numbers. Reimports do not rewrite it. Official names/party data are the defaults and absent photos are `null`; colors follow the order described in [colors](#colors).
+
+```json
+{
+  "candidates": {
+    "CANDIDATE_ID": {
+      "displayName": "Local name",
+      "color": "#2563eb",
+      "photo": "photos/candidate.jpg",
+      "note": "Why this override exists"
+    }
+  },
+  "parties": {
+    "13": { "displayName": "Local party name", "color": "#dc2626", "note": "Provenance" }
+  }
+}
+```
+
+A candidate `displayName` replaces `displayName` in responses. A party `displayName` appears as `party.displayName` on that party's candidacies, next to the official `party.name` and `party.abbreviation`, and is `null` when not configured. `note` records editorial provenance and is never served.
+
+Put local files in `apps/api/public/photos/`; they are served under `/assets/photos/`. Official local photos are acquired by `pnpm --filter @datara/api elections:photos`, optionally with `--contest ID --limit N`, as documented in [ingestion](/development/ingestion). Use the same `PHOTO_DIRECTORY` for acquisition and API startup; official photo provenance remains in the archive without mutating the voting publication. Presentation resolves an available JSON photo override, then the downloaded official file, then `null`. Restart the API after changing photos or overrides; the file inventory is read once at startup. Overrides accept JPG/JPEG/PNG/WebP filenames, not arbitrary paths. `ELECTION_PRESENTATION_FILE`, `PHOTO_DIRECTORY` (directory containing `photos/`; setup uses `.data/public`), and `ASSET_BASE_URL` can select durable configuration/assets without changing HTTP fields. A production artifact must include them or supply durable equivalents.
+
+## Colors
+
+A candidacy color is, in order: `candidates[id].color`; `parties[number].color`; the fixed fallback palette at index `party number % 8` (`#c25c5f`, `#b46d10`, `#868604`, `#2c965d`, `#009298`, `#2d86c8`, `#8071c8`, `#af609f`, OKLCH L 0.60 and C 0.13 with hues from 20° to 335°), or `candidacy number % 8` when it has no party. `#64748b` remains only a last resort for invalid numbers. The fallback is deterministic and covers parties not yet configured, candidacies without a party and proportional contests; majoritarian contests require a configured color (see [verification](#verification)).
+
+The colors of the 30 parties in the 2026 catalog start from the party → color map of [Seu Imposto](https://www.seuimposto.com/) (the `window.PARTIDOS` object in the home page's `dados.*.js` script, retrieved on 2026-10-08, designed for a dark background), reconciled with each party's visual identity. The API serves one color for both themes: the Seu Imposto hue is kept, OKLCH lightness stays between 0.56 and 0.63, and target chroma is at least 0.11, lowered only when it leaves the sRGB gamut. Every color therefore has at least 3:1 contrast against the light and dark theme background and `--muted` (`#ffffff`, `#f5f5f5`, `#262626`, `#0a0a0a`); the fallback has at least 3.4:1. Exceptions: PSOL uses its logo purple (`#68008E`, hue 313°, served at hue 318° to stay clear of Podemos at 308°), because the yellow cannot reach 3:1 on white and would sit close to Missão and PSB; UP uses a dark neutral for its black-and-white identity; DC, PSB and Missão sit at 72°, 82° and 94°, and the reds range from 10° (PCB) to 30° (PCO) with distinct lightness and chroma. Each party has a `note` with its abbreviation, the original Seu Imposto color and the adjusted OKLCH components.
+
+Numbers 17, 19, 24, 26, 32, 48, 51, 60, 78 and 89 are not configured: they are party rows without abbreviation or name that TSE publishes for the Fernando de Noronha District Council, a non-partisan contest. Current ingestion does not store them as parties, so those candidacies have no party and use the fallback at their own number; publications written before that keep the empty rows and use the fallback at those numbers.
+
+In a majoritarian contest, two candidacies cannot share a color or be closer than ΔE 0.04 (OKLab distance), as happens with two Senate candidates of one party or with DC and PSB. Candidacies are ordered by `number` (text order) and the higher number yields: it gets an explicit override in `candidates` with `deriveShade(party color, k)`. That function rotates the hue by 40° × ⌈k/2⌉, clockwise for odd k and counterclockwise for even k, clamps lightness to 0.56–0.63 and raises chroma to at least 0.12 before fitting the gamut. It rotates hue rather than lightness so shades do not read as the map's lead bands. The starting k is the candidacy's rank among those of its party (the second uses k=1), or 1 across parties; the first k whose color stays at least ΔE 0.04 from every other candidacy in the contest and keeps 3:1 on the four surfaces wins. Overrides are explicit because a candidacy's presentation does not know its contest and because editors can adjust them. Candidacy IDs are stable across publications; a replaced candidacy gets a new ID and the check reports it.
+
+## Verification
+
+```sh
+pnpm --filter @datara/api check:presentation
+```
+
+The check requires `DATABASE_URL` (read from `apps/api/.env` when present) and uses the same `ELECTION_PRESENTATION_FILE` as the API. It first tests photo and color precedence and `deriveShade`; through the candidates route, with a temporary configuration, it confirms `party.displayName` and the served colors. It then reads the majoritarian candidacies of the active publication and fails when a candidacy of a party with an abbreviation has no configured color, when two candidacies of one contest collide, or when any resolves to `#64748b`. Candidacies without a party, or whose party has no abbreviation, are exempt from the first two rules and use the fallback. The check reads the active publication of edition `BR-2026-1`. For each collision it prints the entry ready to paste into `candidates`: paste, rerun, and repeat until it passes. The final output counts contests, candidacies, overrides and parties checked.
+
+## Environment
+
+`DATABASE_URL` is required; `PORT` defaults to 3000, `CORS_ORIGIN` to `http://localhost:5173`, and `ASSET_BASE_URL` to `/assets`. Configuration is validated before listening. Allowed CORS origin must be a full origin without a trailing slash/path. Frontend election integration is not implemented.

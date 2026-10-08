@@ -1,0 +1,47 @@
+---
+title: Descoberta e consultas eleitorais
+description: Edições, disputas, publicações, paginação e métricas geográficas.
+---
+
+## Descoberta
+
+A API Hono lê dados publicados no PostgreSQL local. Importar `createApp` não inicia servidor, migrações nem downloads do TSE. O desenvolvimento usa `pnpm run setup` e `pnpm dev`; veja [ingestão](/development/ingestion). A porta padrão é 3000; use o `PORT` de `apps/api/.env` se alterado.
+
+```sh
+curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
+curl -fsS 'http://localhost:3000/elections/BR-2026-1/contests'
+curl -fsS 'http://localhost:3000/elections/BR-2026-1/areas?level=municipality&uf=ac&limit=25'
+curl -fsS 'http://localhost:3000/elections/BR-2026-1/areas?featureId=12'
+curl -fsS 'http://localhost:3000/contests/BR-2026-1:6257:1:br/results?areaId=br&limit=25'
+curl -fsS 'http://localhost:3000/contests/BR-2026-1:6259:5:ac/results?areaId=ac:01066:0004:0077'
+curl -fsS 'http://localhost:3000/contests/BR-2026-1:6257:1:br/results?areaId=exterior'
+curl -fsS 'http://localhost:3000/contests/BR-2026-1:6257:1:br/map?areaId=ac&metric=leader&level=municipality'
+curl -fsS 'http://localhost:3000/elections/BR-2026-1/map?officeCode=3&level=municipality&metric=leader'
+curl -fsS 'http://localhost:3000/openapi.json' > /tmp/datara-openapi.json
+```
+
+O schema está em `/openapi.json`. As dez rotas têm validação de entrada e saída e erros estáveis. A raiz `/` retorna `{"message":"datara"}`. A API não é versionada por prefixo ou cabeçalho. Consulte [parâmetros, schemas e erros gerados](/api/reference/elections).
+
+## Publicações e paginação
+
+Envie `publicationId` da edição nas consultas relacionadas para manter mapa e detalhe na mesma publicação. Cada requisição usa uma transação somente de leitura e repeatable-read. Publicações explícitas inexistentes retornam `PUBLICATION_NOT_FOUND`, sem troca silenciosa. Respostas 200 de consultas com `publicationId` explícito trazem `Cache-Control: public, max-age=3600`: os dados publicados não mudam, mas campos de apresentação editorial (`color`, `photoUrl`, `displayName`) podem mudar sem nova publicação, e essas mudanças chegam aos clientes em até uma hora depois que o servidor as carrega. Sem o parâmetro não há cabeçalho de cache, porque a publicação ativa pode mudar. IDs de fontes referem-se apenas a dados publicados; respostas omitem caminhos de arquivo e metadados internos. Datas de origem (`generatedAt`) seguem ISO-8601: arquivos JSON do TSE trazem o horário de Brasília com deslocamento `-03:00` (premissa: os sistemas do TSE publicam nesse horário, sem horário de verão desde 2019), e o BU traz a hora local da urna sem deslocamento, porque o fuso da seção não consta do boletim. `/sources/{sourceId}` mantém também o texto original em `generatedAtOriginal`; texto irreconhecível resulta em `null`. BUs importados antes de a hora de emissão ser registrada na fonte têm `generatedAt: null` em `/sources`.
+
+As listas aceitam `limit` (padrão 25, máximo 100) e `offset`, com ordem determinística, total e `hasMore`, e trazem a `coverage` da publicação. `uf` e `country` não distinguem maiúsculas de minúsculas (`uf=AC` equivale a `uf=ac`). Áreas aceitam `featureId`, o identificador da geometria do mapa (código IBGE da UF ou do município). A busca de candidatos aceita `q`, `partyNumber` e `officialId` (o identificador oficial `sqcand` do TSE). Distribuição exige `candidateId` e aceita `areaId`, `level` e `sort`; `level` precisa estar abaixo do nível da área, na ordem país, região, UF, município, zona e seção (do contrário, 400 `LEVEL_NOT_BELOW_SCOPE`), e fica no máximo dois níveis abaixo da área (`areaId` ou escopo da disputa) na sequência país, UF, município, zona e seção; regiões apenas agrupam UFs e contam como o país. Assim, o padrão `level=municipality` funciona em disputas nacionais, zonas exigem área de UF ou mais específica e seções exigem área de município ou zona. Níveis mais profundos retornam 400 `LEVEL_TOO_DEEP`. `sort` ordena as áreas antes da paginação: `area` (padrão) por ID; `votes`, `support` e `contribution` pelo valor correspondente, decrescente, com valores ausentes ao fim e o ID da área desempatando. `pagination.total` e o conteúdo de cada item não dependem da ordem. Substitua os IDs por valores retornados pela API:
+
+```sh
+curl -fsS 'http://localhost:3000/contests/BR-2026-1:6257:1:br/candidates?limit=1'
+curl -fsS 'http://localhost:3000/contests/BR-2026-1:6257:1:br/candidates?officialId=OFFICIAL_ID'
+curl -fsS --get 'http://localhost:3000/contests/BR-2026-1:6257:1:br/distribution' \
+  --data-urlencode 'candidateId=CANDIDATE_ID' --data-urlencode 'areaId=ac' \
+  --data-urlencode 'level=municipality' --data-urlencode 'sort=support' --data-urlencode 'limit=25'
+```
+
+## Métricas do mapa
+
+As métricas são `leader`, `margin` (pontos percentuais entre as duas maiores contagens registradas), `turnout` (percentual), `candidateVotes`, `candidateShare` e `contribution`. As três últimas exigem `candidateId`. Todo item traz também `margin`, a mesma margem em pontos percentuais do valor de `metric=margin` (`null` sem resultado ou sem segunda candidatura), e a resposta traz `candidates`, um dicionário por ID das candidaturas citadas em `leaders` e da `candidateId` pedida, com nome de exibição, número, cor, foto, partido e `contestId`. Mapas aceitam apenas UF ou município, com até 10.000 áreas (do contrário, 400 `MAP_SCOPE_TOO_LARGE`); seções usam listas/distribuição paginadas.
+
+`GET /elections/{electionId}/map?officeCode=&level=&metric=` lê um cargo em todas as suas disputas (por exemplo, governador nas 27 UFs), cada uma dentro do seu território oficial, com `metric` `leader` (padrão), `margin` ou `turnout` e `level` `state` ou `municipality` (padrão). Cada item informa sua `contestId`, `contests` lista as disputas, `tseElectionId` é o código TSE da eleição dessas disputas (igual a `contests[].electionId`, por exemplo `6259`; não é o ID da edição do caminho) e o limite de 10.000 áreas vale para a soma delas. Com `level=state`, cada disputa estadual devolve a própria UF e a de presidente devolve as 27 UFs, com o exterior contado em `omittedWithoutGeometry`; disputas municipais não têm item nesse nível. Um cargo sem disputa na publicação retorna 404 `OFFICE_NOT_FOUND`.
+
+A API comprime respostas JSON com gzip ou deflate conforme `Accept-Encoding` e envia `Vary: Accept-Encoding`. O payload de líderes municipais do piloto oficial tem 5.571 entradas de features e mede 1.054.433 bytes sem compressão e cerca de 45.200 bytes com gzip (`check:api`). Essa medição não garante latência em carga nacional. Entradas do exterior sem geometria são contadas separadamente.
+
+Leia [interpretação dos dados](/api/interpretation) antes de comparar percentuais ou tratar observações ausentes.

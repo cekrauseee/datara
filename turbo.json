@@ -1,9 +1,18 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
+  "ui": "tui",
   "tasks": {
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": [
+        "DATABASE_URL",
+        "PORT",
+        "CORS_ORIGIN",
+        "ASSET_BASE_URL",
+        "ELECTION_PRESENTATION_FILE",
+        "PHOTO_DIRECTORY"
+      ]
     },
     "build": {
       "dependsOn": ["^build"],
@@ -14,6 +23,23 @@
     },
     "typecheck": {
       "dependsOn": ["^typecheck"]
+    },
+    "@datara/docs#build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/docs/**",
+        "$TURBO_ROOT$/apps/api/src/**",
+        "$TURBO_ROOT$/apps/api/scripts/export-openapi.ts",
+        "$TURBO_ROOT$/apps/api/config/election-presentation.json"
+      ],
+      "outputs": [".next/**", "!.next/cache/**", ".source/**", ".generated/**"],
+      "env": ["DOCS_ORIGIN"]
+    },
+    "@datara/docs#dev": {
+      "cache": false,
+      "persistent": true,
+      "env": ["DOCS_ORIGIN"]
     }
   }
 }

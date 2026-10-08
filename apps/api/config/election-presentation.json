@@ -1,0 +1,242 @@
+{
+  "candidates": {
+    "BR-2026-1:6259:3:ma:100002551399": {
+      "color": "#0b8d84",
+      "note": "ΔE 0.030 to 15 (MDB) in contest BR-2026-1:6259:3:ma; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:ac:10002544274": {
+      "color": "#9c8a00",
+      "note": "ΔE 0.039 to 277 (DC) in contest BR-2026-1:6259:5:ac; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:al:20002553726": {
+      "color": "#098681",
+      "note": "same party as 151 in contest BR-2026-1:6259:5:al; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:ap:30002550229": {
+      "color": "#23a071",
+      "note": "ΔE 0.023 to 272 (DC) in contest BR-2026-1:6259:5:ap; deriveShade k=3"
+    },
+    "BR-2026-1:6259:5:ap:30002551382": {
+      "color": "#8b902e",
+      "note": "same party as 272 in contest BR-2026-1:6259:5:ap; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:ba:50002536321": {
+      "color": "#db34a2",
+      "note": "same party as 130 in contest BR-2026-1:6259:5:ba; deriveShade k=2"
+    },
+    "BR-2026-1:6259:5:df:70002552934": {
+      "color": "#0280a6",
+      "note": "same party as 222 in contest BR-2026-1:6259:5:df; deriveShade k=2"
+    },
+    "BR-2026-1:6259:5:es:80002551370": {
+      "color": "#7c9532",
+      "note": "ΔE 0.023 to 277 (DC) in contest BR-2026-1:6259:5:es; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:es:80002552373": {
+      "color": "#0b8d84",
+      "note": "ΔE 0.030 to 156 (MDB) in contest BR-2026-1:6259:5:es; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:go:90002543560": {
+      "color": "#0280a6",
+      "note": "same party as 222 in contest BR-2026-1:6259:5:go; deriveShade k=2"
+    },
+    "BR-2026-1:6259:5:mg:130002547884": {
+      "color": "#767b10",
+      "note": "same party as 800 in contest BR-2026-1:6259:5:mg; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:mg:130002551930": {
+      "color": "#c3713a",
+      "note": "same party as 160 in contest BR-2026-1:6259:5:mg; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:mg:130002552186": {
+      "color": "#3d90cb",
+      "note": "ΔE 0.035 to 111 (PP) in contest BR-2026-1:6259:5:mg; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:mg:130002552302": {
+      "color": "#098681",
+      "note": "same party as 150 in contest BR-2026-1:6259:5:mg; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:ms:120002535764": {
+      "color": "#0280a6",
+      "note": "same party as 221 in contest BR-2026-1:6259:5:ms; deriveShade k=2"
+    },
+    "BR-2026-1:6259:5:ms:120002547434": {
+      "color": "#7c9532",
+      "note": "ΔE 0.023 to 277 (DC) in contest BR-2026-1:6259:5:ms; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:mt:110002540403": {
+      "color": "#7b943b",
+      "note": "ΔE 0.035 to 111 (PP) in contest BR-2026-1:6259:5:mt; deriveShade k=4"
+    },
+    "BR-2026-1:6259:5:mt:110002553706": {
+      "color": "#ae6eb1",
+      "note": "same party as 360 in contest BR-2026-1:6259:5:mt; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pa:140002545671": {
+      "color": "#c53b76",
+      "note": "same party as 500 in contest BR-2026-1:6259:5:pa; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pa:140002553952": {
+      "color": "#9c8a00",
+      "note": "ΔE 0.039 to 277 (DC) in contest BR-2026-1:6259:5:pa; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pb:150002544140": {
+      "color": "#767b10",
+      "note": "same party as 800 in contest BR-2026-1:6259:5:pb; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pb:150002544905": {
+      "color": "#098681",
+      "note": "same party as 151 in contest BR-2026-1:6259:5:pb; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pb:150002549793": {
+      "color": "#7c9532",
+      "note": "ΔE 0.023 to 272 (DC) in contest BR-2026-1:6259:5:pb; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pe:170002537335": {
+      "color": "#767b10",
+      "note": "same party as 800 in contest BR-2026-1:6259:5:pe; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pi:180002547860": {
+      "color": "#8b902e",
+      "note": "same party as 277 in contest BR-2026-1:6259:5:pi; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pi:180002548155": {
+      "color": "#2692cf",
+      "note": "same party as 350 in contest BR-2026-1:6259:5:pi; deriveShade k=3"
+    },
+    "BR-2026-1:6259:5:pi:180002549936": {
+      "color": "#7f7ecf",
+      "note": "ΔE 0.035 to 111 (PP) in contest BR-2026-1:6259:5:pi; deriveShade k=3"
+    },
+    "BR-2026-1:6259:5:pi:180002550977": {
+      "color": "#c53b76",
+      "note": "same party as 500 in contest BR-2026-1:6259:5:pi; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:pr:160002547658": {
+      "color": "#bc7001",
+      "note": "same party as 131 in contest BR-2026-1:6259:5:pr; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:rj:190002535142": {
+      "color": "#03867f",
+      "note": "same party as 221 in contest BR-2026-1:6259:5:rj; deriveShade k=4"
+    },
+    "BR-2026-1:6259:5:rj:190002548590": {
+      "color": "#767b10",
+      "note": "same party as 800 in contest BR-2026-1:6259:5:rj; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:rj:190002550182": {
+      "color": "#6c6ebd",
+      "note": "same party as 100 in contest BR-2026-1:6259:5:rj; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:rn:200002542483": {
+      "color": "#c3713a",
+      "note": "same party as 161 in contest BR-2026-1:6259:5:rn; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:rn:200002546795": {
+      "color": "#c53b76",
+      "note": "same party as 500 in contest BR-2026-1:6259:5:rn; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:rn:200002548115": {
+      "color": "#ae6eb1",
+      "note": "same party as 360 in contest BR-2026-1:6259:5:rn; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:ro:220002539995": {
+      "color": "#03867f",
+      "note": "same party as 221 in contest BR-2026-1:6259:5:ro; deriveShade k=4"
+    },
+    "BR-2026-1:6259:5:rr:230002534804": {
+      "color": "#0280a6",
+      "note": "same party as 222 in contest BR-2026-1:6259:5:rr; deriveShade k=2"
+    },
+    "BR-2026-1:6259:5:rr:230002549360": {
+      "color": "#c53b76",
+      "note": "same party as 500 in contest BR-2026-1:6259:5:rr; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:rr:230002550794": {
+      "color": "#7c9532",
+      "note": "ΔE 0.023 to 277 (DC) in contest BR-2026-1:6259:5:rr; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:rs:210002533434": {
+      "color": "#767b10",
+      "note": "same party as 800 in contest BR-2026-1:6259:5:rs; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:rs:210002544699": {
+      "color": "#c3713a",
+      "note": "same party as 160 in contest BR-2026-1:6259:5:rs; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:sc:240002537630": {
+      "color": "#c3713a",
+      "note": "same party as 160 in contest BR-2026-1:6259:5:sc; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:sc:240002541935": {
+      "color": "#0280a6",
+      "note": "same party as 221 in contest BR-2026-1:6259:5:sc; deriveShade k=2"
+    },
+    "BR-2026-1:6259:5:sc:240002550218": {
+      "color": "#767b10",
+      "note": "same party as 800 in contest BR-2026-1:6259:5:sc; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:se:260002549130": {
+      "color": "#6c6ebd",
+      "note": "same party as 100 in contest BR-2026-1:6259:5:se; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:se:260002551362": {
+      "color": "#03867f",
+      "note": "same party as 221 in contest BR-2026-1:6259:5:se; deriveShade k=4"
+    },
+    "BR-2026-1:6259:5:sp:250002541362": {
+      "color": "#c3713a",
+      "note": "same party as 160 in contest BR-2026-1:6259:5:sp; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:sp:250002544516": {
+      "color": "#767b10",
+      "note": "same party as 800 in contest BR-2026-1:6259:5:sp; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:to:270002546038": {
+      "color": "#ce589b",
+      "note": "same party as 200 in contest BR-2026-1:6259:5:to; deriveShade k=1"
+    },
+    "BR-2026-1:6259:5:to:270002551273": {
+      "color": "#039ca2",
+      "note": "same party as 351 in contest BR-2026-1:6259:5:to; deriveShade k=1"
+    }
+  },
+  "parties": {
+    "10": { "color": "#2f7fb2", "note": "Republicanos; Seu Imposto #4181AD; L 0.57, C 0.11" },
+    "11": { "color": "#0090a8", "note": "PP; Seu Imposto #90E7FF; L 0.60, C 0.13, h 215" },
+    "12": { "color": "#db4b91", "note": "PDT; Seu Imposto #DC4C92; L 0.63" },
+    "13": { "color": "#ee2d35", "note": "PT; Seu Imposto #EE2D35; unchanged" },
+    "14": { "color": "#987e04", "note": "Missão; Seu Imposto #CEA608; L 0.60, C 0.14, h 94" },
+    "15": { "color": "#198b43", "note": "MDB; Seu Imposto #01813A; L 0.56" },
+    "16": { "color": "#c86675", "note": "PSTU; Seu Imposto #F38C8E; L 0.63, h 12" },
+    "18": { "color": "#0d9f89", "note": "Rede; Seu Imposto #3FC3AE; L 0.63, C 0.12, h 178" },
+    "20": { "color": "#a569d5", "note": "Podemos; Seu Imposto #AB6BD6; L 0.63, h 308" },
+    "21": { "color": "#b24f63", "note": "PCB; Seu Imposto #B7535D; L 0.56, h 10" },
+    "22": { "color": "#4466e7", "note": "PL; Seu Imposto #4162E2; L 0.56" },
+    "23": { "color": "#ec2398", "note": "Cidadania; Seu Imposto #F0289B; L 0.63" },
+    "25": { "color": "#0b8986", "note": "PRD; Seu Imposto #14938D; L 0.57, C 0.11, h 192" },
+    "27": { "color": "#b57c27", "note": "DC; Seu Imposto #BC8C30; L 0.63, h 72" },
+    "28": { "color": "#169338", "note": "PRTB; Seu Imposto #28A650; L 0.58, h 147" },
+    "29": { "color": "#d06454", "note": "PCO; Seu Imposto #DE6F6A; L 0.63, h 30" },
+    "30": { "color": "#dd5c03", "note": "Novo; Seu Imposto #F87025; L 0.63" },
+    "33": { "color": "#af4e93", "note": "Mobiliza; Seu Imposto #B24D8B; h 340" },
+    "35": { "color": "#28a16d", "note": "Democrata; Seu Imposto #8FE3BA; L 0.63, C 0.13, h 160" },
+    "36": { "color": "#837fc9", "note": "Agir; Seu Imposto #A2A5E0; L 0.63, C 0.11, h 285" },
+    "40": { "color": "#af8008", "note": "PSB; Seu Imposto #FFC961; L 0.63, C 0.14" },
+    "43": { "color": "#64873d", "note": "PV; Seu Imposto #719259; L 0.58, C 0.11, h 130" },
+    "44": { "color": "#0395c9", "note": "União; Seu Imposto #26C4FF; L 0.63, C 0.14, h 232" },
+    "45": { "color": "#2c88f2", "note": "PSDB; Seu Imposto #3994FF; L 0.63" },
+    "50": {
+      "color": "#a24cba",
+      "note": "PSOL; Seu Imposto #FAF45A; logo purple #68008E at L 0.57, C 0.18, h 318: yellow fails 3:1 on white, near Missão and PSB"
+    },
+    "55": { "color": "#5d9d31", "note": "PSD; Seu Imposto #84C65C; L 0.63" },
+    "65": { "color": "#cb3b4d", "note": "PCdoB; Seu Imposto #CE3E57; L 0.57, h 18" },
+    "70": { "color": "#099ba5", "note": "Avante; Seu Imposto #04A9B7; L 0.63, C 0.12, h 203" },
+    "77": { "color": "#c87003", "note": "Solidariedade; Seu Imposto #F78C08; L 0.63, C 0.155" },
+    "80": {
+      "color": "#7c7368",
+      "note": "UP; Seu Imposto #B4B0AC; dark neutral for its black-and-white identity: L 0.56, C 0.02, h 70"
+    }
+  }
+}

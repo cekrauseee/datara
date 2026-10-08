@@ -6,3 +6,9 @@ dist/
 .env.*
 !.env.example
 .DS_Store
+.data/
+apps/api/public/photos/
+.next/
+.source/
+.generated/
+apps/docs/next-env.d.ts

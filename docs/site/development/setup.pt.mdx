@@ -1,0 +1,139 @@
+---
+title: Desenvolvimento e verificação
+description: Execute o workspace e verifique os fluxos essenciais do produto.
+---
+
+## Ferramentas
+
+O workspace pnpm contém `apps/*` e `packages/*`. Turbo não faz cache de desenvolvimento; builds usam `dist/**` para Vite/API e `.next/**` para a documentação. ESLint compartilhado verifica variáveis TypeScript não usadas e depreciações; suas regras são deliberadamente focadas. Prettier usa aspas simples, sem ponto e vírgula, 100 colunas e organização de imports; a web também ordena classes Tailwind. A docs usa Next/Fumadocs; `@datara/theme` compartilha paleta e Geist.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run setup
+pnpm dev
+pnpm build
+pnpm lint
+pnpm typecheck
+pnpm format:check
+```
+
+Use lockfile congelado para um checkout existente. Altere dependências deliberadamente com pnpm e preserve manifests/lockfile juntos. `pnpm format` modifica o repositório inteiro; prefira formatação direcionada para mudanças pequenas. JSON geográfico gerado é excluído do Prettier e deve ser regenerado. As permissões de build em `pnpm-workspace.yaml` permitem esbuild e desativam SQLite/msgpack opcionais. Respeite versões e pins.
+
+## Documentação independente
+
+Não é preciso PostgreSQL, setup eleitoral ou servidor da API para trabalhar na documentação:
+
+```sh
+pnpm docs:dev
+pnpm --filter @datara/docs build
+pnpm docs:start
+pnpm --filter @datara/docs check:i18n
+```
+
+A docs usa `http://localhost:3002`. `check:i18n` exige o preview já iniciado. A geração local exporta o mesmo registro de rotas Hono para `.generated/openapi.json`, deriva páginas dos endpoints nos dois idiomas e compila MDX. Não edite `.generated/` nem `.source/` manualmente. A autoria canônica está em `docs/site/`; traduções têm o mesmo caminho por assunto com sufixos `.en.mdx` e `.pt.mdx`.
+
+Páginas e índice de busca são pré-renderizados; Proxy usa `Accept-Language` somente em entradas sem idioma. URLs `/pt` e `/en` vencem o cabeçalho e o fallback é português. Busca roda no navegador com índice local. Não há execução de requisições à API na interface.
+
+Para publicação futura, configure `DOCS_ORIGIN` com a origem real antes da build para canonical/alternates/sitemap. O valor local padrão é `http://localhost:3002`; nenhuma origem de produção é presumida. É necessário runtime Next para a negociação; não sirva apenas `.next` como arquivos estáticos.
+
+O desenvolvimento integrado usa a TUI nativa do Turborepo em um terminal interativo compatível, com logs separados por tarefa. Sem TTY, a saída continua em fluxo normal. A geração da docs mostra totais de OpenAPI/referências e preserva diagnósticos do compilador/servidor. Verifique as referências bilíngues com `pnpm --filter @datara/docs check:generation`.
+
+## API e dados eleitorais locais
+
+`pnpm run setup` prepara `apps/api/.env` ignorado, cluster PostgreSQL nativo gerenciado pelo projeto, migrações, piloto oficial limitado e duas fotos. `pnpm dev` recarrega a configuração, garante o banco gerenciado ativo e inicia web/API via Turbo, que recebe as variáveis explicitamente. Vite usa porta fixa 5173; API `PORT` tem padrão 3000. Portas IPv4/IPv6 localhost ocupadas causam erro claro.
+
+`@datara/api` usa Hono/PostgreSQL. `DATABASE_URL` é obrigatório e salvo pelo setup. O mapa geográfico continua independente da API. O backend importa e serve o primeiro turno brasileiro oficial de 2026 por publicações locais; não busca fontes durante requisições.
+
+Veja [ingestão e publicação](/development/ingestion) para PostgreSQL nativo/Compose, migração, aquisição e replay. Veja [consultas da API](/api/usage), [interpretação](/api/interpretation) e [apresentação](/development/presentation).
+
+```sh
+export DATABASE_URL='postgresql://YOUR_USER:YOUR_PASSWORD@127.0.0.1:5432/datara'
+export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
+pnpm --filter @datara/api db:migrate
+pnpm --filter @datara/api elections --scope pilot --archive "$ELECTION_ARCHIVE_DIR"
+pnpm --filter @datara/api dev
+curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
+curl -fsS 'http://localhost:3000/openapi.json'
+```
+
+A raiz continua `{"message":"datara"}`. Comandos locais e runtime/ingestão leem `apps/api/.env` nativamente; variáveis do shell têm prioridade. Checks de banco exigem `TEST_DATABASE_URL` escolhido explicitamente. Build copia migrações para `dist/db`; produção precisa preservar apresentação validada e fotos ou equivalentes duráveis.
+
+## Verificação da web
+
+```sh
+pnpm --filter @datara/web build
+pnpm --filter @datara/web lint
+pnpm --filter @datara/web typecheck
+pnpm --filter @datara/web map:check
+```
+
+Build inclui TypeScript. Checks geográficos usam assertions Node e assets versionados, sem downloads. Vite pode avisar sobre chunk acima de 500 kB sem falhar. Build bem-sucedida não comprova fluxos no navegador.
+
+Checks de navegador são ferramentas de desenvolvimento servidas pelo Vite e executadas no console. Inicie a web, abra-a e use os checks relevantes:
+
+```js
+const navigation = await import('/scripts/check-map-navigation.mjs')
+await navigation.checkCache()
+await navigation.checkNavigation()
+await navigation.checkInitialAnimationAndReveal()
+await navigation.checkCountryState()
+
+const canvas = await import('/scripts/check-map-browser.mjs')
+await canvas.checkMap('BR')
+await canvas.checkMap('US')
+// Passe o ponteiro sobre um lugar antes:
+canvas.checkTooltip()
+```
+
+Eles alteram view/histórico e criam Canvas temporários. O teste de cache solicita intencionalmente o estado inexistente `99` dos EUA e espera rejeição. Cobrem reutilização/retry, seleção/histórico, animação inicial fria/quente, detalhes, retenção por país, controles, resize e cleanup. Não são rotas de produção nem testes CLI Node.
+
+```js
+const benchmark = await import('/scripts/benchmark-map.mjs')
+await benchmark.benchmarkMap()
+```
+
+O benchmark compara seleção fria/quente de Massachusetts, um diagnóstico sem desenho Canvas e São Paulo. Registra RAF, tarefas longas, frames longos e CPU Canvas quando suportados; use Chromium para as medições completas. Recarregue para execução fria e mantenha viewport, pixel ratio e CPU iguais. Não execute enquanto builds/trabalho pesado competem por recursos.
+
+Nas verificações relevantes, inclua temas, mobile, labels longos, links diretos, troca de países, movimento reduzido, downloads lentos/falhos e retry. Evite mudanças de UI não relacionadas ao medir desempenho.
+
+## Build e hospedagem
+
+A web produz arquivos estáticos em `apps/web/dist`; `public/maps` é copiado e worker é asset separado. Preview: `pnpm --filter @datara/web preview`. Hospedagem estática precisa retornar `index.html` para caminhos como `/br` e `/us`, preservando assets reais; sem fallback, recarregar links falha.
+
+A navegação/assets usa `import.meta.env.BASE_URL`. Para subpath, configure a base Vite e verifique worker/mapas. Exemplos de checks assumem raiz. CSP do host precisa permitir worker/mapas da mesma origem. Nenhum destino de deploy, CI de produção ou provisionamento de secrets está configurado.
+
+## Diagnóstico e contribuição
+
+| Sintoma                     | Verifique                                                                               |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| Mapa indisponível           | Caminho JSON, HTTP, worker e console                                                    |
+| Skeleton não termina        | Worker/preparação, Canvas sem tamanho, asset ausente                                    |
+| Busca local dos EUA ausente | `search.json` e retry próprio da busca                                                  |
+| County sem limites locais   | Zoom, request de detalhes e retry                                                       |
+| Recarregar `/us?...` falha  | Fallback SPA na hospedagem                                                              |
+| Geometria angular           | Simplificação de origem, não necessariamente renderização                               |
+| Seleção fria trava          | Parsing, mensagens do worker, paths e frames; contagem de vetores não mede rasterização |
+| API não inicia              | Banco, `DATABASE_URL`, configuração e `PORT`                                            |
+
+Separe aquisição, preparação no worker, renderização e UI React. Reuse componentes/tokens. Preserve zeros iniciais e limites compartilhados. Mudanças de URL/cache/renderização precisam preservar teclado, movimento reduzido, retry e retenção por país.
+
+## Verificação da API eleitoral
+
+O check da API reimporta o piloto oficial completo offline num schema aleatório de um banco de testes explicitamente escolhido, verifica HTTP e remove só esse schema. Exige permissão para criar schemas. Cobre territórios, limites, privacidade das fontes, denominadores completos, Senado/seções principais/agregadas/exterior reais, casos sintéticos de empate/zero, votáveis não resolvidos do BU, regras de profundidade e ordenação da distribuição, margem e dicionário de candidaturas do mapa, mapa por cargo, `coverage` e situações tipadas, compressão gzip e `Cache-Control` de publicação fixada, as dez rotas do OpenAPI e fixação de publicação durante novo import. `check:presentation` lê o banco de `DATABASE_URL` (veja [apresentação](/development/presentation)); `check:settings`, `check:bu` e `check:acquisition` não usam banco.
+
+```sh
+export TEST_DATABASE_URL='postgresql://YOUR_USER:YOUR_PASSWORD@127.0.0.1:5432/datara_test'
+export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
+pnpm --filter @datara/api check:settings
+pnpm --filter @datara/api check:bu
+pnpm --filter @datara/api check:acquisition
+pnpm --filter @datara/api check:ingestion
+pnpm --filter @datara/api check:api
+pnpm --filter @datara/api check:photos
+DATABASE_URL='postgresql://YOUR_USER:YOUR_PASSWORD@127.0.0.1:5432/datara' pnpm --filter @datara/api check:presentation
+pnpm --filter @datara/api typecheck
+pnpm --filter @datara/api lint
+pnpm --filter @datara/api build
+```
+
+Crie `datara_test` com `createdb` antes dos checks. O arquivo de origem precisa conter o piloto padrão AC/DF/PE/ZZ. `check:photos` espera que o banco de testes tenha um piloto publicado com as duas fontes de foto arquivadas, conforme [ingestão](/development/ingestion). Os checks usam só o arquivo do piloto e não provam todas as variantes nacionais de BU nem a reconciliação nacional; o import nacional valida falhando em caso de dúvida e pausa diante de qualquer coisa fora do domínio documentado.
