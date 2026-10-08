@@ -11,6 +11,18 @@ export {
 } from './api-client'
 export type { ApiParams } from './api-client'
 export type * from './api-types'
+export {
+  LEVEL_BELOW,
+  areaName,
+  areaVotes,
+  candidateTitle,
+  contributionOf,
+  formatFocusPercent,
+  inArea,
+  supportOf,
+  toArea,
+} from './candidate-focus'
+export type { AreaVotes, FocusMeasure } from './candidate-focus'
 export { CollectionSelector, OFFICE_SHORT_NAMES } from './collection-selector'
 export {
   CANDIDATE_METRICS,
@@ -95,6 +107,8 @@ export { MapHoverDetail, hoverTarget } from './map-hover-detail'
 export type { HoverTarget } from './map-hover-detail'
 export { MapLegend } from './map-legend'
 export { AreaList, ContestAreaList, OfficeAreaList } from './panel/area-list'
+export { CandidateCard, exitFocus } from './panel/candidate-card'
+export { MetricToggle } from './panel/metric-toggle'
 export {
   byName,
   contestScopeName,
@@ -111,6 +125,8 @@ export { ResultsPanel } from './panel/results-panel'
 export type { ResultsPanelProps } from './panel/results-panel'
 export { useApiQuery } from './use-api-query'
 export type { ApiQuery } from './use-api-query'
+export { useCandidateFocus } from './use-candidate-focus'
+export type { CandidateFocus } from './use-candidate-focus'
 export { useElection } from './use-election'
 export type { ElectionSnapshot } from './use-election'
 export {

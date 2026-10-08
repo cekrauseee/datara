@@ -16,13 +16,17 @@ import { Separator } from '@/components/ui/separator'
 
 import { areaLabel, type Area, type MapViewData } from '../../map/map-data'
 import { API_URL } from '../api-client'
-import type { AreaResult, Contest, Coverage } from '../api-types'
-import { OFFICE_CODES, type OfficeKey } from '../election-location'
+import type { AreaResult, Candidate, Contest, Coverage } from '../api-types'
+import { formatFocusPercent, inArea } from '../candidate-focus'
+import { OFFICE_CODES, type Metric, type OfficeKey } from '../election-location'
 import { MAJORITARIAN_OFFICES, OFFICE_NAMES } from '../election-model'
 import { formatDateTime, formatInteger, formatPercent, sourceKindLabel, titleCase } from '../format'
+import { useCandidateFocus, type CandidateFocus } from '../use-candidate-focus'
 import type { ElectionSnapshot } from '../use-election'
 import { useElectionMap } from '../use-election-data'
+import { navigateElection } from '../use-election-location'
 import { ContestAreaList, OfficeAreaList } from './area-list'
+import { CandidateCard, exitFocus } from './candidate-card'
 import { CandidateList } from './candidate-list'
 import { MobileSheet } from './mobile-sheet'
 import { byName, contestScopeName, leaderOf, panelMode, scopeName, topCount } from './panel-model'
@@ -64,6 +68,7 @@ export function ResultsPanel({
   onSelect,
 }: ResultsPanelProps) {
   const map = useElectionMap(election.mapRequest)
+  const focus = useCandidateFocus(election.contest, election.candidate, election.areaId)
   const titleId = useId()
   const titleRef = useRef<HTMLHeadingElement>(null)
   const focusTarget = useRef<string | null>(null)
@@ -137,19 +142,21 @@ export function ResultsPanel({
 
   const statusText = error
     ? ''
-    : election.loading || loadingResults
-      ? `Carregando resultados de ${areaName}…`
-      : national
-        ? `${officeName} por UF: selecione um estado para ver a disputa.`
-        : results.data?.state === 'unavailable'
-          ? `Sem resultados para ${areaName} nesta publicação.`
-          : results.data && mode === 'summary'
-            ? leaderRow
-              ? `Resultados de ${officeName} em ${areaName}: ${titleCase(leaderRow.candidate.displayName)} com ${formatPercent(leaderRow.share.value)}.`
-              : `Resultados de ${officeName} em ${areaName}.`
-            : results.data
-              ? `Resultados de ${officeName} em ${areaName}: ${formatInteger(results.data.pagination.total)} candidatos.`
-              : ''
+    : focus?.here && focus.support
+      ? `Foco em ${titleCase(focus.candidate.displayName)}: apoio ${formatFocusPercent(focus.support.value)} ${inArea(focus.here.area)}.`
+      : election.loading || loadingResults
+        ? `Carregando resultados de ${areaName}…`
+        : national
+          ? `${officeName} por UF: selecione um estado para ver a disputa.`
+          : results.data?.state === 'unavailable'
+            ? `Sem resultados para ${areaName} nesta publicação.`
+            : results.data && mode === 'summary'
+              ? leaderRow
+                ? `Resultados de ${officeName} em ${areaName}: ${titleCase(leaderRow.candidate.displayName)} com ${formatPercent(leaderRow.share.value)}.`
+                : `Resultados de ${officeName} em ${areaName}.`
+              : results.data
+                ? `Resultados de ${officeName} em ${areaName}: ${formatInteger(results.data.pagination.total)} candidatos.`
+                : ''
 
   const attributes = {
     'data-election-status': status,
@@ -199,6 +206,9 @@ export function ResultsPanel({
         states={states}
         stale={stale}
         onSelect={navigate}
+        focus={focus}
+        metric={election.state.metric}
+        onFocus={(candidate) => toggleFocus(candidate, election.candidateId)}
       />
     )
   else body = <PanelSkeleton rows={contest ? topCount(contest) : 2} />
@@ -269,6 +279,7 @@ export function ResultsPanel({
           result={results.data}
           mode={mode}
           leader={leaderRow}
+          focus={focus}
         />
       }
     >
@@ -329,6 +340,7 @@ function SheetSummary({
   result,
   mode,
   leader,
+  focus,
 }: {
   status: 'error' | 'loading' | 'ready'
   national: boolean
@@ -336,7 +348,24 @@ function SheetSummary({
   result: AreaResult | null
   mode: 'summary' | 'ranking' | null
   leader: AreaResult['candidates'][number] | null
+  focus: CandidateFocus | null
 }) {
+  if (focus && status !== 'error')
+    return (
+      <>
+        <span
+          aria-hidden="true"
+          className="size-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: focus.candidate.color }}
+        />
+        <span className="truncate font-medium">
+          {titleCase(focus.candidate.displayName)} · nº {focus.candidate.number}
+        </span>
+        <span className="shrink-0 tabular-nums" data-sheet-focus-support="">
+          {focus.support ? `Apoio ${formatFocusPercent(focus.support.value)}` : '…'}
+        </span>
+      </>
+    )
   if (status === 'error')
     return <span className="truncate font-medium">Resultados indisponíveis</span>
   if (national) return <span className="truncate font-medium">{officeName} por UF</span>
@@ -436,6 +465,9 @@ function ContestBody({
   states,
   stale,
   onSelect,
+  focus,
+  metric,
+  onFocus,
 }: {
   result: AreaResult
   contest: Contest
@@ -446,8 +478,12 @@ function ContestBody({
   states: Area[]
   stale: boolean
   onSelect: (area: Area) => void
+  focus: CandidateFocus | null
+  metric: Metric
+  onFocus: (candidate: Candidate) => void
 }) {
   const mode = panelMode(contest)
+  const statusScope = (areaId: string) => scopeName(data, areaId, result)
   const majoritarian = contest.voteType === 'majoritarian' && mode === 'summary'
   const municipalities =
     selection?.type === 'state' && data
@@ -462,6 +498,12 @@ function ContestBody({
       aria-busy={stale || undefined}
       data-contest-body={result.area.id}
     >
+      {focus && (
+        <>
+          <CandidateCard focus={focus} metric={metric} statusScope={statusScope} />
+          <Separator />
+        </>
+      )}
       <CoverageLine result={result} coverage={coverage} />
       {result.state === 'unavailable' ? (
         <PanelEmpty
@@ -475,7 +517,9 @@ function ContestBody({
             result={result}
             contest={contest}
             mode={mode}
-            statusScope={(areaId) => scopeName(data, areaId, result)}
+            statusScope={statusScope}
+            focusedId={focus?.candidate.id ?? null}
+            onFocus={onFocus}
           />
           <Separator />
           <TotalsBlock result={result} seats={contest.seats} />
@@ -534,6 +578,10 @@ function NationalView({
         <Badge variant="outline">{coverage?.scope === 'national' ? 'Nacional' : 'Piloto'}</Badge>
         <span>Selecione um estado para ver a disputa.</span>
       </p>
+      <p className="text-muted-foreground" data-focus-national-note="">
+        O foco em candidato vale dentro de uma disputa. Selecione uma UF para focar um candidato a{' '}
+        {OFFICE_NAMES[office].toLocaleLowerCase('pt-BR')}.
+      </p>
       <OfficeAreaList
         heading="Estados"
         description={
@@ -551,4 +599,14 @@ function NationalView({
       />
     </div>
   )
+}
+
+/**
+ * Row click: enters the focus with the default metric (support, no `metric` token), switches the
+ * candidate keeping the metric, or leaves the focus when the row is the focused candidate.
+ */
+function toggleFocus(candidate: Candidate, focusedId: string | null) {
+  if (candidate.id === focusedId) exitFocus()
+  else if (focusedId) navigateElection({ candidate: candidate.officialId })
+  else navigateElection({ candidate: candidate.officialId, metric: 'share' })
 }

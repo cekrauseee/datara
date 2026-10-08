@@ -32,11 +32,17 @@ export function CandidateList({
   contest,
   mode,
   statusScope,
+  focusedId = null,
+  onFocus,
 }: {
   result: AreaResult
   contest: Contest
   mode: PanelMode
   statusScope: (areaId: string) => string
+  /** Candidate ID of the focus, if any. */
+  focusedId?: string | null
+  /** Row click: enters the focus, or leaves it when the row is the focused one. */
+  onFocus?: (candidate: CandidateRowData['candidate']) => void
 }) {
   const listId = useId()
   const [expanded, setExpanded] = useState(false)
@@ -96,6 +102,8 @@ export function CandidateList({
             leader={leaders.has(row.candidate.id)}
             tie={tie}
             statusScope={statusScope}
+            selected={row.candidate.id === focusedId}
+            onSelect={onFocus && (() => onFocus(row.candidate))}
           />
         ))}
         {!collapsed &&
@@ -109,6 +117,8 @@ export function CandidateList({
               leaders={leaders}
               tie={tie}
               statusScope={statusScope}
+              focusedId={focusedId}
+              onFocus={onFocus}
               onLoaded={onLoaded}
             />
           ))}
@@ -193,6 +203,8 @@ function ExtraPage({
   leaders,
   tie,
   statusScope,
+  focusedId,
+  onFocus,
   onLoaded,
 }: {
   contestId: string
@@ -202,6 +214,8 @@ function ExtraPage({
   leaders: ReadonlySet<string>
   tie: boolean
   statusScope: (areaId: string) => string
+  focusedId: string | null
+  onFocus?: (candidate: CandidateRowData['candidate']) => void
   onLoaded: (offset: number, rows: CandidateRowData[], hasMore: boolean) => void
 }) {
   const query = useResults(contestId, areaId, { limit, offset })
@@ -237,6 +251,8 @@ function ExtraPage({
       leader={leaders.has(row.candidate.id)}
       tie={tie}
       statusScope={statusScope}
+      selected={row.candidate.id === focusedId}
+      onSelect={onFocus && (() => onFocus(row.candidate))}
     />
   ))
 }
