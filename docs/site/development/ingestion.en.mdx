@@ -96,7 +96,7 @@ pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIV
 
 # Full national acquisition of all applicable municipality/zone/primary-section units,
 # continuing the estimated publication (network defaults shown):
-pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR" --resume PUBLICATION_UUID --concurrency 6 --rate 20 --timeout 60 --progress-interval 30
+pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR" --resume PUBLICATION_UUID --concurrency 10 --rate 20 --timeout 60 --progress-interval 30
 
 # The CLI prints a publication UUID immediately. Resume an interrupted pilot with the SAME scope/limits/archive:
 pnpm --filter @datara/api elections --scope pilot --resume PUBLICATION_UUID --archive "$ELECTION_ARCHIVE_DIR" --pilot-ufs ac,df,pe,zz --municipalities 1 --sections 2
@@ -120,9 +120,9 @@ National loading is intentionally a separate user command; the national acquisit
 
 The national first round has 58,896 EA20 units and 499,248 primary sections; all but 41 have an auxiliary file, nearly always with a BU, so the load makes about 1.06 million requests. Run `--estimate` first. It downloads only the catalogs, counts units by kind and projects requests, archive and database size, rows and hours from the archived contest-level EA20 files and constants measured on the pilot. It states that no result file was downloaded and leaves the publication paused, so the full run resumes it.
 
-All TSE requests of an invocation share one fetcher: `--concurrency` simultaneous requests (default 6), `--rate` request starts per second for the whole process (default 20, at most the TSE limit of 100 per IP) and a per-attempt `--timeout` in seconds (default 60) covering headers and body. Network errors, timeouts, HTTP 408 and 5xx are retried, up to six attempts, with exponential backoff from 1 s to 32 s, ±25% jitter and `Retry-After`. HTTP 429 or 403 means the TSE is blocking the IP: every request then waits a 10 min 30 s cool-down, because retrying during a block renews it. HTTP 404/410 is never retried and never becomes an absence: the run pauses with the URL in `import_runs.error`, and three consecutive missing responses stop all requests at once. Bodies above 64 MiB are rejected, and `User-Agent` identifies the project.
+All TSE requests of an invocation share one fetcher: `--concurrency` simultaneous requests (default 10), `--rate` request starts per second for the whole process (default 20, at most the TSE limit of 100 per IP) and a per-attempt `--timeout` in seconds (default 60) covering headers and body. Network errors, timeouts, HTTP 408 and 5xx are retried, up to six attempts, with exponential backoff from 1 s to 32 s, ±25% jitter and `Retry-After`. HTTP 429 or 403 means the TSE is blocking the IP: every request then waits a 10 min 30 s cool-down, because retrying during a block renews it. HTTP 404/410 is never retried and never becomes an absence: the run pauses with the URL in `import_runs.error`, and three consecutive missing responses stop all requests at once. Bodies above 64 MiB are rejected, and `User-Agent` identifies the project.
 
-Throughput is the lower of `--rate` and the latency bound. With TSE latencies of 0.31–0.55 s measured on warm connections, each concurrent request completes about 2.4 requests per second, so the defaults sustain about 15 per second; using the whole rate needs `--concurrency 10 --rate 20`, or `--concurrency 18 --rate 40`. These flags are operational: they are not stored with the publication and may change between resumptions.
+Throughput is the lower of `--rate` and the latency bound. With TSE latencies of 0.31–0.55 s measured on warm connections, each concurrent request completes about 2.4 requests per second, so the default concurrency of 10 sustains the default rate of 20 per second; 40 per second needs `--concurrency 18 --rate 40`, and concurrency below about 0.45 × rate leaves part of the rate unused. These flags are operational: they are not stored with the publication and may change between resumptions.
 
 Pending units are listed once per invocation in their semantic order: every EA20 before section files, full contests before local observations. A window of 4 × concurrency upcoming units is downloaded ahead into the archive only, complete bytes under `sha256/` and then the URL reference, including the BU selected from each section's auxiliary file. Normalization stays sequential: each unit's normalization, state and counter commit in one transaction, reading the prefetched bytes through the same manifest and hash verification. A killed write leaves at most a temporary file, removed by a later start once older than five minutes. With `--refresh`, a source acquired by the same invocation is not downloaded again.
 
@@ -134,7 +134,7 @@ Each primary section's EA18 status decides its bulletin. `Totalizada` uses the `
 
 Reconciliation compares total ballots in every zone whose primary sections all have a BU or an official status without one; absences contribute no printed ballots. `coverage` also reports `officialSectionStatuses` (sections by EA18 status), `sectionsWithoutAuxiliaryFile` and `unreconciledZoneResults` (zone results outside that comparison).
 
-The estimate measured on 2026-10-08 from the pilot archive: about 10.3 GB of sources (about 18 GB allocated with 4 KiB blocks and URL references); 173–313 million rows and 57–102 GB of PostgreSQL with indexes; about 20 hours of downloads with the defaults, 14.7 at an effective 20 requests per second and 7.3 at 40; 1.4–1.9 hours of normalization, overlapped with downloads. The ranges come from rows per bulletin, 322 on average in the pilot's domestic sections and up to 600 assumed for large urban ones.
+The estimate measured on 2026-10-08 from the pilot archive: about 10.3 GB of sources (about 18 GB allocated with 4 KiB blocks and URL references); 173–313 million rows and 57–102 GB of PostgreSQL with indexes; about 14.7 hours of downloads at the default 20 requests per second and 7.3 hours at 40; 1.4–1.9 hours of normalization, overlapped with downloads. The ranges come from rows per bulletin, 322 on average in the pilot's domestic sections and up to 600 assumed for large urban ones.
 
 ## Publication and integrity
 
@@ -185,7 +185,7 @@ export PHOTO_DIRECTORY="$PWD/.data/presentation" # contains photos/; use the sam
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6257:1:br --limit 1
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6259:6:ac --limit 1
 # All primary candidacies in the active publication (national when that publication is national):
-pnpm --filter @datara/api elections:photos --concurrency 6 --rate 20
+pnpm --filter @datara/api elections:photos --concurrency 10 --rate 20
 # Select an explicit retained snapshot, or replay/update its photos:
 pnpm --filter @datara/api elections:photos --publication PUBLICATION_UUID --offline
 pnpm --filter @datara/api elections:photos --refresh

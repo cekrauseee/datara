@@ -23,8 +23,9 @@ export type NetworkOptions = {
   fetch?: typeof fetch
   log?: (event: Record<string, unknown>) => void
 }
+// Ten simultaneous requests sustain the default rate at the measured TSE latency (about 0.4 s).
 export const DEFAULT_NETWORK = {
-  concurrency: 6,
+  concurrency: 10,
   rate: 20,
   timeoutMs: 60_000,
   attempts: 6,
