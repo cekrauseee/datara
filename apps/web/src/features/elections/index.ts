@@ -70,6 +70,19 @@ export {
 } from './election-session'
 export type { SessionInput, SessionState } from './election-session'
 export { ElectionStatus } from './election-status'
+export { classifyMap, isCrossMap, legendCounts, metricBands } from './map-classes'
+export type {
+  ClassifiedMap,
+  FillMeta,
+  LegendModel,
+  LegendRow,
+  MapData,
+  MapDataItem,
+} from './map-classes'
+export { formatCount, formatPercent, formatPoints, formatVotes } from './map-format'
+export { MapHoverDetail, hoverTarget } from './map-hover-detail'
+export type { HoverTarget } from './map-hover-detail'
+export { MapLegend } from './map-legend'
 export { useApiQuery } from './use-api-query'
 export type { ApiQuery } from './use-api-query'
 export { useElection } from './use-election'
@@ -88,3 +101,5 @@ export {
 } from './use-election-data'
 export type { CandidateQuery, ElectoralAreaQuery, Page } from './use-election-data'
 export { navigateElection, useElectionLocation } from './use-election-location'
+export { useMapLayer } from './use-map-layer'
+export type { MapLayerState } from './use-map-layer'

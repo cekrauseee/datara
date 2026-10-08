@@ -12,6 +12,15 @@ import {
 } from './map-geometry'
 
 import {
+  buildLayerGroups,
+  hitGrain,
+  LAYER_BORDER_ALPHA,
+  PARTIAL_VEIL_ALPHA,
+  resolveLayerColor,
+  type LayerGroups,
+  type MapLayer,
+} from './map-layer'
+import {
   prepareDetails,
   prepareScene,
   projectFeature,
@@ -23,9 +32,12 @@ export type MapControls = {
   fit: (id: string | null, feature?: MapFeature) => void
   scale: (factor: number) => void
   pan: (x: number, y: number) => void
+  /** Paints a data layer over the base map, or restores the base with `null`. */
+  setLayer: (layer: MapLayer | null) => void
   destroy: () => void
 }
 export type MapHover = { area: Area; x: number; y: number } | null
+export type MapLayerInfo = { key: string; groups: number; fills: number; missing: number } | null
 
 export function createMap(
   canvas: HTMLCanvasElement,
@@ -37,6 +49,8 @@ export function createMap(
     onSelect: (area: Area) => void
     onHover: (hover: MapHover) => void
     onZoom: (scale: number) => void
+    /** After the merged groups of a layer are drawn, or `null` when the base is restored. */
+    onLayer?: (info: MapLayerInfo) => void
   },
 ): MapControls {
   const context = canvas.getContext('2d')
@@ -79,11 +93,14 @@ export function createMap(
   let animation = 0
   let dragging = false
   let colors: Record<string, string> = {}
+  let layer: MapLayer | null = null
+  let layerGroups: LayerGroups | null = null
+  let layerVersion = 0
 
   function readColors() {
     const style = getComputedStyle(canvas)
     colors = Object.fromEntries(
-      ['foreground', 'muted', 'muted-foreground', 'primary'].map((token) => [
+      ['background', 'foreground', 'muted', 'muted-foreground', 'primary'].map((token) => [
         token,
         style.getPropertyValue(`--${token}`).trim(),
       ]),
@@ -98,11 +115,57 @@ export function createMap(
   }
 
   function highlight(shape: Shape, alpha: number, lineWidth: number) {
+    if (layerGroups) {
+      // A fill would tint the data colours: outline only, with a halo for contrast.
+      stroke(shape.path, colors.background, lineWidth + 1.6)
+      stroke(shape.path, colors.foreground, lineWidth)
+      return
+    }
     ctx.globalAlpha = alpha
     ctx.fillStyle = colors.primary
     ctx.fill(shape.path)
     ctx.globalAlpha = 1
     stroke(shape.path, colors.foreground, lineWidth)
+  }
+
+  function applyLayer(groups: LayerGroups | null) {
+    layerGroups = groups
+    scheduleDraw()
+    callbacks.onLayer?.(
+      groups
+        ? {
+            key: groups.layer.key,
+            groups: groups.groups.length,
+            fills: groups.fills,
+            missing: groups.missing,
+          }
+        : null,
+    )
+  }
+
+  function layerShapes(target: MapLayer, current: MapScene) {
+    return target.grain === 'municipality' ? current.regions : current.states
+  }
+
+  // Rebuilds the merged groups for the current scene; the previous groups stay drawn until the
+  // atomic swap, and a newer layer or scene discards the build.
+  function rebuildLayer() {
+    const version = ++layerVersion
+    const target = layer
+    const current = scene
+    if (!target || !current) {
+      if (layerGroups) applyLayer(null)
+      return
+    }
+    if (layerGroups?.layer === target) return
+    buildLayerGroups(target, layerShapes(target, current))
+      .then((built) => {
+        if (destroyed || version !== layerVersion || current !== scene) return
+        applyLayer(built)
+      })
+      .catch((error: unknown) => {
+        if (!destroyed && version === layerVersion) callbacks.onError?.(error)
+      })
   }
 
   function draw() {
@@ -121,8 +184,25 @@ export function createMap(
     for (const shape of states) {
       if (intersects(shape.bounds, viewport)) ctx.fill(shape.path)
     }
-    if (level !== 'states') {
-      ctx.globalAlpha = Math.min(1, (transform.k - 2.5) / 1.5) * 0.45
+    if (layerGroups) {
+      for (const group of layerGroups.groups) {
+        if (!intersects(group.bounds, viewport)) continue
+        ctx.fillStyle = resolveLayerColor(group.color, colors)
+        ctx.globalAlpha = group.alpha
+        ctx.fill(group.path)
+      }
+      // Partial results: a muted veil over the class fill equals the class colour at 60 % alpha.
+      ctx.fillStyle = colors.muted
+      ctx.globalAlpha = PARTIAL_VEIL_ALPHA
+      for (const veil of layerGroups.partial) {
+        if (intersects(veil.bounds, viewport)) ctx.fill(veil.path)
+      }
+      ctx.globalAlpha = 1
+    }
+    const municipalLayer = layerGroups?.layer.grain === 'municipality'
+    if (level !== 'states' || municipalLayer) {
+      const ramp = Math.min(1, (transform.k - 2.5) / 1.5) * 0.45
+      ctx.globalAlpha = municipalLayer ? Math.max(LAYER_BORDER_ALPHA, ramp) : ramp
       for (const border of regionBorders) {
         if (intersects(border.bounds, viewport))
           stroke(border.path, colors['muted-foreground'], 0.6)
@@ -302,6 +382,12 @@ export function createMap(
           if (destroyed || version !== resizeVersion) return
           projectedDetails.push({ stateCode, projected })
         }
+        // The new scene has new paths: the layer groups are rebuilt before the swap.
+        const builtLayer = layer
+          ? await buildLayerGroups(layer, layerShapes(layer, prepared))
+          : null
+        if (destroyed || version !== resizeVersion) return
+        layerVersion++
         scene = prepared
         projection = prepared.projection
         states = prepared.states
@@ -339,6 +425,9 @@ export function createMap(
                 .scale(transform.k)
             : zoomIdentity
         element.call(behavior.transform, target)
+        if (layerGroups !== builtLayer) applyLayer(builtLayer)
+        // A layer set during the preparation is built for the new scene.
+        if (layer !== (builtLayer?.layer ?? null)) rebuildLayer()
         if (ready && pendingFit) {
           pendingFit = false
           fit(selectedId)
@@ -358,7 +447,7 @@ export function createMap(
     const layers =
       transform.k >= 8
         ? [places, subdivisions, regions]
-        : detailLevel(transform.k) === 'states'
+        : hitGrain(transform.k, layer?.grain ?? null, selectedId) === 'state'
           ? [states]
           : [regions]
     let shape: Shape | undefined
@@ -448,6 +537,11 @@ export function createMap(
       if (preparing) return
       cancelAnimationFrame(animation)
       element.call(behavior.translateBy, x / transform.k, y / transform.k)
+    },
+    setLayer: (next) => {
+      if (next === layer) return
+      layer = next
+      if (!preparing) rebuildLayer()
     },
     destroy: () => {
       destroyed = true

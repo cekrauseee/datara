@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "map:update": "node scripts/update-map.mjs",
-    "map:check": "node scripts/check-map.mjs && node scripts/check-us-map.mjs && node scripts/check-map-location.mjs",
+    "map:check": "node scripts/check-map.mjs && node scripts/check-us-map.mjs && node scripts/check-map-location.mjs && node scripts/check-map-layer.mjs",
     "election:check": "node scripts/check-election-location.mjs",
     "map:update:us": "node --max-old-space-size=8192 scripts/update-us-map.mjs",
     "api:types": "pnpm --silent --filter @datara/api openapi:export ../web/.generated/openapi.json && openapi-typescript .generated/openapi.json -o src/features/elections/api-types.generated.ts && prettier --write src/features/elections/api-types.generated.ts",

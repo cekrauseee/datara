@@ -1,12 +1,19 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 import type { MapHover } from './map-canvas'
 import { areaLabel } from './map-data'
 import { tooltipPosition } from './map-geometry'
 
-export function MapTooltip({ hover }: { hover: NonNullable<MapHover> }) {
+export function MapTooltip({
+  hover,
+  children,
+}: {
+  hover: NonNullable<MapHover>
+  /** Data detail under the place name, such as the election leader. */
+  children?: ReactNode
+}) {
   const card = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const element = card.current
@@ -22,7 +29,7 @@ export function MapTooltip({ hover }: { hover: NonNullable<MapHover> }) {
     )
     element.style.left = `${position.left}px`
     element.style.top = `${position.top}px`
-  }, [hover])
+  }, [hover, children])
 
   return (
     <Card
@@ -38,6 +45,7 @@ export function MapTooltip({ hover }: { hover: NonNullable<MapHover> }) {
           {areaLabel(hover.area)} · {hover.area.stateAbbr}
         </CardDescription>
       </CardHeader>
+      {children && <CardContent>{children}</CardContent>}
     </Card>
   )
 }
