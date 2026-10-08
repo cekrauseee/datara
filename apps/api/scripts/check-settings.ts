@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { appendFile, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { appendFile, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseEnv } from 'node:util'
@@ -37,6 +37,27 @@ try {
     settings(directory, { DATABASE_URL: 'postgresql://localhost/other' }),
     /DATABASE_URL differs/,
   )
+
+  const legacyDirectory = await mkdtemp(join(tmpdir(), 'datara-legacy-settings-check-'))
+  try {
+    const legacyText =
+      'DATABASE_URL=postgresql://localhost/previous\nLOCAL_POSTGRES_PORT=55432\nUSER_NOTE=keep\n'
+    await writeFile(join(legacyDirectory, '.env'), legacyText, { mode: 0o600 })
+    const legacyConfig = await settings(legacyDirectory, {})
+    assert.equal(legacyConfig.env.DATABASE_URL, 'postgresql://localhost/previous')
+    assert.equal(legacyConfig.env.LOCAL_POSTGRES_PORT, '55432')
+    await saveSettings(legacyConfig)
+    const migratedText = await readFile(join(legacyDirectory, 'apps/api/.env'), 'utf8')
+    assert.ok(migratedText.startsWith(legacyText))
+    assert.equal(await readFile(join(legacyDirectory, '.env'), 'utf8'), legacyText)
+    assert.equal(
+      (await settings(legacyDirectory, {})).env.DATABASE_URL,
+      'postgresql://localhost/previous',
+    )
+    assert.equal((await stat(join(legacyDirectory, 'apps/api/.env'))).mode & 0o777, 0o600)
+  } finally {
+    await rm(legacyDirectory, { recursive: true, force: true })
+  }
   console.log('Settings check passed: API path, template preservation, overrides and repeat setup')
 } finally {
   await rm(directory, { recursive: true, force: true })
