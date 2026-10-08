@@ -182,14 +182,14 @@ export PHOTO_DIRECTORY="$PWD/.data/presentation" # contém photos/; use o mesmo 
 # Piloto real rápido: presidente e deputado federal do Acre.
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6257:1:br --limit 1
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6259:6:ac --limit 1
-# Todas as candidaturas principais da publicação ativa:
-pnpm --filter @datara/api elections:photos
+# Todas as candidaturas principais da publicação ativa (nacional quando ela for nacional):
+pnpm --filter @datara/api elections:photos --concurrency 6 --rate 20
 # Publicação específica, replay ou atualização:
 pnpm --filter @datara/api elections:photos --publication PUBLICATION_UUID --offline
 pnpm --filter @datara/api elections:photos --refresh
 ```
 
-O output padrão é `apps/api/public/photos/`. Checkpoints de URL, SHA-256 originais e manifestos por publicação ficam no arquivo eleitoral ignorado, separados do manifesto imutável de votos. Registram URLs, coleta, HTTP e hashes. Fotos opcionais 404/410 não bloqueiam publicação; outras falhas saem com erro para retry. Replay offline exige todas as fontes solicitadas; use o mesmo contest/limite de um piloto parcial.
+O output padrão é `apps/api/public/photos/`. Checkpoints de URL, SHA-256 originais e manifestos por publicação ficam no arquivo eleitoral ignorado, separados do manifesto imutável de votos. Registram URLs, coleta, HTTP e hashes. Fotos opcionais 404/410 não bloqueiam publicação; outras falhas saem com erro para retry. Downloads usam a política do fetcher de aquisição (concorrência, taxa, retry e cool-down), com timeout de 30 s e limite de 10 MiB, e imprimem progresso a cada `--progress-interval` segundos. Vinte e cinco fotos ausentes seguidas interrompem a execução, pois 404 repetidos podem bloquear o IP; repetir continua dos checkpoints de URL. SIGINT para de agendar fotos, mantém checkpoints concluídos e grava o manifesto. Replay offline exige todas as fontes solicitadas; use o mesmo contest/limite de um piloto parcial.
 
 Arquivos gerados modificados manualmente e JSON de apresentação são preservados. Refresh só substitui gerado se o hash atual corresponder ao original adquirido. Faça backup do diretório de fotos também.
 
@@ -200,4 +200,4 @@ export TEST_DATABASE_URL="$DATABASE_URL" # precisa ser dataset local de testes p
 pnpm --filter @datara/api check:photos
 ```
 
-O check reprocessa JPEGs reais em diretório temporário, verifica `photoUrl`, bytes HTTP/hash, manifesto de votos inalterado e remove só seu output temporário. `check:presentation` cobre precedência e ausência de imagem separadamente.
+O check reprocessa JPEGs reais em diretório temporário, verifica `photoUrl`, bytes HTTP/hash, manifesto de votos inalterado e remove só seu output temporário. Também adquire um lote de um servidor roteirizado para arquivo temporário: concorrência limitada, retry, fotos ausentes e falhas, e nova execução que repete só a falha. `check:presentation` cobre precedência e ausência de imagem separadamente.

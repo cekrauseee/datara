@@ -185,13 +185,13 @@ export PHOTO_DIRECTORY="$PWD/.data/presentation" # contains photos/; use the sam
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6257:1:br --limit 1
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6259:6:ac --limit 1
 # All primary candidacies in the active publication (national when that publication is national):
-pnpm --filter @datara/api elections:photos
+pnpm --filter @datara/api elections:photos --concurrency 6 --rate 20
 # Select an explicit retained snapshot, or replay/update its photos:
 pnpm --filter @datara/api elections:photos --publication PUBLICATION_UUID --offline
 pnpm --filter @datara/api elections:photos --refresh
 ```
 
-The default output is `apps/api/public/photos/` when `PHOTO_DIRECTORY` is unset. Photo URL checkpoints, original SHA-256 bytes and per-publication manifests live in the ignored election archive, separate from the immutable published voting manifest. This provenance records URLs, collection times, HTTP status and hashes. Missing optional photos (HTTP 404/410) are recorded and do not block voting publication; other acquisition failures are reported with a nonzero CLI exit so they can be retried. Offline replay needs all requested photo sources archived; select the same contest/limit for a partial pilot. Existing manually modified generated files and presentation JSON are preserved. A refresh can replace a generated file only if its current hash matches the previously acquired original. Back up the photo output directory too.
+The default output is `apps/api/public/photos/` when `PHOTO_DIRECTORY` is unset. Photo URL checkpoints, original SHA-256 bytes and per-publication manifests live in the ignored election archive, separate from the immutable published voting manifest. This provenance records URLs, collection times, HTTP status and hashes. Missing optional photos (HTTP 404/410) are recorded and do not block voting publication; other acquisition failures are reported with a nonzero CLI exit so they can be retried. Downloads use the acquisition fetcher's concurrency, rate, retry and cool-down policy, with a 30 s timeout and 10 MiB limit, and print progress every `--progress-interval` seconds. Twenty-five consecutive missing photos stop the run, since repeated 404 responses can block the IP; a rerun continues from the URL checkpoints. SIGINT stops scheduling photos, keeps finished checkpoints and writes the manifest. Offline replay needs all requested photo sources archived; select the same contest/limit for a partial pilot. Existing manually modified generated files and presentation JSON are preserved. A refresh can replace a generated file only if its current hash matches the previously acquired original. Back up the photo output directory too.
 
 For the targeted photo/API check, use a database containing the published pilot and the two photo sources acquired above:
 
@@ -200,4 +200,4 @@ export TEST_DATABASE_URL="$DATABASE_URL" # must reference the populated local te
 pnpm --filter @datara/api check:photos
 ```
 
-This check replays real archived JPEGs to a temporary directory, checks candidate `photoUrl` and actual local HTTP image bytes/hash, verifies that the voting manifest was not changed, and removes only its temporary output. `check:presentation` separately verifies override precedence and absent-image fallback.
+This check replays real archived JPEGs to a temporary directory, checks candidate `photoUrl` and actual local HTTP image bytes/hash, verifies that the voting manifest was not changed, and removes only its temporary output. It also acquires a batch from a scripted server into a temporary archive: bounded concurrency, retry, missing and failed photos, and a later run that retries only the failure. `check:presentation` separately verifies override precedence and absent-image fallback.
