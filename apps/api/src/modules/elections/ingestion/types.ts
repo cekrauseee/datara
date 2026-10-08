@@ -16,13 +16,20 @@ export type Sections = {
   f: string
   abr: {
     cd: string
-    mu: { cd: string; zon: { cd: string; sec: { ns: string; nsp?: string; nsa?: string[] }[] }[] }[]
+    mu: {
+      cd: string
+      zon: {
+        cd: string
+        // da/ha: when the section auxiliary file (EA18) was produced; absent when none exists.
+        sec: { ns: string; nsp?: string; nsa?: string[]; da?: string; ha?: string }[]
+      }[]
+    }[]
   }[]
 }
 export type Auxiliary = {
   f: string
   st: string
-  hashes: { hash: string; st: string; arq: { nm: string; tp: string }[] }[]
+  hashes?: { hash: string; st: string; arq?: { nm: string; tp: string }[] }[]
 }
 export type Candidate = {
   sqcand: string

@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks'
 import type pg from 'pg'
 import { FetchError, Fetcher, InterruptedError } from './fetch.js'
 import { BulletinCatalog, normalizeBulletin, normalizeUnified } from './normalize.js'
-import { Archive, BASE, bulletinUrl, hash, removeStaleTemporaryFiles } from './source.js'
+import { Archive, BASE, hash, removeStaleTemporaryFiles, sectionOutcome } from './source.js'
 import type {
   Auxiliary,
   Configuration,
@@ -25,6 +25,8 @@ type TaskContext = {
   contestId: string
   electionId: string
   officeCode: string
+  /** False when EA16 lists no auxiliary file: TSE generates none for sections without urn files. */
+  auxiliaryFile?: false
 }
 type Task = { url: string; kind: string; context: TaskContext; archived: boolean }
 type AreaRow = [
@@ -385,7 +387,10 @@ export async function importElection(pool: pg.Pool, options: ImportOptions): Pro
       const sectionCandidates: {
         url: string
         aggregated: boolean
-        context: Pick<TaskContext, 'areaId' | 'uf' | 'municipality' | 'zone' | 'section'>
+        context: Pick<
+          TaskContext,
+          'areaId' | 'uf' | 'municipality' | 'zone' | 'section' | 'auxiliaryFile'
+        >
       }[] = []
       for (const state of data.abr)
         for (const m of state.mu) {
@@ -415,6 +420,8 @@ export async function importElection(pool: pg.Pool, options: ImportOptions): Pro
                   municipality: m.cd,
                   zone: z.cd,
                   section: section.ns,
+                  // The official catalog says no auxiliary file exists; requesting it would be a 404.
+                  ...(section.da ? {} : { auxiliaryFile: false as const }),
                 },
               })
             }
@@ -508,7 +515,8 @@ export async function importElection(pool: pg.Pool, options: ImportOptions): Pro
     const schedule = () => {
       if (prefetchFailure || prefetching.signal.aborted) return
       for (const task of queue.slice(0, window)) {
-        if (prefetches.has(task.url) || task.archived) continue
+        if (prefetches.has(task.url) || task.archived || task.context.auxiliaryFile === false)
+          continue
         const promise = archive.prefetch(task.url, task.kind, prefetching.signal)
         promise.catch((error) => {
           if (error instanceof FetchError) prefetchFailure ??= error
@@ -519,17 +527,24 @@ export async function importElection(pool: pg.Pool, options: ImportOptions): Pro
     const catalog = new BulletinCatalog(client, pub)
     const unit = async (task: Task) => {
       const context = task.context
-      const { source, data } = await archive.json<UnifiedResult | Auxiliary>(task.url, task.kind)
-      let bulletin: Awaited<ReturnType<Archive['get']>> | undefined
-      if (task.kind === 'EA18') {
-        const auxiliary = data as Auxiliary
-        const selected = bulletinUrl(task.url, auxiliary)
-        if (selected) bulletin = await archive.get(selected, 'BU')
-        else if (!['Não instalada', 'Não Instalada'].includes(auxiliary.st))
-          throw new Error(
-            `Section has no final BU or official noninstallation: ${auxiliary.st} ${task.url}`,
+      if (task.kind === 'EA18' && context.auxiliaryFile === false) {
+        await transaction(client, async () => {
+          await client.query(
+            "UPDATE import_tasks SET state='official_absence' WHERE publication_id=$1 AND url=$2",
+            [pub, task.url],
           )
+          await client.query(
+            'UPDATE import_runs SET completed_documents=completed_documents+1,updated_at=now() WHERE publication_id=$1',
+            [pub],
+          )
+        })
+        return
       }
+      const { source, data } = await archive.json<UnifiedResult | Auxiliary>(task.url, task.kind)
+      // Sections without a totalized bulletin keep their official EA18 status; unknown states fail.
+      const bulletinUrl =
+        task.kind === 'EA18' ? sectionOutcome(task.url, data as Auxiliary).bulletinUrl : undefined
+      const bulletin = bulletinUrl ? await archive.get(bulletinUrl, 'BU') : undefined
       await transaction(client, async () => {
         if (task.kind === 'EA20')
           await normalizeUnified(client, pub, source, data as UnifiedResult, context)
@@ -771,7 +786,8 @@ export async function estimateVolume(
 ) {
   const tasks = (
     await client.query(
-      `SELECT kind,count(*)::integer total,count(*) FILTER(WHERE state='pending')::integer pending
+      `SELECT kind,count(*)::integer total,count(*) FILTER(WHERE state='pending')::integer pending,
+       count(*) FILTER(WHERE state='pending' AND context->>'auxiliaryFile'='false')::integer without_auxiliary
        FROM import_tasks WHERE publication_id=$1 GROUP BY kind`,
       [pub],
     )
@@ -828,8 +844,12 @@ export async function estimateVolume(
       unknownTasks * blocks(mean((k) => k.bytes)),
     rows: known.reduce((n, k) => n + k.pending * k.rows, 0) + unknownTasks * mean((k) => k.rows),
   }
-  const sections = tasks.find((t) => t.kind === 'EA18') ?? { total: 0, pending: 0 }
-  const withFiles = sections.pending
+  const sections = tasks.find((t) => t.kind === 'EA18') ?? {
+    total: 0,
+    pending: 0,
+    without_auxiliary: 0,
+  }
+  const withFiles = sections.pending - sections.without_auxiliary
   const requests = ea20.pending + 2 * withFiles
   const bulletinRows = ESTIMATE.bulletinRows.map((perSection) => withFiles * perSection)
   const rows = bulletinRows.map((n) => Math.round(ea20.rows + n))
@@ -842,7 +862,12 @@ export async function estimateVolume(
   const gb = (bytes: number) => round(bytes / 1e9)
   return {
     note: 'Estimate only: no EA20, EA18 or BU result file was downloaded; only the EA11/EA12/EA16 catalogs.',
-    tasks: Object.fromEntries(tasks.map((t) => [t.kind, { total: t.total, pending: t.pending }])),
+    tasks: Object.fromEntries(
+      tasks.map((t) => [
+        t.kind,
+        { total: t.total, pending: t.pending, withoutAuxiliaryFile: t.without_auxiliary },
+      ]),
+    ),
     requests,
     archive: {
       gigabytes: gb(logicalBytes),
@@ -894,21 +919,68 @@ export async function validatePublication(client: pg.PoolClient, pub: string, sc
   ).rows[0]
   if (!totals.bu_results || !totals.aggregates)
     throw new Error('Publication needs both BU and EA20 results')
-  // Only fully covered zones can be reconciled. EA20 judicial destinations differ from printed BU,
-  // so compare total ballots, never silently relabel nominal BU counts as valid candidate votes.
-  const reconciled = (
+  // Official section situations: the EA18 status, or no auxiliary file at all per EA16.
+  const statuses = (
     await client.query(
-      `WITH section_counts AS (
-   SELECT parent_id,count(*) FILTER(WHERE principal_area_id IS NULL)::integer n FROM areas WHERE publication_id=$1 AND level='section' GROUP BY parent_id
-  ), printed AS (
-   SELECT r.contest_id,a.parent_id,sum(r.total_votes) votes,count(*)::integer n FROM area_results r JOIN areas a USING(publication_id)
-   WHERE r.publication_id=$1 AND r.source_kind='BU' AND a.id=r.area_id GROUP BY r.contest_id,a.parent_id
-  ) SELECT r.contest_id,r.area_id,r.total_votes::text official_votes,p.votes::text printed_votes
-  FROM area_results r JOIN printed p ON p.contest_id=r.contest_id AND p.parent_id=r.area_id
-  JOIN section_counts s ON s.parent_id=r.area_id WHERE r.publication_id=$1 AND r.source_kind='EA20' AND p.n=s.n`,
+      `SELECT coalesce(s.metadata->>'officialStatus','') status,
+  count(*) FILTER(WHERE t.context->>'auxiliaryFile'='false')::integer without_file,count(*)::integer n
+  FROM import_tasks t LEFT JOIN source_documents s ON s.publication_id=t.publication_id AND s.url=t.url
+  WHERE t.publication_id=$1 AND t.kind='EA18' GROUP BY 1 ORDER BY 1`,
       [pub],
     )
   ).rows
+  // Sections without an auxiliary file must be explained by the zone's official EA20 totals of
+  // non-installed or uncounted sections; otherwise the section catalog may be stale.
+  const unexplained = (
+    await client.query(
+      `WITH absent AS (
+   SELECT a.parent_id,count(*)::integer n FROM import_tasks t
+   JOIN areas a ON a.publication_id=t.publication_id AND a.id=t.context->>'areaId'
+   WHERE t.publication_id=$1 AND t.kind='EA18' AND t.context->>'auxiliaryFile'='false' GROUP BY a.parent_id
+  ) SELECT x.parent_id zone,x.n,r.contest_id,r.metadata->'sectionTotals'->>'sni' not_installed,
+  r.metadata->'sectionTotals'->>'sna' not_counted
+  FROM absent x LEFT JOIN area_results r ON r.publication_id=$1 AND r.area_id=x.parent_id AND r.source_kind='EA20'
+  WHERE r.contest_id IS NULL OR x.n > coalesce((r.metadata->'sectionTotals'->>'sni')::integer,0)
+   + coalesce((r.metadata->'sectionTotals'->>'sna')::integer,0)`,
+      [pub],
+    )
+  ).rows
+  if (unexplained.length)
+    throw new Error(
+      `Sections without auxiliary file not explained by EA20 zone totals: ${JSON.stringify(unexplained.slice(0, 10))}`,
+    )
+  // A zone is comparable when each principal section has a BU or an official status without
+  // one. EA20 judicial destinations differ from printed BU, so compare total ballots, never
+  // silently relabel nominal BU counts as valid candidate votes.
+  const zones = (
+    await client.query(
+      `WITH section_counts AS (
+   SELECT parent_id,count(*) FILTER(WHERE principal_area_id IS NULL)::integer n FROM areas WHERE publication_id=$1 AND level='section' GROUP BY parent_id
+  ), absent AS (
+   SELECT a.parent_id,count(*)::integer n FROM import_tasks t
+   JOIN areas a ON a.publication_id=t.publication_id AND a.id=t.context->>'areaId'
+   WHERE t.publication_id=$1 AND t.kind='EA18' AND t.state='official_absence' GROUP BY a.parent_id
+  ), printed AS (
+   SELECT r.contest_id,a.parent_id,sum(r.total_votes) votes,count(*)::integer n FROM area_results r JOIN areas a USING(publication_id)
+   WHERE r.publication_id=$1 AND r.source_kind='BU' AND a.id=r.area_id GROUP BY r.contest_id,a.parent_id
+  ) SELECT r.contest_id,r.area_id,r.total_votes::text official_votes,coalesce(p.votes,0)::text printed_votes,
+  coalesce(p.n,0)+coalesce(x.n,0)=s.n covered
+  FROM area_results r JOIN areas z ON z.publication_id=r.publication_id AND z.id=r.area_id AND z.level='zone'
+  LEFT JOIN section_counts s ON s.parent_id=r.area_id
+  LEFT JOIN printed p ON p.contest_id=r.contest_id AND p.parent_id=r.area_id
+  LEFT JOIN absent x ON x.parent_id=r.area_id
+  WHERE r.publication_id=$1 AND r.source_kind='EA20' ORDER BY r.contest_id,r.area_id`,
+      [pub],
+    )
+  ).rows
+  const reconciled = zones
+    .filter((zone) => zone.covered)
+    .map(({ contest_id, area_id, official_votes, printed_votes }) => ({
+      contest_id,
+      area_id,
+      official_votes,
+      printed_votes,
+    }))
   const discrepancies = reconciled.filter((r) => r.official_votes !== r.printed_votes)
   if (discrepancies.length)
     throw new Error(`Unreconciled complete zones: ${JSON.stringify(discrepancies.slice(0, 10))}`)
@@ -917,9 +989,15 @@ export async function validatePublication(client: pg.PoolClient, pub: string, sc
     complete: scope === 'national',
     ...counts,
     ...totals,
-    reconciliation: 'total ballots in fully imported zones',
+    reconciliation:
+      'total ballots in zones where every principal section has a BU or an official status without one',
     reconciled_zone_results: reconciled.length,
     discrepancies,
+    unreconciledZoneResults: zones.length - reconciled.length,
+    officialSectionStatuses: Object.fromEntries(
+      statuses.filter((row) => row.status).map((row) => [row.status, row.n]),
+    ),
+    sectionsWithoutAuxiliaryFile: statuses.reduce((n, row) => n + row.without_file, 0),
   }
 }
 export async function publishPublication(client: pg.PoolClient, pub: string) {

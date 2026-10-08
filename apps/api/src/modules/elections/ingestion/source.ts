@@ -94,7 +94,7 @@ export class Archive {
       }
       const auxiliary = (await this.cached(url)) ?? (await this.download(url, signal))
       const data = JSON.parse(auxiliary.bytes.toString('utf8')) as Auxiliary
-      const bulletin = bulletinUrl(url, data)
+      const bulletin = sectionOutcome(url, data).bulletinUrl
       if (bulletin && !(await this.usable(bulletin))) await this.download(bulletin, signal)
     } catch (error) {
       if (error instanceof FetchError || signal?.aborted) throw error
@@ -148,8 +148,38 @@ export class Archive {
   }
 }
 
+const SECTION_STATUSES = new Map([
+  ['totalizada', 'bulletin'],
+  // Official situations without a totalized bulletin: no installation, no count, annulment, or
+  // files received but not totalized. Their votes are absent from this source, never zero.
+  ['não instalada', 'official'],
+  ['não apurada', 'official'],
+  ['anulada', 'official'],
+  ['recebida', 'official'],
+])
+const HASH_STATUSES = new Set(['recebido', 'rejeitado', 'excluído', 'totalizado'])
 const status = (value: unknown) =>
   typeof value === 'string' ? value.normalize('NFC').trim().toLocaleLowerCase('pt-BR') : ''
+/**
+ * Interprets an EA18 section auxiliary file. Section states follow the TSE EA18 domain
+ * (Recebida, Não instalada, Não apurada, Anulada, Totalizada) and hash states (Recebido,
+ * Rejeitado, Excluído, Totalizado); any other value fails instead of guessing.
+ */
+export function sectionOutcome(
+  auxUrl: string,
+  auxiliary: Auxiliary,
+): { officialStatus: string; bulletinUrl?: string } {
+  const kind = SECTION_STATUSES.get(status(auxiliary.st))
+  if (!kind)
+    throw new Error(`Unknown EA18 section status ${JSON.stringify(auxiliary.st)}: ${auxUrl}`)
+  for (const item of auxiliary.hashes ?? [])
+    if (!HASH_STATUSES.has(status(item.st)))
+      throw new Error(`Unknown EA18 hash status ${JSON.stringify(item.st)}: ${auxUrl}`)
+  if (kind === 'official') return { officialStatus: auxiliary.st }
+  const bulletin = bulletinUrl(auxUrl, auxiliary)
+  if (!bulletin) throw new Error(`Totalized section has no totalized BU: ${auxUrl}`)
+  return { officialStatus: auxiliary.st, bulletinUrl: bulletin }
+}
 /** The bulletin of the single totalized hash, or undefined when no totalized hash has one. */
 export function bulletinUrl(auxUrl: string, auxiliary: Auxiliary) {
   const hashes = (auxiliary.hashes ?? []).filter((h) => status(h.st) === 'totalizado')

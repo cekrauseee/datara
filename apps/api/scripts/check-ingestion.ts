@@ -12,8 +12,12 @@ import {
   validatePublication,
 } from '../src/modules/elections/ingestion/import.js'
 import { normalizeUnified } from '../src/modules/elections/ingestion/normalize.js'
-import { hash } from '../src/modules/elections/ingestion/source.js'
-import type { ImportOptions, UnifiedResult } from '../src/modules/elections/ingestion/types.js'
+import { BASE, hash, sectionOutcome } from '../src/modules/elections/ingestion/source.js'
+import type {
+  Auxiliary,
+  ImportOptions,
+  UnifiedResult,
+} from '../src/modules/elections/ingestion/types.js'
 
 if (!process.env.TEST_DATABASE_URL || !process.env.ELECTION_ARCHIVE_DIR)
   throw new Error(
@@ -39,6 +43,62 @@ const options: ImportOptions = {
   progressIntervalMs: 0,
 }
 const archives: string[] = []
+
+// EA18 interpretation with synthetic fixtures: official statuses without a totalized bulletin are
+// recorded as such; unknown or inconsistent states fail instead of becoming absences or zeros.
+{
+  const aux = `${BASE}/ele2026/arquivo-urna/3220/dados/ac/01066/0004/0077/p003220-ac-m01066-z0004-s0077-aux.json`
+  const directory = aux.slice(0, aux.lastIndexOf('/'))
+  const file = (hash: string, st: string, ...arq: [string, string][]) => ({
+    hash,
+    st,
+    arq: arq.map(([nm, tp]) => ({ nm, tp })),
+  })
+  const outcome = (st: string, hashes: Auxiliary['hashes']) =>
+    sectionOutcome(aux, { f: 'o', st, hashes })
+  assert.deepEqual(
+    outcome('Totalizada', [
+      file('aa11', 'Excluído', ['old-bu.dat', 'bu']),
+      file('bb22', 'Totalizado', ['o-rdv.dat', 'rdv'], ['o-bu.dat', 'bu']),
+      file('cc33', 'Rejeitado', ['bad-bu.dat', 'bu']),
+      file('dd44', 'Recebido', ['new-bu.dat', 'bu']),
+    ]),
+    { officialStatus: 'Totalizada', bulletinUrl: `${directory}/bb22/o-bu.dat` },
+  )
+  assert.equal(
+    outcome('Totalizada', [file('ee55', 'Totalizado', ['o-busa.dat', 'busa'])]).bulletinUrl,
+    `${directory}/ee55/o-busa.dat`,
+  )
+  for (const st of ['Não instalada', 'Não Instalada', 'Não apurada', 'Anulada', 'Recebida'])
+    assert.deepEqual(outcome(st, [file('ff66', 'Totalizado', ['o-bu.dat', 'bu'])]), {
+      officialStatus: st,
+    })
+  assert.deepEqual(sectionOutcome(aux, { f: 'o', st: 'Não instalada' }), {
+    officialStatus: 'Não instalada',
+  })
+  assert.throws(() => outcome('Cancelada', []), /Unknown EA18 section status/)
+  assert.throws(() => outcome('Totalizada', [file('aa11', 'Substituído')]), /Unknown EA18 hash/)
+  assert.throws(
+    () =>
+      outcome('Totalizada', [
+        file('aa11', 'Totalizado', ['a-bu.dat', 'bu']),
+        file('bb22', 'Totalizado', ['b-bu.dat', 'bu']),
+      ]),
+    /Multiple totalized/,
+  )
+  assert.throws(
+    () => outcome('Totalizada', [file('aa11', 'Recebido', ['a-bu.dat', 'bu'])]),
+    /no totalized BU/,
+  )
+  assert.throws(
+    () => outcome('Totalizada', [file('aa11', 'Totalizado', ['a.jez', 'log'])]),
+    /no totalized BU/,
+  )
+  assert.throws(
+    () => outcome('Totalizada', [file('../x', 'Totalizado', ['a-bu.dat', 'bu'])]),
+    /Invalid BU/,
+  )
+}
 
 const TABLES: Record<string, string> = {
   areas:
@@ -303,6 +363,65 @@ try {
       )
     ).rows[0]
     assert.deepEqual(exterior, { eligible: '91', turnout: '44' })
+    const coverage = (await client.query('SELECT coverage FROM publications WHERE id=$1', [pub]))
+      .rows[0].coverage
+    assert.deepEqual(coverage.officialSectionStatuses, { Totalizada: 7 })
+    assert.equal(coverage.sectionsWithoutAuxiliaryFile, 0)
+    assert.equal(coverage.reconciled_zone_results, 1)
+    assert.ok(coverage.unreconciledZoneResults > 0)
+
+    // A zone whose sections all have a BU or an official status without one is reconciled; an
+    // official absence covers its section and contributes no printed ballots.
+    const exteriorSection = (
+      await client.query(
+        "SELECT url FROM import_tasks WHERE publication_id=$1 AND context->>'areaId'='zz:29254:0001:0001'",
+        [pub],
+      )
+    ).rows[0].url
+    const absent = async (withoutFile: boolean) => {
+      await client.query(
+        `UPDATE import_tasks SET state='official_absence',context=context || $3::jsonb
+         WHERE publication_id=$1 AND url=$2`,
+        [pub, exteriorSection, withoutFile ? { auxiliaryFile: false } : {}],
+      )
+      await client.query(
+        "DELETE FROM area_results WHERE publication_id=$1 AND area_id='zz:29254:0001:0001'",
+        [pub],
+      )
+    }
+    await client.query('BEGIN')
+    await absent(false)
+    await assert.rejects(
+      validatePublication(client, pub, 'pilot'),
+      /Unreconciled complete zones.*zz:29254:0001/,
+    )
+    await client.query(
+      "UPDATE area_results SET total_votes=0 WHERE publication_id=$1 AND area_id='zz:29254:0001' AND source_kind='EA20'",
+      [pub],
+    )
+    const covered = await validatePublication(client, pub, 'pilot')
+    assert.equal(covered.reconciled_zone_results, 1)
+    assert.equal(covered.official_absences, 1)
+    await client.query('ROLLBACK')
+    // Sections with no auxiliary file must be explained by the zone's EA20 section totals.
+    await client.query('BEGIN')
+    await absent(true)
+    await client.query(
+      "UPDATE area_results SET total_votes=0 WHERE publication_id=$1 AND area_id='zz:29254:0001' AND source_kind='EA20'",
+      [pub],
+    )
+    await assert.rejects(
+      validatePublication(client, pub, 'pilot'),
+      /not explained by EA20 zone totals/,
+    )
+    await client.query(
+      `UPDATE area_results SET metadata=jsonb_set(metadata,'{sectionTotals,sni}','"1"')
+       WHERE publication_id=$1 AND area_id='zz:29254:0001' AND source_kind='EA20'`,
+      [pub],
+    )
+    assert.equal((await validatePublication(client, pub, 'pilot')).sectionsWithoutAuxiliaryFile, 1)
+    await client.query('ROLLBACK')
+
     // Online acquisition through the prefetch window against the scripted TSE: a missing source
     // pauses with its URL, an interruption pauses after the current unit, and the resumed
     // publication equals the sequential offline one.
@@ -356,7 +475,7 @@ try {
       `${requests.length} requests`,
     )
 
-    // An estimate builds the inventory and downloads only catalogs.
+    // Official EA18 statuses without a totalized BU, and sections without any auxiliary file.
     const statusArchive = await temporaryArchive()
     const catalogsOnly = scriptedTse({})
     const estimated = expectPaused(
@@ -373,10 +492,86 @@ try {
     assert.equal(catalogsOnly.requests.length, 8, 'an estimate downloads only EA11, EA12 and EA16')
     assert.match(estimated.estimate!.note, /no EA20, EA18 or BU result file was downloaded/)
     assert.deepEqual(estimated.estimate!.tasks, {
-      EA18: { total: 7, pending: 7 },
-      EA20: { total: 261, pending: 261 },
+      EA18: { total: 7, pending: 7, withoutAuxiliaryFile: 0 },
+      EA20: { total: 261, pending: 261, withoutAuxiliaryFile: 0 },
     })
     assert.equal(estimated.estimate!.requests, 261 + 2 * 7)
+    const statuses = estimated.publicationId
+    const section = async (areaId: string) =>
+      (
+        await client.query(
+          "SELECT url FROM import_tasks WHERE publication_id=$1 AND context->>'areaId'=$2",
+          [statuses, areaId],
+        )
+      ).rows[0].url as string
+    const withoutFile = await section('ac:01066:0004:0077')
+    const annulled = await section('ac:01066:0004:0078')
+    const notInstalled = await section('df:97012:0002:0478')
+    await client.query(
+      `UPDATE import_tasks SET context=context || '{"auxiliaryFile":false}' WHERE publication_id=$1 AND url=$2`,
+      [statuses, withoutFile],
+    )
+    const annulledBulletin = `${annulled.slice(0, annulled.lastIndexOf('/'))}/abc123/o-bu.dat`
+    const synthetic = scriptedTse({
+      replace: new Map<string, unknown>([
+        [
+          annulled,
+          {
+            f: 'o',
+            st: 'Anulada',
+            hashes: [{ hash: 'abc123', st: 'Totalizado', arq: [{ nm: 'o-bu.dat', tp: 'bu' }] }],
+          },
+        ],
+        [notInstalled, { f: 'o', st: 'Não instalada', hashes: [] }],
+      ]),
+    })
+    await assert.rejects(
+      importElection(pool, {
+        ...options,
+        offline: false,
+        archiveDir: statusArchive,
+        publicationId: statuses,
+        network: { ...network, fetch: synthetic.fetch },
+      }),
+      /Sections without auxiliary file not explained by EA20 zone totals/,
+    )
+    assert.ok(
+      !synthetic.requests.includes(withoutFile),
+      'no request for a file EA16 says is absent',
+    )
+    assert.ok(!synthetic.requests.includes(annulledBulletin), 'no BU for an annulled section')
+    const recorded = (
+      await client.query(
+        `SELECT t.context->>'areaId' area,t.state,s.metadata->>'officialStatus' status,
+         (SELECT count(*)::integer FROM area_results r WHERE r.publication_id=t.publication_id AND r.area_id=t.context->>'areaId') results
+         FROM import_tasks t LEFT JOIN source_documents s ON s.publication_id=t.publication_id AND s.url=t.url
+         WHERE t.publication_id=$1 AND t.url=ANY($2::text[]) ORDER BY 1`,
+        [statuses, [withoutFile, annulled, notInstalled]],
+      )
+    ).rows
+    assert.deepEqual(recorded, [
+      { area: 'ac:01066:0004:0077', state: 'official_absence', status: null, results: 0 },
+      { area: 'ac:01066:0004:0078', state: 'official_absence', status: 'Anulada', results: 0 },
+      {
+        area: 'df:97012:0002:0478',
+        state: 'official_absence',
+        status: 'Não instalada',
+        results: 0,
+      },
+    ])
+    await client.query(
+      `UPDATE area_results SET metadata=jsonb_set(metadata,'{sectionTotals,sni}','"1"')
+       WHERE publication_id=$1 AND area_id='ac:01066:0004' AND source_kind='EA20'`,
+      [statuses],
+    )
+    const official = await validatePublication(client, statuses, 'pilot')
+    assert.deepEqual(official.officialSectionStatuses, {
+      Anulada: 1,
+      'Não instalada': 1,
+      Totalizada: 4,
+    })
+    assert.equal(official.sectionsWithoutAuxiliaryFile, 1)
+    assert.equal(official.official_absences, 3)
 
     // Offline at concurrency 4: options recorded before operational parameters existed still
     // resume, unit failures are recorded while the run continues, EA20 failures hold back
@@ -484,7 +679,7 @@ try {
         sourceCount,
         resultCount,
         checks:
-          'offline replay, interrupted publication, idempotent resume, lower correction replacement, incompatible candidacy FK, aggregate nonduplication, retained prior publication, IBGE state IDs, scripted online acquisition with 404 pause/interruption/resume equal to offline, estimate without result downloads, legacy resume options, keep-going with EA20 gate, mid-queue stop at concurrency 4 equal to sequential',
+          'offline replay, interrupted publication, idempotent resume, lower correction replacement, incompatible candidacy FK, aggregate nonduplication, retained prior publication, IBGE state IDs, EA18 status fixtures, reconciliation with official absences, sections without auxiliary file, scripted online acquisition with 404 pause/interruption/resume equal to offline, estimate without result downloads, legacy resume options, keep-going with EA20 gate, mid-queue stop at concurrency 4 equal to sequential',
       }),
     )
   } finally {
