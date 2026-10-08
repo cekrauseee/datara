@@ -451,8 +451,8 @@ export function createMap(
           ? [states]
           : [regions]
     let shape: Shape | undefined
-    for (const layer of layers) {
-      shape = layer.find(
+    for (const candidates of layers) {
+      shape = candidates.find(
         (item) =>
           x >= item.bounds[0][0] &&
           x <= item.bounds[1][0] &&

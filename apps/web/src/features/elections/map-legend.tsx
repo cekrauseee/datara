@@ -79,7 +79,7 @@ export function MapLegend({ layer, scopeLabel }: { layer: MapLayerState; scopeLa
       data-map-legend={status}
       data-map-legend-total={legend?.total}
       data-map-legend-grain={layer.grain}
-      className="absolute right-[calc(var(--panel-inset,0px)+1.25rem)] bottom-14 flex max-w-[calc(100%-2.5rem)] flex-col items-end sm:right-[calc(var(--panel-inset,0px)+1.75rem)]"
+      className="absolute right-[calc(var(--panel-inset,0px)+1.25rem)] bottom-[calc(var(--panel-inset-bottom,0px)+3.5rem)] flex max-w-[calc(100%-2.5rem)] flex-col items-end sm:right-[calc(var(--panel-inset,0px)+1.75rem)]"
     >
       {open ? (
         <Card size="sm" className="max-h-[55dvh] w-64 overflow-y-auto">
