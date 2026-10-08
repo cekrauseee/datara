@@ -1,0 +1,981 @@
+{
+  "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+  "coverage": {
+    "scope": "pilot",
+    "complete": false,
+    "expected": 268,
+    "completed": 268,
+    "officialAbsences": 0,
+    "results": 293,
+    "buResults": 32,
+    "buFiles": 7,
+    "aggregates": 261,
+    "reconciliation": "total ballots in fully imported zones",
+    "reconciledZoneResults": 1,
+    "unreconciledZoneResults": null,
+    "discrepancies": [],
+    "officialSectionStatuses": null,
+    "sectionsWithoutAuxiliaryFile": null,
+    "selection": {
+      "ufs": ["ac", "df", "pe", "zz"],
+      "municipalitiesPerUf": 1,
+      "primarySectionsPerUf": 2
+    }
+  },
+  "contest": {
+    "id": "BR-2026-1:6261:25:pe:30015",
+    "officeCode": "25",
+    "officeName": "Conselheiro Distrital",
+    "electionId": "6261",
+    "scopeAreaId": "pe:30015",
+    "seats": 7,
+    "voteType": "majoritarian"
+  },
+  "area": {
+    "id": "pe:30015",
+    "level": "municipality",
+    "name": "FERNANDO DE NORONHA",
+    "uf": "pe",
+    "municipalityCode": "30015",
+    "zoneCode": null,
+    "sectionCode": null,
+    "featureId": "2605459",
+    "parentId": "pe",
+    "principalAreaId": null
+  },
+  "resultAreaId": "pe:30015",
+  "state": "available",
+  "complete": true,
+  "officialStatus": "finished",
+  "officialStatusLabel": "Totalização finalizada",
+  "officialStatusCode": "f",
+  "totals": {
+    "eligible": 3634,
+    "turnout": 2445,
+    "abstentions": 1189,
+    "totalVotes": 2445,
+    "validVotes": 2339,
+    "nominalVotes": 2339,
+    "legendVotes": null,
+    "blankVotes": 44,
+    "nullVotes": 62,
+    "noCandidateVotes": null,
+    "sectionsTotal": 10,
+    "sectionsCounted": 10
+  },
+  "provenance": {
+    "sourceKind": "EA20",
+    "sourceIds": ["2c84374b-0e72-455f-8753-670778c998e3"],
+    "meaning": "Official judicial totalization; candidate recorded votes retain their destination",
+    "generatedAt": "2026-10-04T21:24:44-03:00"
+  },
+  "summary": {
+    "leaders": ["BR-2026-1:6261:25:pe:30015:170002554555"],
+    "tie": false,
+    "candidateVoteDenominator": 2339,
+    "shareBasis": "recordedCandidateVotesSum",
+    "turnout": {
+      "value": 67.28123280132085,
+      "numerator": 2445,
+      "denominator": 3634,
+      "basis": "eligibleElectors",
+      "state": "available"
+    },
+    "margin": {
+      "votes": 200,
+      "percentagePoints": 8.550662676357417,
+      "basis": "recordedCandidateVotesSum"
+    },
+    "seatCutoffMargin": null
+  },
+  "candidates": [
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554555",
+        "officialId": "170002554555",
+        "number": "789",
+        "name": "CARINE SILENE FERREIRA DINO DE OLIVEIRA",
+        "displayName": "CARINE DINO",
+        "color": "#8071c8",
+        "photoUrl": null,
+        "party": { "number": "78", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801706",
+          "name": "",
+          "composition": "P78",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 446,
+      "share": {
+        "value": 19.067977768277043,
+        "numerator": 446,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 19.067977768,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554553",
+        "officialId": "170002554553",
+        "number": "600",
+        "name": "MILTON LUNA DA SILVA",
+        "displayName": "MILTON LUNA",
+        "color": "#009298",
+        "photoUrl": null,
+        "party": { "number": "60", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801702",
+          "name": "",
+          "composition": "P60",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 246,
+      "share": {
+        "value": 10.517315091919624,
+        "numerator": 246,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 10.517315092,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554556",
+        "officialId": "170002554556",
+        "number": "488",
+        "name": "DANIEL ALEXANDRE DA SILVA OLIVEIRA",
+        "displayName": "DANIEL ALEXANDRE",
+        "color": "#c25c5f",
+        "photoUrl": null,
+        "party": { "number": "48", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801707",
+          "name": "",
+          "composition": "P48",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 233,
+      "share": {
+        "value": 9.96152201795639,
+        "numerator": 233,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 9.961522018,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554552",
+        "officialId": "170002554552",
+        "number": "898",
+        "name": "MARILDE MARTINS DA COSTA",
+        "displayName": "VEIA",
+        "color": "#b46d10",
+        "photoUrl": null,
+        "party": { "number": "89", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801700",
+          "name": "",
+          "composition": "P89",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 188,
+      "share": {
+        "value": 8.037622915775973,
+        "numerator": 188,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 8.037622916,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554517",
+        "officialId": "170002554517",
+        "number": "241",
+        "name": "AILTON RODRIGUES DE ARAUJO JUNIOR",
+        "displayName": "AILTON JUNIOR",
+        "color": "#c25c5f",
+        "photoUrl": null,
+        "party": { "number": "24", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801688",
+          "name": "",
+          "composition": "P24",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 173,
+      "share": {
+        "value": 7.396323215049167,
+        "numerator": 173,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 7.396323215,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554548",
+        "officialId": "170002554548",
+        "number": "193",
+        "name": "EUNICE JOSÉ DE SOUZA",
+        "displayName": "NICINHA SALVIANO",
+        "color": "#2c965d",
+        "photoUrl": null,
+        "party": { "number": "19", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801696",
+          "name": "",
+          "composition": "P19",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 156,
+      "share": {
+        "value": 6.669516887558785,
+        "numerator": 156,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 6.669516888,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554546",
+        "officialId": "170002554546",
+        "number": "510",
+        "name": "ARTUR CANDIDO DA SILVA",
+        "displayName": "ARTUR CÂNDIDO",
+        "color": "#2c965d",
+        "photoUrl": null,
+        "party": { "number": "51", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801697",
+          "name": "",
+          "composition": "P51",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 117,
+      "share": {
+        "value": 5.00213766566909,
+        "numerator": 117,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 5.002137666,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554544",
+        "officialId": "170002554544",
+        "number": "170",
+        "name": "VERÔNICA MARIA PEREIRA MODESTO",
+        "displayName": "VERÔNICA MODESTO",
+        "color": "#b46d10",
+        "photoUrl": null,
+        "party": { "number": "17", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801695",
+          "name": "",
+          "composition": "P17",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 114,
+      "share": {
+        "value": 4.8738777255237276,
+        "numerator": 114,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 4.873877726,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554557",
+        "officialId": "170002554557",
+        "number": "266",
+        "name": "OTÁVIO MINERVINO DA SILVA FILHO",
+        "displayName": "MINERVINO",
+        "color": "#868604",
+        "photoUrl": null,
+        "party": { "number": "26", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801708",
+          "name": "",
+          "composition": "P26",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 92,
+      "share": {
+        "value": 3.9333048311244125,
+        "numerator": 92,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 3.933304831,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554521",
+        "officialId": "170002554521",
+        "number": "177",
+        "name": "JOSÉ SILVANO DOS SANTOS",
+        "displayName": "SILVANO SANTOS",
+        "color": "#b46d10",
+        "photoUrl": null,
+        "party": { "number": "17", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801695",
+          "name": "",
+          "composition": "P17",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 87,
+      "share": {
+        "value": 3.7195382642154766,
+        "numerator": 87,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 3.719538264,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554554",
+        "officialId": "170002554554",
+        "number": "172",
+        "name": "ANA PAULA DA SILVA ALVES",
+        "displayName": "PAULA DA COREIA",
+        "color": "#b46d10",
+        "photoUrl": null,
+        "party": { "number": "17", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801695",
+          "name": "",
+          "composition": "P17",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 68,
+      "share": {
+        "value": 2.907225309961522,
+        "numerator": 68,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 2.90722531,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554516",
+        "officialId": "170002554516",
+        "number": "326",
+        "name": "AILTON CLAYTON FLOR",
+        "displayName": "AILTON FLOR",
+        "color": "#c25c5f",
+        "photoUrl": null,
+        "party": { "number": "32", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801687",
+          "name": "",
+          "composition": "P32",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 66,
+      "share": {
+        "value": 2.821718683197948,
+        "numerator": 66,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 2.821718683,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554518",
+        "officialId": "170002554518",
+        "number": "260",
+        "name": "CASSIANA BARROS DE OLIVEIRA",
+        "displayName": "CASSIANA BARROS",
+        "color": "#868604",
+        "photoUrl": null,
+        "party": { "number": "26", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801708",
+          "name": "",
+          "composition": "P26",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 50,
+      "share": {
+        "value": 2.1376656690893543,
+        "numerator": 50,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 2.137665669,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554545",
+        "officialId": "170002554545",
+        "number": "190",
+        "name": "ANDERSON FLEXA LEITE",
+        "displayName": "DR. FLEXA",
+        "color": "#2c965d",
+        "photoUrl": null,
+        "party": { "number": "19", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801696",
+          "name": "",
+          "composition": "P19",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 50,
+      "share": {
+        "value": 2.1376656690893543,
+        "numerator": 50,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 2.137665669,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554547",
+        "officialId": "170002554547",
+        "number": "199",
+        "name": "DAVISSON LIMA VALENÇA CRUZ",
+        "displayName": "CACO VALENÇA",
+        "color": "#2c965d",
+        "photoUrl": null,
+        "party": { "number": "19", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801696",
+          "name": "",
+          "composition": "P19",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 50,
+      "share": {
+        "value": 2.1376656690893543,
+        "numerator": 50,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 2.137665669,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554520",
+        "officialId": "170002554520",
+        "number": "244",
+        "name": "JOBSON NEPOMUCENO FLOR",
+        "displayName": "JOBSON FLOR",
+        "color": "#c25c5f",
+        "photoUrl": null,
+        "party": { "number": "24", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801688",
+          "name": "",
+          "composition": "P24",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 48,
+      "share": {
+        "value": 2.0521590423257803,
+        "numerator": 48,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 2.052159042,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554550",
+        "officialId": "170002554550",
+        "number": "192",
+        "name": "JOSUÉ MARQUES DA SILVA",
+        "displayName": "PÉPE",
+        "color": "#2c965d",
+        "photoUrl": null,
+        "party": { "number": "19", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801696",
+          "name": "",
+          "composition": "P19",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 41,
+      "share": {
+        "value": 1.7528858486532708,
+        "numerator": 41,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 1.752885849,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554522",
+        "officialId": "170002554522",
+        "number": "198",
+        "name": "LIDIANE ROBERTA DO NASCIMENTO",
+        "displayName": "LIDIANE NASCIMENTO",
+        "color": "#2c965d",
+        "photoUrl": null,
+        "party": { "number": "19", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801696",
+          "name": "",
+          "composition": "P19",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 38,
+      "share": {
+        "value": 1.6246259085079091,
+        "numerator": 38,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 1.624625909,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554549",
+        "officialId": "170002554549",
+        "number": "899",
+        "name": "JOSÉ ROBERTO FAUSTINO DE OLIVEIRA",
+        "displayName": "BETO FAUSTINO",
+        "color": "#b46d10",
+        "photoUrl": null,
+        "party": { "number": "89", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801700",
+          "name": "",
+          "composition": "P89",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 36,
+      "share": {
+        "value": 1.5391192817443353,
+        "numerator": 36,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 1.539119282,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554551",
+        "officialId": "170002554551",
+        "number": "603",
+        "name": "LUZINALDO JACINTO DE SOUZA",
+        "displayName": "SOUZA",
+        "color": "#009298",
+        "photoUrl": null,
+        "party": { "number": "60", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801702",
+          "name": "",
+          "composition": "P60",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 20,
+      "share": {
+        "value": 0.8550662676357419,
+        "numerator": 20,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 0.855066268,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554543",
+        "officialId": "170002554543",
+        "number": "171",
+        "name": "REINALDO BEZERRA DE LIMA",
+        "displayName": "GUIA REI",
+        "color": "#b46d10",
+        "photoUrl": null,
+        "party": { "number": "17", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801695",
+          "name": "",
+          "composition": "P17",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 14,
+      "share": {
+        "value": 0.5985463873450192,
+        "numerator": 14,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 0.598546387,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6261:25:pe:30015:170002554519",
+        "officialId": "170002554519",
+        "number": "195",
+        "name": "GILIARDE DE SOUZA E SILVA",
+        "displayName": "GILIARDE",
+        "color": "#2c965d",
+        "photoUrl": null,
+        "party": { "number": "19", "abbreviation": "", "name": "", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "pe:30015",
+        "coalition": {
+          "number": "170001801696",
+          "name": "",
+          "composition": "P19",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": []
+      },
+      "votes": 6,
+      "share": {
+        "value": 0.25651988029072254,
+        "numerator": 6,
+        "denominator": 2339,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 0.25651988,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    }
+  ],
+  "pagination": { "limit": 25, "offset": 0, "total": 22, "hasMore": false },
+  "parties": [
+    {
+      "partyNumber": "17",
+      "nominalVotes": 283,
+      "validNominalVotes": 283,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "19",
+      "nominalVotes": 341,
+      "validNominalVotes": 341,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "24",
+      "nominalVotes": 221,
+      "validNominalVotes": 221,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "26",
+      "nominalVotes": 142,
+      "validNominalVotes": 142,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "32",
+      "nominalVotes": 66,
+      "validNominalVotes": 66,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "48",
+      "nominalVotes": 233,
+      "validNominalVotes": 233,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "51",
+      "nominalVotes": 117,
+      "validNominalVotes": 117,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "60",
+      "nominalVotes": 266,
+      "validNominalVotes": 266,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "78",
+      "nominalVotes": 446,
+      "validNominalVotes": 446,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "89",
+      "nominalVotes": 224,
+      "validNominalVotes": 224,
+      "legendVotes": null,
+      "validLegendVotes": null
+    }
+  ],
+  "unresolvedVotables": []
+}

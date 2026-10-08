@@ -1,0 +1,446 @@
+{
+  "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+  "coverage": {
+    "scope": "pilot",
+    "complete": false,
+    "expected": 268,
+    "completed": 268,
+    "officialAbsences": 0,
+    "results": 293,
+    "buResults": 32,
+    "buFiles": 7,
+    "aggregates": 261,
+    "reconciliation": "total ballots in fully imported zones",
+    "reconciledZoneResults": 1,
+    "unreconciledZoneResults": null,
+    "discrepancies": [],
+    "officialSectionStatuses": null,
+    "sectionsWithoutAuxiliaryFile": null,
+    "selection": {
+      "ufs": ["ac", "df", "pe", "zz"],
+      "municipalitiesPerUf": 1,
+      "primarySectionsPerUf": 2
+    }
+  },
+  "contest": {
+    "id": "BR-2026-1:6259:3:ac",
+    "officeCode": "3",
+    "officeName": "Governador",
+    "electionId": "6259",
+    "scopeAreaId": "ac",
+    "seats": 1,
+    "voteType": "majoritarian"
+  },
+  "area": {
+    "id": "ac",
+    "level": "state",
+    "name": "ACRE",
+    "uf": "ac",
+    "municipalityCode": null,
+    "zoneCode": null,
+    "sectionCode": null,
+    "featureId": "12",
+    "parentId": "region:north",
+    "principalAreaId": null
+  },
+  "resultAreaId": "ac",
+  "state": "available",
+  "complete": true,
+  "officialStatus": "finished",
+  "officialStatusLabel": "Totalização finalizada",
+  "officialStatusCode": "f",
+  "totals": {
+    "eligible": 613316,
+    "turnout": 487971,
+    "abstentions": 125345,
+    "totalVotes": 487971,
+    "validVotes": 439647,
+    "nominalVotes": 439647,
+    "legendVotes": null,
+    "blankVotes": 8926,
+    "nullVotes": 39398,
+    "noCandidateVotes": null,
+    "sectionsTotal": 2270,
+    "sectionsCounted": 2270
+  },
+  "provenance": {
+    "sourceKind": "EA20",
+    "sourceIds": ["d1e34139-a370-46c7-9699-34ff79903ee2"],
+    "meaning": "Official judicial totalization; candidate recorded votes retain their destination",
+    "generatedAt": "2026-10-04T21:08:18-03:00"
+  },
+  "summary": {
+    "leaders": ["BR-2026-1:6259:3:ac:10002544107"],
+    "tie": false,
+    "candidateVoteDenominator": 439647,
+    "shareBasis": "recordedCandidateVotesSum",
+    "turnout": {
+      "value": 79.56273764258555,
+      "numerator": 487971,
+      "denominator": 613316,
+      "basis": "eligibleElectors",
+      "state": "available"
+    },
+    "margin": {
+      "votes": 76901,
+      "percentagePoints": 17.49153297986794,
+      "basis": "recordedCandidateVotesSum"
+    },
+    "seatCutoffMargin": null
+  },
+  "candidates": [
+    {
+      "candidate": {
+        "id": "BR-2026-1:6259:3:ac:10002544107",
+        "officialId": "10002544107",
+        "number": "11",
+        "name": "MAILZA ASSIS CAMELI",
+        "displayName": "MAILZA ASSIS",
+        "color": "#0090a8",
+        "photoUrl": null,
+        "party": {
+          "number": "11",
+          "abbreviation": "PP",
+          "name": "PROGRESSISTAS",
+          "displayName": null
+        },
+        "officialStatus": "2º turno",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "ac",
+        "coalition": {
+          "number": "10001800654",
+          "name": "AVANÇA ACRE",
+          "composition": "PDT / MDB / PL / DEMOCRATA / PP / UNIÃO",
+          "type": "coalition"
+        },
+        "federation": {
+          "number": "104",
+          "name": "FEDERAÇÃO UNIÃO PROGRESSISTA",
+          "abbreviation": "UNIÃO/PP",
+          "composition": "UNIÃO/PP",
+          "partyNumbers": ["11", "44"]
+        },
+        "runningMates": [
+          {
+            "name": "JESSICA ROJAS SALES",
+            "displayName": "JESSICA SALES",
+            "partyAbbreviation": "MDB",
+            "officialId": "10002544108",
+            "role": "vice"
+          }
+        ]
+      },
+      "votes": 218760,
+      "share": {
+        "value": 49.758101385884586,
+        "numerator": 218760,
+        "denominator": 439647,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 49.758101386,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6259:3:ac:10002532492",
+        "officialId": "10002532492",
+        "number": "10",
+        "name": "ALAN RICK MIRANDA",
+        "displayName": "ALAN RICK",
+        "color": "#2f7fb2",
+        "photoUrl": null,
+        "party": {
+          "number": "10",
+          "abbreviation": "REPUBLICANOS",
+          "name": "REPUBLICANOS",
+          "displayName": null
+        },
+        "officialStatus": "2º turno",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": true,
+        "officialStatusScopeAreaId": "ac",
+        "coalition": {
+          "number": "10001800116",
+          "name": "TRABALHO DA ESPERANÇA",
+          "composition": "REPUBLICANOS / NOVO / PSD / AVANTE",
+          "type": "coalition"
+        },
+        "federation": null,
+        "runningMates": [
+          {
+            "name": "FABIO RICARDO LEITE",
+            "displayName": "RICARDO LEITE",
+            "partyAbbreviation": "REPUBLICANOS",
+            "officialId": "10002532493",
+            "role": "vice"
+          }
+        ]
+      },
+      "votes": 141859,
+      "share": {
+        "value": 32.266568406016646,
+        "numerator": 141859,
+        "denominator": 439647,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 32.266568406,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6259:3:ac:10002544015",
+        "officialId": "10002544015",
+        "number": "45",
+        "name": "SEBASTIAO BOCALOM RODRIGUES",
+        "displayName": "TIÃO BOCALOM",
+        "color": "#2c88f2",
+        "photoUrl": null,
+        "party": {
+          "number": "45",
+          "abbreviation": "PSDB",
+          "name": "PARTIDO DA SOCIAL DEMOCRACIA BRASILEIRA",
+          "displayName": null
+        },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "ac",
+        "coalition": {
+          "number": "10001800730",
+          "name": "PRODUZIR PARA EMPREGAR",
+          "composition": "PRD / SOLIDARIEDADE / CIDADANIA / PSDB",
+          "type": "coalition"
+        },
+        "federation": {
+          "number": "100",
+          "name": "FEDERAÇÃO PSDB CIDADANIA",
+          "abbreviation": "PSDB/CIDADANIA",
+          "composition": "PSDB/CIDADANIA",
+          "partyNumbers": ["23", "45"]
+        },
+        "runningMates": [
+          {
+            "name": "ADONIS FRANCISCO DE ALMEIDA SOUZA",
+            "displayName": "SARGENTO ADONIS",
+            "partyAbbreviation": "PSDB",
+            "officialId": "10002544016",
+            "role": "vice"
+          }
+        ]
+      },
+      "votes": 44946,
+      "share": {
+        "value": 10.223201795986325,
+        "numerator": 44946,
+        "denominator": 439647,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 10.223201796,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6259:3:ac:10002550719",
+        "officialId": "10002550719",
+        "number": "40",
+        "name": "THOR OLIVEIRA DANTAS",
+        "displayName": "THOR DANTAS",
+        "color": "#af8008",
+        "photoUrl": null,
+        "party": {
+          "number": "40",
+          "abbreviation": "PSB",
+          "name": "PARTIDO SOCIALISTA BRASILEIRO",
+          "displayName": null
+        },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "ac",
+        "coalition": {
+          "number": "10001801129",
+          "name": "FRENTE AMPLA PELO ACRE",
+          "composition": "PODE / PSB / PCDOB / PT / PV",
+          "type": "coalition"
+        },
+        "federation": null,
+        "runningMates": [
+          {
+            "name": "MARIA DO PERPETUO SOCORRO RODRIGUES DE SOUZA",
+            "displayName": "SOCORRO RODRIGUES",
+            "partyAbbreviation": "PODE",
+            "officialId": "10002550720",
+            "role": "vice"
+          }
+        ]
+      },
+      "votes": 32963,
+      "share": {
+        "value": 7.497606033931768,
+        "numerator": 32963,
+        "denominator": 439647,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 7.497606034,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6259:3:ac:10002549500",
+        "officialId": "10002549500",
+        "number": "21",
+        "name": "EUDO RAFFAEL LIMA DA SILVA",
+        "displayName": "EUDO RAFFAEL",
+        "color": "#b24f63",
+        "photoUrl": null,
+        "party": {
+          "number": "21",
+          "abbreviation": "PCB",
+          "name": "PARTIDO COMUNISTA BRASILEIRO",
+          "displayName": null
+        },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "ac",
+        "coalition": {
+          "number": "10001801047",
+          "name": "PARTIDO COMUNISTA BRASILEIRO",
+          "composition": "PCB",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": [
+          {
+            "name": "CESAR AUGUSTO FELIX DA SILVA",
+            "displayName": "POETA CESINHA",
+            "partyAbbreviation": "PCB",
+            "officialId": "10002549501",
+            "role": "vice"
+          }
+        ]
+      },
+      "votes": 715,
+      "share": {
+        "value": 0.16263047399390876,
+        "numerator": 715,
+        "denominator": 439647,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 0.162630474,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    },
+    {
+      "candidate": {
+        "id": "BR-2026-1:6259:3:ac:10002533539",
+        "officialId": "10002533539",
+        "number": "36",
+        "name": "FRANCISCO DAS CHAGAS CONCEICAO DA SILVA",
+        "displayName": "DR.LUISINHO",
+        "color": "#837fc9",
+        "photoUrl": null,
+        "party": { "number": "36", "abbreviation": "AGIR", "name": "AGIR", "displayName": null },
+        "officialStatus": "Não eleito",
+        "voteDestination": "Válido",
+        "officialSelectedFlag": false,
+        "officialStatusScopeAreaId": "ac",
+        "coalition": {
+          "number": "10001800168",
+          "name": "AGIR",
+          "composition": "AGIR",
+          "type": "party"
+        },
+        "federation": null,
+        "runningMates": [
+          {
+            "name": "DANIELA PAIVA DE OLIVEIRA",
+            "displayName": "DANIELA PAIVA",
+            "partyAbbreviation": "AGIR",
+            "officialId": "10002533538",
+            "role": "vice"
+          }
+        ]
+      },
+      "votes": 404,
+      "share": {
+        "value": 0.09189190418676803,
+        "numerator": 404,
+        "denominator": 439647,
+        "basis": "recordedCandidateVotesSum",
+        "state": "available"
+      },
+      "officialPercentage": {
+        "value": 0.091891904,
+        "basis": "TSE pvapn (official competing-candidate basis)"
+      },
+      "voteDestination": "Válido"
+    }
+  ],
+  "pagination": { "limit": 25, "offset": 0, "total": 6, "hasMore": false },
+  "parties": [
+    {
+      "partyNumber": "10",
+      "nominalVotes": 141859,
+      "validNominalVotes": 141859,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "11",
+      "nominalVotes": 218760,
+      "validNominalVotes": 218760,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "21",
+      "nominalVotes": 715,
+      "validNominalVotes": 715,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "36",
+      "nominalVotes": 404,
+      "validNominalVotes": 404,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "40",
+      "nominalVotes": 32963,
+      "validNominalVotes": 32963,
+      "legendVotes": null,
+      "validLegendVotes": null
+    },
+    {
+      "partyNumber": "45",
+      "nominalVotes": 44946,
+      "validNominalVotes": 44946,
+      "legendVotes": null,
+      "validLegendVotes": null
+    }
+  ],
+  "unresolvedVotables": []
+}
