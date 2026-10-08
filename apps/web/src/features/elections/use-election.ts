@@ -116,8 +116,9 @@ export function useElection(input: {
   const resultsRequest = contest && areaId ? { contestId: contest.id, areaId } : null
   const results = useResults(resultsRequest?.contestId ?? null, resultsRequest?.areaId ?? null)
 
-  // An unknown zone, section or `area` (400/404 on /results) is cleared from the URL with a notice.
-  const [notice, setNotice] = useState<string | null>(null)
+  // An unknown zone, section or `area` (400/404 on /results) is cleared from the URL with a
+  // notice that stays while the fallback area is shown.
+  const [notice, setNotice] = useState<{ areaId: string; message: string } | null>(null)
   const invalidArea =
     results.status === 'error' &&
     results.error !== null &&
@@ -126,21 +127,25 @@ export function useElection(input: {
   useEffect(() => {
     if (!invalidArea) return
     if (area) {
-      setNotice(`A área ${area} não existe nesta publicação; voltando ao Brasil.`)
+      setNotice({
+        areaId: 'br',
+        message: `A área ${area} não existe nesta publicação; voltando ao Brasil.`,
+      })
       navigateElection({ area: null }, true)
-    } else if (zone) {
-      setNotice(
-        `A zona ${zone}${section ? ` e a seção ${section}` : ''} não existem nesta publicação; mostrando o município.`,
-      )
+    } else if (zone && baseAreaId) {
+      setNotice({
+        areaId: baseAreaId,
+        message: `A zona ${zone}${section ? ` e a seção ${section}` : ''} não existem nesta publicação; mostrando o município.`,
+      })
       navigateElection({ zone: null, section: null }, true)
     }
-  }, [invalidArea, area, zone, section])
+  }, [invalidArea, area, zone, section, baseAreaId])
   useEffect(() => {
-    if (results.status === 'ready') setNotice(null)
-  }, [results.status])
+    if (!active) setNotice(null)
+  }, [active])
 
   const warnings = [...state.warnings]
-  if (notice) warnings.push(notice)
+  if (notice && notice.areaId === areaId) warnings.push(notice.message)
   if (session.status === 'empty') warnings.push(session.message)
   if (ready?.warning) warnings.push(ready.warning)
   if (areaQuery.status === 'missing')
