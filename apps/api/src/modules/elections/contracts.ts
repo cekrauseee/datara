@@ -59,6 +59,12 @@ export const MapQuery = PublicationQuery.extend({
   level: MapLevel.default('municipality'),
   metric: MapMetric.default('leader'),
 })
+const ElectionMapMetric = z.enum(['leader', 'margin', 'turnout'])
+export const ElectionMapQuery = PublicationQuery.extend({
+  officeCode: z.string().regex(/^\d{1,3}$/),
+  level: MapLevel.default('municipality'),
+  metric: ElectionMapMetric.default('leader'),
+})
 export const ErrorSchema = z
   .object({
     error: z.object({
@@ -319,6 +325,32 @@ export const DistributionResponse = z.object({
   items: z.array(DistributionItem),
   pagination: Pagination,
 })
+const MapItem = z.object({
+  areaId: Id,
+  featureId: z.string(),
+  value: z.number().nullable(),
+  state: ResultState,
+  sourceKind: SourceKind.nullable(),
+  basis: z.string(),
+  leaders: z.array(Id),
+  tie: z.boolean(),
+  complete: z.boolean(),
+  // Percentage points between the two highest candidate counts, on the candidate-share basis.
+  margin: z.number().nullable(),
+})
+// Candidacies referenced by map items (leaders and the selected candidacy), keyed by ID.
+const MapCandidates = z.record(
+  z.string(),
+  Candidate.pick({
+    id: true,
+    officialId: true,
+    number: true,
+    displayName: true,
+    color: true,
+    photoUrl: true,
+    party: true,
+  }).extend({ contestId: Id }),
+)
 export const MapResponse = z.object({
   publicationId: z.uuid(),
   coverage: Coverage,
@@ -327,19 +359,21 @@ export const MapResponse = z.object({
   level: MapLevel,
   metric: MapMetric,
   candidateId: Id.nullable(),
-  items: z.array(
-    z.object({
-      areaId: Id,
-      featureId: z.string(),
-      value: z.number().nullable(),
-      state: ResultState,
-      sourceKind: SourceKind.nullable(),
-      basis: z.string(),
-      leaders: z.array(Id),
-      tie: z.boolean(),
-      complete: z.boolean(),
-    }),
-  ),
+  items: z.array(MapItem),
+  candidates: MapCandidates,
+  omittedWithoutGeometry: z.number(),
+  missingResults: z.number(),
+})
+export const ElectionMapResponse = z.object({
+  publicationId: z.uuid(),
+  coverage: Coverage,
+  electionId: Id,
+  officeCode: z.string(),
+  level: MapLevel,
+  metric: ElectionMapMetric,
+  contests: z.array(Contest),
+  items: z.array(MapItem.extend({ contestId: Id })),
+  candidates: MapCandidates,
   omittedWithoutGeometry: z.number(),
   missingResults: z.number(),
 })

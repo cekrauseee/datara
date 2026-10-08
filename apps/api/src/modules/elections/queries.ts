@@ -6,6 +6,7 @@ import type {
   CandidateQuery,
   DistributionQuery,
   EditionQuery,
+  ElectionMapQuery,
   MapQuery,
   PageQuery,
 } from './contracts.js'
@@ -37,6 +38,7 @@ type ContestRow = {
 }
 type CandidateRow = {
   id: string
+  contest_id: string
   official_id: string
   number: string
   name: string
@@ -310,7 +312,7 @@ function runningMatesDto(raw: unknown) {
       role: own(runningMateRoles, m.tp) ?? 'unknown',
     }))
 }
-function candidateDto(c: CandidateRow, scope: string, present: Presentation) {
+function candidateIdentity(c: CandidateRow, present: Presentation) {
   const { partyDisplayName, ...presentation } = present(c)
   return {
     id: c.id,
@@ -326,6 +328,11 @@ function candidateDto(c: CandidateRow, scope: string, present: Presentation) {
           displayName: partyDisplayName,
         }
       : null,
+  }
+}
+function candidateDto(c: CandidateRow, scope: string, present: Presentation) {
+  return {
+    ...candidateIdentity(c, present),
     officialStatus: c.status,
     voteDestination: c.vote_destination,
     officialSelectedFlag: c.elected,
@@ -400,7 +407,7 @@ export async function areas(ctx: Context, query: z.output<typeof AreaQuery>) {
 }
 export async function getCandidate(ctx: Context & { contest: ContestRow }, id: string) {
   const row = (
-    await ctx.client.query<CandidateRow & { contest_id: string }>(
+    await ctx.client.query<CandidateRow>(
       `${candidateSelect} WHERE c.publication_id=$1 AND c.id=$2`,
       [ctx.publicationId, id],
     )
@@ -685,7 +692,21 @@ const levels: readonly string[] = Level.options
 // Navigation depth: regions only group states, so they share the country's depth.
 const steps = levels.filter((level) => level !== 'region')
 const depth = (level: string) => steps.indexOf(level === 'region' ? 'country' : level)
-async function territory(
+// Only areas above the requested level can contain it, so the recursion stops expanding there.
+function descendants(ctx: Context, scope: AreaRow, level: string) {
+  return {
+    sql: `WITH RECURSIVE descendants AS (SELECT * FROM areas WHERE publication_id=$1 AND id=$2 UNION ALL SELECT a.* FROM areas a JOIN descendants d ON a.parent_id=d.id WHERE a.publication_id=$1 AND d.level=ANY($3::text[]))`,
+    args: [ctx.publicationId, scope.id, levels.slice(0, levels.indexOf(level)), level],
+  }
+}
+async function territoryTotal(ctx: Context, scope: AreaRow, level: string) {
+  const { sql, args } = descendants(ctx, scope, level)
+  return Number(
+    (await ctx.client.query(`${sql} SELECT count(*) FROM descendants WHERE level=$4`, args)).rows[0]
+      .count,
+  )
+}
+async function territoryRows(
   ctx: Context & { contest: ContestRow },
   scope: AreaRow,
   level: string,
@@ -693,22 +714,15 @@ async function territory(
   offset: number,
   candidateId?: string,
 ) {
-  // Only areas above the requested level can contain it, so the recursion stops expanding there.
-  const descendants = `WITH RECURSIVE descendants AS (SELECT * FROM areas WHERE publication_id=$1 AND id=$2 UNION ALL SELECT a.* FROM areas a JOIN descendants d ON a.parent_id=d.id WHERE a.publication_id=$1 AND d.level=ANY($3::text[]))`
-  const args = [ctx.publicationId, scope.id, levels.slice(0, levels.indexOf(level)), level]
-  const total = Number(
-    (await ctx.client.query(`${descendants} SELECT count(*) FROM descendants WHERE level=$4`, args))
-      .rows[0].count,
-  )
+  const { sql, args } = descendants(ctx, scope, level)
   // Rankings and vote sums are computed area by area, only for the requested page; the lateral
   // form keeps that work linear even when the planner misestimates the recursive row count.
-  const rows = (
+  return (
     await ctx.client.query(
-      `${descendants}, page AS (SELECT * FROM descendants WHERE level=$4 ORDER BY id LIMIT $5 OFFSET $6) SELECT a.*,r.source_kind,r.complete,r.metadata,r.nominal_votes,r.turnout,r.eligible,s.vote_sum,s.leaders,s.first_votes,s.second_votes,v.votes::text candidate_votes FROM page a LEFT JOIN area_results r ON r.publication_id=a.publication_id AND r.contest_id=$7 AND r.area_id=coalesce(a.principal_area_id,a.id) LEFT JOIN LATERAL (SELECT sum(votes)::text vote_sum,array_agg(candidate_id ORDER BY candidate_id) FILTER(WHERE votes=max_votes) leaders,(array_agg(votes ORDER BY votes DESC))[1]::text first_votes,(array_agg(votes ORDER BY votes DESC))[2]::text second_votes FROM (SELECT candidate_id,votes,max(votes) OVER() max_votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$7 AND area_id=r.area_id) ranked) s ON true LEFT JOIN candidate_results v ON v.publication_id=a.publication_id AND v.contest_id=$7 AND v.area_id=r.area_id AND v.candidate_id=$8 ORDER BY a.id`,
+      `${sql}, page AS (SELECT * FROM descendants WHERE level=$4 ORDER BY id LIMIT $5 OFFSET $6) SELECT a.*,r.source_kind,r.complete,r.metadata,r.nominal_votes,r.turnout,r.eligible,s.vote_sum,s.leaders,s.first_votes,s.second_votes,v.votes::text candidate_votes FROM page a LEFT JOIN area_results r ON r.publication_id=a.publication_id AND r.contest_id=$7 AND r.area_id=coalesce(a.principal_area_id,a.id) LEFT JOIN LATERAL (SELECT sum(votes)::text vote_sum,array_agg(candidate_id ORDER BY candidate_id) FILTER(WHERE votes=max_votes) leaders,(array_agg(votes ORDER BY votes DESC))[1]::text first_votes,(array_agg(votes ORDER BY votes DESC))[2]::text second_votes FROM (SELECT candidate_id,votes,max(votes) OVER() max_votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$7 AND area_id=r.area_id) ranked) s ON true LEFT JOIN candidate_results v ON v.publication_id=a.publication_id AND v.contest_id=$7 AND v.area_id=r.area_id AND v.candidate_id=$8 ORDER BY a.id`,
       [...args, limit, offset, ctx.contest.id, candidateId],
     )
   ).rows
-  return { rows, total }
 }
 async function scopeVotes(
   ctx: Context & { contest: ContestRow },
@@ -777,7 +791,8 @@ export async function distribution(
   if (depth(query.level) - depth(scope.level) > 2)
     throw new ApiError(400, 'LEVEL_TOO_DEEP', 'Select a level at most two levels below the area')
   const parentVotes = await scopeVotes(ctx, scope, query.candidateId)
-  const { rows, total } = await territory(
+  const total = await territoryTotal(ctx, scope, query.level)
+  const rows = await territoryRows(
     ctx,
     scope,
     query.level,
@@ -795,9 +810,74 @@ export async function distribution(
     pagination: pagination(query, total),
   }
 }
+const MAP_AREA_LIMIT = 10_000
+type TerritoryRow = Awaited<ReturnType<typeof territoryRows>>[number]
+function mapItem(
+  r: TerritoryRow,
+  metric: z.output<typeof MapQuery>['metric'],
+  parentVotes: { votes: number | null; sourceKind?: string },
+) {
+  const item = territorialItem(r, parentVotes)
+  const leaders: string[] = r.leaders ?? []
+  const denominator = r.source_kind === 'BU' ? integer(r.nominal_votes) : integer(r.vote_sum)
+  const lead =
+    r.first_votes !== null && r.second_votes !== null
+      ? integer(r.first_votes)! - integer(r.second_votes)!
+      : null
+  const margin = percentage(lead, denominator)
+  const value =
+    metric === 'candidateVotes'
+      ? {
+          value: item.votes,
+          basis: r.source_kind === 'BU' ? 'printedCandidateVotes' : 'recordedCandidateVotes',
+        }
+      : metric === 'candidateShare'
+        ? item.support
+        : metric === 'contribution'
+          ? item.contribution
+          : metric === 'turnout'
+            ? measure(integer(r.turnout), integer(r.eligible), 'eligibleElectors')
+            : metric === 'margin'
+              ? { value: margin, basis: item.support.basis }
+              : { value: integer(r.first_votes), basis: item.support.basis }
+  return {
+    areaId: r.id,
+    featureId: r.feature_id!,
+    value: value.value,
+    state: item.state,
+    sourceKind: item.sourceKind,
+    basis: value.basis,
+    leaders,
+    tie: leaders.length > 1,
+    complete: item.complete,
+    margin,
+  }
+}
+/** Presentation of the candidacies that map items reference, keyed by candidacy ID. */
+async function mapCandidates(ctx: Context, ids: Iterable<string>, present: Presentation) {
+  const unique = [...new Set(ids)]
+  if (!unique.length) return {}
+  const rows = await ctx.client.query<CandidateRow>(
+    `${candidateSelect} WHERE c.publication_id=$1 AND c.id=ANY($2::text[]) ORDER BY c.id`,
+    [ctx.publicationId, unique],
+  )
+  return Object.fromEntries(
+    rows.rows.map((c) => {
+      const { id, officialId, number, displayName, color, photoUrl, party } = candidateIdentity(
+        c,
+        present,
+      )
+      return [
+        c.id,
+        { id, officialId, number, displayName, color, photoUrl, party, contestId: c.contest_id },
+      ]
+    }),
+  )
+}
 export async function map(
   ctx: Context & { contest: ContestRow },
   query: z.output<typeof MapQuery>,
+  present: Presentation,
 ) {
   if (
     ['candidateVotes', 'candidateShare', 'contribution'].includes(query.metric) &&
@@ -806,48 +886,15 @@ export async function map(
     throw new ApiError(400, 'CANDIDATE_REQUIRED', 'This metric requires candidateId')
   if (query.candidateId) await getCandidate(ctx, query.candidateId)
   const scope = await getArea(ctx, query.areaId ?? ctx.contest.scope_area_id)
+  if ((await territoryTotal(ctx, scope, query.level)) > MAP_AREA_LIMIT)
+    throw new ApiError(400, 'MAP_SCOPE_TOO_LARGE', 'Select a smaller map scope')
   const parentVotes = query.candidateId
     ? await scopeVotes(ctx, scope, query.candidateId)
     : { votes: null, sourceKind: undefined }
-  const { rows, total } = await territory(ctx, scope, query.level, 10_000, 0, query.candidateId)
-  if (total > 10_000) throw new ApiError(400, 'MAP_SCOPE_TOO_LARGE', 'Select a smaller map scope')
+  const rows = await territoryRows(ctx, scope, query.level, MAP_AREA_LIMIT, 0, query.candidateId)
   const items = rows
     .filter((r) => Boolean(r.feature_id))
-    .map((r) => {
-      const item = territorialItem(r, parentVotes)
-      const leaders: string[] = r.leaders ?? []
-      const denominator = r.source_kind === 'BU' ? integer(r.nominal_votes) : integer(r.vote_sum)
-      const margin =
-        r.first_votes !== null && r.second_votes !== null
-          ? integer(r.first_votes)! - integer(r.second_votes)!
-          : null
-      const metric =
-        query.metric === 'candidateVotes'
-          ? {
-              value: item.votes,
-              basis: r.source_kind === 'BU' ? 'printedCandidateVotes' : 'recordedCandidateVotes',
-            }
-          : query.metric === 'candidateShare'
-            ? item.support
-            : query.metric === 'contribution'
-              ? item.contribution
-              : query.metric === 'turnout'
-                ? measure(integer(r.turnout), integer(r.eligible), 'eligibleElectors')
-                : query.metric === 'margin'
-                  ? { value: percentage(margin, denominator), basis: item.support.basis }
-                  : { value: integer(r.first_votes), basis: item.support.basis }
-      return {
-        areaId: r.id,
-        featureId: r.feature_id,
-        value: metric.value,
-        state: item.state,
-        sourceKind: item.sourceKind,
-        basis: metric.basis,
-        leaders,
-        tie: leaders.length > 1,
-        complete: item.complete,
-      }
-    })
+    .map((r) => mapItem(r, query.metric, parentVotes))
   return {
     publicationId: ctx.publicationId,
     coverage: ctx.coverage,
@@ -857,8 +904,73 @@ export async function map(
     metric: query.metric,
     candidateId: query.candidateId ?? null,
     items,
+    candidates: await mapCandidates(
+      ctx,
+      [...items.flatMap((item) => item.leaders), ...(query.candidateId ? [query.candidateId] : [])],
+      present,
+    ),
     omittedWithoutGeometry: rows.filter((r) => !r.feature_id).length,
     missingResults: rows.filter((r) => !r.source_kind).length,
+  }
+}
+/**
+ * One office across all of its contests (for example every state's governor), each read within
+ * its own official scope; the area limit applies to the sum of the contests' areas.
+ */
+export async function electionMap(
+  ctx: Context,
+  query: z.output<typeof ElectionMapQuery>,
+  present: Presentation,
+) {
+  const contests = (
+    await ctx.client.query<ContestRow>(
+      'SELECT * FROM contests WHERE publication_id=$1 AND office_code=$2 ORDER BY scope_area_id,id',
+      [ctx.publicationId, query.officeCode],
+    )
+  ).rows
+  if (!contests.length)
+    throw new ApiError(404, 'OFFICE_NOT_FOUND', 'Office not found in this publication')
+  const scoped = []
+  let total = 0
+  for (const contest of contests) {
+    const contestCtx = { ...ctx, contest }
+    const scope = await getArea(contestCtx, contest.scope_area_id, false)
+    total += await territoryTotal(contestCtx, scope, query.level)
+    scoped.push({ contestCtx, scope })
+  }
+  if (total > MAP_AREA_LIMIT)
+    throw new ApiError(400, 'MAP_SCOPE_TOO_LARGE', 'Select a smaller map scope')
+  const items = []
+  let omittedWithoutGeometry = 0
+  let missingResults = 0
+  for (const { contestCtx, scope } of scoped) {
+    const rows = await territoryRows(contestCtx, scope, query.level, MAP_AREA_LIMIT, 0)
+    for (const r of rows) {
+      if (!r.source_kind) missingResults++
+      if (!r.feature_id) omittedWithoutGeometry++
+      else
+        items.push({
+          contestId: contestCtx.contest.id,
+          ...mapItem(r, query.metric, { votes: null }),
+        })
+    }
+  }
+  return {
+    publicationId: ctx.publicationId,
+    coverage: ctx.coverage,
+    electionId: contests[0]!.election_id,
+    officeCode: query.officeCode,
+    level: query.level,
+    metric: query.metric,
+    contests: contests.map(contestDto),
+    items,
+    candidates: await mapCandidates(
+      ctx,
+      items.flatMap((item) => item.leaders),
+      present,
+    ),
+    omittedWithoutGeometry,
+    missingResults,
   }
 }
 export async function source(client: pg.PoolClient, id: string, requested?: string) {

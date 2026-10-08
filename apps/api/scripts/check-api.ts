@@ -397,6 +397,85 @@ try {
   assert.equal(gunzipSync(mapGzip).toString(), mapText)
   const states = await request(`/contests/${contest}/map?level=state&metric=turnout`)
   assert.ok(states.items.some((r: { featureId: string }) => r.featureId === '12'))
+  // Leader maps carry the margin in percentage points, equal item by item to the margin metric.
+  type MapEntry = {
+    areaId: string
+    value: number | null
+    state: string
+    leaders: string[]
+    margin: number | null
+    contestId?: string
+  }
+  const margins = await request(`/contests/${contest}/map?level=municipality&metric=margin`)
+  assert.deepEqual(
+    map.items.map((item: MapEntry) => item.margin),
+    margins.items.map((item: MapEntry) => item.value),
+  )
+  for (const item of map.items as MapEntry[]) {
+    if (item.value !== null) assert.equal(typeof item.margin, 'number', item.areaId)
+    if (item.state === 'unavailable') assert.equal(item.margin, null, item.areaId)
+  }
+  assert.ok(map.items.some((item: MapEntry) => item.margin !== null && item.margin > 0))
+  // The candidacy dictionary covers exactly the referenced leaders, plus a selected candidacy.
+  const covers = (body: { items: MapEntry[]; candidates: Record<string, { id: string }> }) => {
+    const leaders = [...new Set(body.items.flatMap((item) => item.leaders))].sort()
+    assert.ok(leaders.length > 0)
+    assert.deepEqual(Object.keys(body.candidates).sort(), leaders)
+    for (const [id, entry] of Object.entries(body.candidates)) assert.equal(entry.id, id)
+  }
+  covers(map)
+  const mapCandidate = Object.values(map.candidates)[0] as Record<string, unknown>
+  assert.equal(mapCandidate.contestId, contest)
+  assert.match(mapCandidate.color as string, /^#[a-fA-F0-9]{6}$/)
+  assert.deepEqual(Object.keys(mapCandidate).sort(), [
+    'color',
+    'contestId',
+    'displayName',
+    'id',
+    'number',
+    'officialId',
+    'party',
+    'photoUrl',
+  ])
+  const selected = await request(
+    `/contests/${contest}/map?level=state&metric=candidateShare&candidateId=${candidate.id}`,
+  )
+  assert.equal(selected.candidates[candidate.id].id, candidate.id)
+  // One office across its state contests: one item per state, each with its own contest.
+  const officeMap = await request('/elections/BR-2026-1/map?officeCode=5&level=state')
+  assert.equal(officeMap.contests.length, 27)
+  assert.equal(officeMap.items.length, 27)
+  assert.equal(new Set(officeMap.items.map((item: MapEntry) => item.contestId)).size, 27)
+  for (const item of officeMap.items as MapEntry[])
+    assert.equal(
+      officeMap.contests.find((c: { id: string }) => c.id === item.contestId).scopeAreaId,
+      item.areaId,
+    )
+  covers(officeMap)
+  const acSenate = officeMap.items.find((item: MapEntry) => item.areaId === 'ac')
+  const { contestId: acSenateContest, ...acSenateItem } = acSenate
+  assert.equal(acSenateContest, senatorContest)
+  assert.deepEqual(
+    acSenateItem,
+    (await request(`/contests/${senatorContest}/map?level=state`)).items[0],
+  )
+  assert.ok(acSenate.leaders.length > 0 && typeof acSenate.margin === 'number')
+  const presidentStates = await request(
+    '/elections/BR-2026-1/map?officeCode=1&level=state&metric=turnout',
+  )
+  assert.equal(presidentStates.items.length, 27)
+  assert.equal(presidentStates.omittedWithoutGeometry, 1)
+  const governorMunicipalities = await request('/elections/BR-2026-1/map?officeCode=3')
+  assert.equal(governorMunicipalities.items.length, map.items.length)
+  assert.equal(governorMunicipalities.contests.length, 27)
+  assert.equal(
+    (await request('/elections/BR-2026-1/map?officeCode=99', 404)).error.code,
+    'OFFICE_NOT_FOUND',
+  )
+  assert.equal(
+    (await request('/elections/BR-2026-1/map?officeCode=5&metric=candidateShare', 400)).error.code,
+    'INVALID_PARAMETERS',
+  )
   const region = await request(`/contests/${contest}/results?areaId=region:north`)
   assert.equal(region.provenance.sourceKind, 'aggregate')
   assert.equal(region.complete, true)
@@ -408,7 +487,7 @@ try {
   assert.equal(exterior.area.featureId, null)
   assert.equal(exterior.state, 'available')
   const schema = await request('/openapi.json')
-  assert.equal(Object.keys(schema.paths).length, 9)
+  assert.equal(Object.keys(schema.paths).length, 10)
   assert.ok(schema.components.schemas.AreaResult)
   // Typed contracts: no untyped (`{}`) property in candidacies, coverage and maps.
   const untyped = (node: unknown): boolean =>
@@ -417,6 +496,12 @@ try {
     (Object.keys(node).length === 0 || Object.values(node).some(untyped))
   for (const name of ['Candidate', 'Coverage'])
     assert.equal(untyped(schema.components.schemas[name].properties), false, name)
+  for (const path of ['/contests/{contestId}/map', '/elections/{electionId}/map'])
+    assert.equal(
+      untyped(schema.paths[path].get.responses['200'].content['application/json'].schema),
+      false,
+      path,
+    )
   assert.deepEqual(schema.components.schemas.AreaResult.properties.officialStatus.enum, [
     'notStarted',
     'inProgress',

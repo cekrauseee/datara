@@ -145,6 +145,41 @@ export function electionRoutes(pool: pg.Pool, present: Presentation) {
   app.openapi(
     createRoute({
       method: 'get',
+      path: '/elections/{electionId}/map',
+      summary: 'Read office-wide map values across state contests',
+      request: { params: editionPath, query: schema.ElectionMapQuery },
+      responses: {
+        200: {
+          description:
+            'Values of every contest of one office by state or municipality; each item names its contest',
+          content: { 'application/json': { schema: schema.ElectionMapResponse } },
+        },
+        ...schema.errors,
+      },
+    }),
+    async (c) =>
+      c.json(
+        schema.ElectionMapResponse.parse(
+          await query.read(pool, async (client) =>
+            query.electionMap(
+              (
+                await query.electionContext(
+                  client,
+                  c.req.valid('param').electionId,
+                  c.req.valid('query').publicationId,
+                )
+              ).context,
+              c.req.valid('query'),
+              present,
+            ),
+          ),
+        ),
+        200,
+      ),
+  )
+  app.openapi(
+    createRoute({
+      method: 'get',
       path: '/contests/{contestId}/candidates',
       summary: 'List candidacies with resolved local presentation',
       request: { params: contestPath, query: schema.CandidateQuery },
@@ -268,6 +303,7 @@ export function electionRoutes(pool: pg.Pool, present: Presentation) {
                 c.req.valid('query').publicationId,
               ),
               c.req.valid('query'),
+              present,
             ),
           ),
         ),
