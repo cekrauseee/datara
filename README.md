@@ -2,7 +2,7 @@
 
 A minimal geographic explorer for Brazil and the United States. Search, hover, select, pan and zoom through administrative boundaries. The interface is in Portuguese and follows the system color scheme.
 
-The current product displays geography, not election results or statistical overlays. Maps are static assets served by the web application; the independent API imports and queries Brazilian 2026 first-round election data from PostgreSQL. Frontend election integration is not implemented.
+The current product displays geography, not election results or statistical overlays. Maps are static assets served by the web application; the independent API imports and queries Brazilian 2026 first-round election data from PostgreSQL. Setup loads a limited official pilot; a separate documented command estimates and acquires the complete national first round, resumably. Frontend election integration is not implemented.
 
 ## Run locally
 
@@ -22,7 +22,7 @@ Use `pnpm run setup`: bare `pnpm setup` is pnpm's own installation command. Proj
 - Documentation: <http://localhost:3002>; `pnpm docs:dev` needs no API/database/setup. After a docs build, `pnpm docs:start` runs its production preview.
 - Web-only development remains `pnpm --filter @datara/web dev`.
 
-See [local setup and advanced database operations](docs/election-ingestion.md) for ownership, prerequisites, existing databases and national population. The pilot is ready for API exploration; frontend election integration is not implemented.
+See [local setup and advanced database operations](docs/election-ingestion.md) for ownership, prerequisites, existing databases and the national population command. The pilot is ready for API exploration; frontend election integration is not implemented.
 
 ## Workspace
 

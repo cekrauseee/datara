@@ -146,7 +146,7 @@ O catálogo de uma disputa (vagas, partidos e candidaturas, com situação ofici
 
 EA20 preserva grupos brutos em metadados e colunas numéricas explícitas. `vap`, destino e `pvapn` oficial permanecem. Votos nominais/legenda computados e válidos são separados. Votos válidos EA20 e votos impressos BU são medidas diferentes: `valid_votes` no BU é null, e Senado pode ter cédulas impressas em dobro do comparecimento. No BU, `metadata.printedVoteTotals` guarda os votos impressos por tipo (`nominal`, `blank`, `null`, `legend`, `noCandidate` para o tipo 5, cargo sem candidato, e `total`); `null_votes` continua sendo só o tipo 3. Votáveis sem candidatura verificada ficam em `votable_results`, sem candidaturas inventadas. Linhas ausentes são desconhecidas salvo garantia de zero pelo contrato. Não materializa produto cartesiano candidatura/seção.
 
-O leitor BU2026 usa ASN.1 oficial de setembro de 2026, valida identidade pelo inventário e rejeita estruturas não suportadas/criptografadas. Não autentica assinatura. Bytes originais/SHA-256 preservam evidência; hash não verifica assinatura TSE. O fluxo nacional não foi executado no desenvolvimento; variantes além do piloto seguem validação que falha em caso de dúvida.
+O leitor BU2026 usa ASN.1 oficial de setembro de 2026, valida identidade pelo inventário e rejeita estruturas não suportadas/criptografadas. Não autentica assinatura. Bytes originais/SHA-256 preservam evidência; hash não verifica assinatura TSE. Os checks exercitam só variantes do piloto; variantes nacionais além delas seguem validação que falha em caso de dúvida, de modo que uma estrutura desconhecida faz a unidade falhar em vez de ser adivinhada.
 
 ## Verificação
 
