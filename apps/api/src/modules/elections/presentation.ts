@@ -28,9 +28,12 @@ const Editorial = z
 export type EditorialConfig = z.output<typeof Editorial>
 type CandidateKey = { id: string; party_number: string | null }
 
-/** Served only for a candidacy without a party. */
+/** Last resort only, for a candidacy whose party and ballot numbers are both unusable. */
 export const NEUTRAL_COLOR = '#64748b'
-/** OKLCH L 0.60, C 0.13, hues 20°–335° in 45° steps; indexed by party number modulo 8. */
+/**
+ * OKLCH L 0.60, C 0.13, hues 20°–335° in 45° steps; indexed by party number modulo 8, or by the
+ * candidacy's ballot number when it has no party (non-partisan contests).
+ */
 export const FALLBACK_COLORS = [
   '#c25c5f',
   '#b46d10',
@@ -52,9 +55,12 @@ export function configuredColor(config: EditorialConfig, candidate: CandidateKey
     (candidate.party_number ? config.parties[candidate.party_number]?.color : undefined)
   )
 }
-export function fallbackColor(partyNumber: string | null) {
-  if (partyNumber === null) return NEUTRAL_COLOR
-  return FALLBACK_COLORS[Number(partyNumber) % FALLBACK_COLORS.length] ?? NEUTRAL_COLOR
+export function fallbackColor(candidate: { number: string; party_number: string | null }) {
+  const index = Number(candidate.party_number ?? candidate.number)
+  return (
+    (Number.isSafeInteger(index) && FALLBACK_COLORS[index % FALLBACK_COLORS.length]) ||
+    NEUTRAL_COLOR
+  )
 }
 /**
  * k-th shade (k >= 1) for candidacies that would otherwise share a color in one contest: hue
@@ -89,7 +95,7 @@ export async function loadPresentation(
     files = []
   }
   const available = new Set(files.map((file) => `photos/${file}`))
-  return (candidate: CandidateKey & { display_name: string }) => {
+  return (candidate: CandidateKey & { number: string; display_name: string }) => {
     const party = candidate.party_number ? config.parties[candidate.party_number] : undefined
     const override = config.candidates[candidate.id]
     const official = candidatePhotoFile(candidate.id)
@@ -101,7 +107,7 @@ export async function loadPresentation(
           : null
     return {
       displayName: override?.displayName ?? candidate.display_name,
-      color: configuredColor(config, candidate) ?? fallbackColor(candidate.party_number),
+      color: configuredColor(config, candidate) ?? fallbackColor(candidate),
       photoUrl: photo ? `${assetBaseUrl}/${photo}` : null,
       partyDisplayName: party?.displayName ?? null,
     }

@@ -6,6 +6,7 @@ import { createApp } from '../src/app.js'
 import { readConfig } from '../src/config.js'
 import { createPool } from '../src/db/index.js'
 import { contrast, deltaE, oklchToHex } from '../src/modules/elections/color.js'
+import { EDITION } from '../src/modules/elections/ingestion/types.js'
 import {
   FALLBACK_COLORS,
   NEUTRAL_COLOR,
@@ -41,12 +42,17 @@ async function checkResolution() {
     const id = 'BR-2026-1:6257:1:br:280002551544'
     const config = join(dir, 'presentation.json')
     await writeFile(config, JSON.stringify({ candidates: {}, parties: {} }))
-    const candidate = { id, display_name: 'Official name', party_number: '13' }
+    const candidate = { id, number: '13', display_name: 'Official name', party_number: '13' }
     const unconfigured = await loadPresentation(config, '/assets', dir)
     assert.equal(unconfigured(candidate).photoUrl, null)
     assert.equal(unconfigured(candidate).color, FALLBACK_COLORS[5])
     assert.equal(unconfigured(candidate).partyDisplayName, null)
-    assert.equal(unconfigured({ ...candidate, party_number: null }).color, NEUTRAL_COLOR)
+    // Without a party (non-partisan contests) the fallback is indexed by the ballot number.
+    assert.equal(
+      unconfigured({ ...candidate, number: '170', party_number: null }).color,
+      FALLBACK_COLORS[170 % 8],
+    )
+    assert.equal(fallbackColor({ number: 'x', party_number: null }), NEUTRAL_COLOR)
     await writeFile(join(dir, candidatePhotoFile(id)), 'JPEG fixture')
     assert.equal(
       (await loadPresentation(config, '/assets', dir))(candidate).photoUrl,
@@ -70,7 +76,7 @@ async function checkResolution() {
     assert.equal(presentation.partyDisplayName, 'Local party')
     assert.equal(present({ ...candidate, id: `${id}0` }).color, '#dc2626')
     console.log(
-      'Presentation precedence passed: photo override -> official -> null; color candidate -> party -> fallback -> neutral without party',
+      'Presentation precedence passed: photo override -> official -> null; color candidate -> party -> fallback by party number, or by ballot number without party',
     )
   } finally {
     await rm(dir, { recursive: true, force: true })
@@ -123,7 +129,7 @@ async function checkCandidateRoute(
     assert.equal(served(a)?.party?.displayName, 'Local party')
     assert.equal(served(a)?.color, '#123456')
     assert.equal(served(b)?.party?.displayName, null)
-    assert.equal(served(b)?.color, fallbackColor(b.party_number))
+    assert.equal(served(b)?.color, fallbackColor(b))
     console.log(
       `Candidate route passed: party.displayName and party/fallback colors served for ${a.contest_id}`,
     )
@@ -146,7 +152,9 @@ async function checkActivePublication() {
        FROM editions e
        JOIN contests ct ON ct.publication_id = e.active_publication_id AND ct.vote_type = 'majoritarian'
        JOIN candidacies c ON c.publication_id = ct.publication_id AND c.contest_id = ct.id
-       LEFT JOIN parties p ON p.publication_id = c.publication_id AND p.number = c.party_number`,
+       LEFT JOIN parties p ON p.publication_id = c.publication_id AND p.number = c.party_number
+       WHERE e.id = $1`,
+      [EDITION],
     )
     assert.ok(rows.length, 'No active publication with majoritarian contests; publish one first')
     rows.sort((a, b) => compare(a.contest_id, b.contest_id) || byNumber(a, b))
@@ -166,7 +174,7 @@ async function checkActivePublication() {
       const colors = new Map<Candidacy, string>()
       for (const c of list) {
         const configured = configuredColor(editorial, c)
-        const color = (configured ?? fallbackColor(c.party_number)).toLowerCase()
+        const color = (configured ?? fallbackColor(c)).toLowerCase()
         if (editorial.candidates[c.id]?.color) overrides++
         if (color === NEUTRAL_COLOR)
           problems.push(
