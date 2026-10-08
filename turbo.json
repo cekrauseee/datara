@@ -11,7 +11,8 @@
         "CORS_ORIGIN",
         "ASSET_BASE_URL",
         "ELECTION_PRESENTATION_FILE",
-        "PHOTO_DIRECTORY"
+        "PHOTO_DIRECTORY",
+        "VITE_API_URL"
       ]
     },
     "build": {
