@@ -1,5 +1,6 @@
 import { serveStatic } from '@hono/node-server/serve-static'
-import { OpenAPIHono } from '@hono/zod-openapi'
+import { OpenAPIHono, z } from '@hono/zod-openapi'
+import { compress } from 'hono/compress'
 import { cors } from 'hono/cors'
 import { randomUUID } from 'node:crypto'
 import type pg from 'pg'
@@ -17,6 +18,7 @@ export const openapiConfig = {
       'Queries immutable published electoral data. publicationId is a data snapshot, not an API version. Counts and percentages preserve BU versus official judicial-totalization semantics.',
   },
 }
+const pinnedPublication = z.uuid()
 
 export async function createApp(pool: pg.Pool, config: Config) {
   const present = await loadPresentation(
@@ -25,6 +27,7 @@ export async function createApp(pool: pg.Pool, config: Config) {
     config.photoDirectory,
   )
   const app = new OpenAPIHono<HttpEnvironment>()
+  app.use('*', compress())
   app.use('*', async (c, next) => {
     const requestId = randomUUID()
     c.set('requestId', requestId)
@@ -39,6 +42,17 @@ export async function createApp(pool: pg.Pool, config: Config) {
       exposeHeaders: ['X-Request-Id'],
     }),
   )
+  // Published data is immutable, so a successful read pinned to an explicit publication never
+  // changes. Without publicationId the active publication may move, so no cache header is sent.
+  app.use('*', async (c, next) => {
+    await next()
+    if (
+      c.res.status === 200 &&
+      /^\/(elections\/|contests\/|sources\/)/.test(c.req.path) &&
+      pinnedPublication.safeParse(c.req.query('publicationId')).success
+    )
+      c.res.headers.set('Cache-Control', 'public, max-age=31536000, immutable')
+  })
   app.get('/', (c) => c.json({ message: 'datara' }))
   app.get(
     '/assets/*',

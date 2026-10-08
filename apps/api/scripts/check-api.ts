@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { gunzipSync } from 'node:zlib'
 import { createApp } from '../src/app.js'
 import { readConfig } from '../src/config.js'
 import { createPool, migrate } from '../src/db/index.js'
@@ -35,6 +36,11 @@ try {
     assert.equal(response.status, status, JSON.stringify(body))
     assert.ok(response.headers.get('X-Request-Id'))
     return body
+  }
+  async function cacheControl(path: string, status = 200) {
+    const response = await app.request(path)
+    assert.equal(response.status, status)
+    return response.headers.get('Cache-Control')
   }
   const list = await request('/elections?country=BR&year=2026&round=1')
   assert.equal(list.items[0].publication.id, publicationId)
@@ -172,14 +178,23 @@ try {
   assert.equal(sectionLevel.pagination.total, sections)
   const tooDeep = await within('areaId=ac&level=section', 400)
   assert.equal(tooDeep.error.code, 'LEVEL_TOO_DEEP')
-  const mapResponse = await app.request(`/contests/${contest}/map?level=municipality&metric=leader`)
-  const map = await mapResponse.json()
+  const mapPath = `/contests/${contest}/map?level=municipality&metric=leader`
+  const mapResponse = await app.request(mapPath)
+  const mapText = await mapResponse.text()
+  const map = JSON.parse(mapText)
   assert.equal(mapResponse.status, 200)
+  assert.equal(mapResponse.headers.get('Content-Encoding'), null)
   assert.equal(map.items.length, 5571)
   assert.ok(
     map.items.some((r: { value: number | null }) => r.value === null),
     'Pilot missing results must remain null',
   )
+  const gzipResponse = await app.request(mapPath, { headers: { 'Accept-Encoding': 'gzip' } })
+  assert.equal(gzipResponse.status, 200)
+  assert.equal(gzipResponse.headers.get('Content-Encoding'), 'gzip')
+  assert.match(gzipResponse.headers.get('Vary') ?? '', /(^|,)\s*Accept-Encoding\s*(,|$)/i)
+  const mapGzip = Buffer.from(await gzipResponse.arrayBuffer())
+  assert.equal(gunzipSync(mapGzip).toString(), mapText)
   const states = await request(`/contests/${contest}/map?level=state&metric=turnout`)
   assert.ok(states.items.some((r: { featureId: string }) => r.featureId === '12'))
   const region = await request(`/contests/${contest}/results?areaId=region:north`)
@@ -243,11 +258,15 @@ try {
   })
   const current = await request('/elections/BR-2026-1')
   assert.equal(current.publication.id, replacement.publicationId)
-  const pinned = await request(
-    `/contests/${contest}/results?areaId=br&publicationId=${publicationId}`,
-  )
+  const pinnedPath = `/contests/${contest}/results?areaId=br&publicationId=${publicationId}`
+  const pinned = await request(pinnedPath)
   assert.equal(pinned.publicationId, publicationId)
   assert.deepEqual(pinned.totals, first.totals)
+  // Only successful reads of an explicitly pinned publication are cacheable.
+  assert.equal(await cacheControl(pinnedPath), 'public, max-age=31536000, immutable')
+  assert.equal(await cacheControl('/elections/BR-2026-1'), null)
+  assert.equal(await cacheControl(`/elections?publicationId=${publicationId}`), null)
+  assert.equal(await cacheControl(`/elections/BR-2026-1?publicationId=${randomUUID()}`, 404), null)
   const pinnedMap = await request(
     `/contests/${contest}/map?areaId=ac&publicationId=${publicationId}`,
   )
@@ -259,6 +278,7 @@ try {
         publicationId,
         mapFeatures: map.items.length,
         mapBytes: Buffer.byteLength(JSON.stringify(map)),
+        mapGzipBytes: mapGzip.byteLength,
         sourceKind: 'official archived pilot',
       },
       null,
