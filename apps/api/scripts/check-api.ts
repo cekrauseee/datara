@@ -88,6 +88,33 @@ try {
   assert.equal(aggregate.state, 'shared')
   assert.equal(aggregate.resultAreaId, shared.principal_area_id)
   assert.deepEqual(aggregate.totals, principal.totals)
+  // Ranking sorts vote counts numerically; the pilot senator totals mix 5- and 6-digit counts.
+  const senatorContest = 'BR-2026-1:6259:5:ac'
+  const ranked = (
+    await pool.query(
+      'SELECT candidate_id,sum(votes)::text votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$2 AND area_id=$3 GROUP BY candidate_id ORDER BY sum(votes) DESC,candidate_id',
+      [publicationId, senatorContest, 'ac'],
+    )
+  ).rows as { candidate_id: string; votes: string }[]
+  assert.ok(ranked.length >= 3, 'Pilot needs senator totals for AC')
+  const lexicographic = [...ranked].sort((x, y) => y.votes.localeCompare(x.votes))[0]
+  assert.notEqual(
+    lexicographic.candidate_id,
+    ranked[0].candidate_id,
+    'Regression needs counts whose text order differs from numeric order',
+  )
+  const senator = await request(`/contests/${senatorContest}/results?areaId=ac&limit=3`)
+  const tiedLeaders = ranked.filter((r) => r.votes === ranked[0].votes).map((r) => r.candidate_id)
+  assert.deepEqual(senator.summary.leaders, tiedLeaders)
+  assert.equal(
+    senator.summary.margin.votes,
+    tiedLeaders.length > 1 ? 0 : Number(ranked[0].votes) - Number(ranked[1].votes),
+  )
+  assert.equal(
+    senator.summary.seatCutoffMargin.votes,
+    Number(ranked[1].votes) - Number(ranked[2].votes),
+  )
+  assert.equal(senator.candidates[0].candidate.id, ranked[0].candidate_id)
   const outside = await request(`/contests/${senate.contest_id}/results?areaId=br`, 400)
   assert.equal(outside.error.code, 'INCOMPATIBLE_AREA')
   const mismatch = await request(
@@ -148,6 +175,20 @@ try {
   assert.equal(tie.summary.margin.votes, 0)
   assert.equal(tie.candidates[0].share.value, null)
   assert.equal(tie.candidates[0].share.state, 'undefined')
+  // Counts with different digit lengths must rank numerically, not lexicographically.
+  const [top, runnerUp, third] = originalVotes
+    .map((v: { candidate_id: string }) => v.candidate_id)
+    .sort()
+  await pool.query(
+    'UPDATE candidate_results SET votes=CASE candidate_id WHEN $4 THEN 100000 WHEN $5 THEN 99999 WHEN $6 THEN 9999 ELSE 0 END WHERE publication_id=$1 AND contest_id=$2 AND area_id=$3',
+    [publicationId, contest, 'br', top, runnerUp, third],
+  )
+  const digits = await request(`/contests/${contest}/results?areaId=br&limit=3`)
+  assert.deepEqual(digits.summary.leaders, [top])
+  assert.equal(digits.summary.tie, false)
+  assert.equal(digits.summary.margin.votes, 1)
+  assert.equal(digits.candidates[0].candidate.id, top)
+  assert.equal(digits.candidates[1].candidate.id, runnerUp)
   await pool.query(
     "UPDATE candidate_results c SET votes=v.votes::bigint FROM jsonb_to_recordset($3::jsonb) AS v(candidate_id text,votes text) WHERE c.publication_id=$1 AND c.contest_id=$2 AND c.area_id='br' AND c.candidate_id=v.candidate_id",
     [publicationId, contest, JSON.stringify(originalVotes)],

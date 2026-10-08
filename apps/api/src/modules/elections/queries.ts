@@ -411,7 +411,7 @@ async function voteSummary(
   ).rows[0]
   const groups = (
     await ctx.client.query(
-      `SELECT votes::text,array_agg(candidate_id ORDER BY candidate_id) ids FROM (SELECT candidate_id,sum(votes) votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$2 AND area_id=ANY($3::text[]) GROUP BY candidate_id) c GROUP BY votes ORDER BY votes DESC LIMIT 3`,
+      `SELECT votes::text,array_agg(candidate_id ORDER BY candidate_id) ids FROM (SELECT candidate_id,sum(votes) votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$2 AND area_id=ANY($3::text[]) GROUP BY candidate_id) c GROUP BY c.votes ORDER BY c.votes DESC LIMIT 3`,
       [ctx.publicationId, ctx.contest.id, areaIds],
     )
   ).rows
