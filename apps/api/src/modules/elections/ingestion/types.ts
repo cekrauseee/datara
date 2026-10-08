@@ -98,7 +98,7 @@ export type ImportOptions = {
   signal?: AbortSignal
 }
 export const EDITION = 'BR-2026-1'
-export const PARSER_VERSION = 'tse2026-1'
+export const PARSER_VERSION = 'tse2026-2'
 export const regionStates: Record<string, string[]> = {
   north: ['ac', 'am', 'ap', 'pa', 'ro', 'rr', 'to'],
   northeast: ['al', 'ba', 'ce', 'ma', 'pb', 'pe', 'pi', 'rn', 'se'],
@@ -106,8 +106,19 @@ export const regionStates: Record<string, string[]> = {
   south: ['pr', 'rs', 'sc'],
   centralwest: ['df', 'go', 'ms', 'mt'],
 }
+export const regionNames: Record<string, string> = {
+  north: 'Norte',
+  northeast: 'Nordeste',
+  southeast: 'Sudeste',
+  south: 'Sul',
+  centralwest: 'Centro-Oeste',
+}
 export function contestId(election: string, office: string, scope: string) {
   return `${EDITION}:${election}:${office}:${scope}`
+}
+/** Area ID of a contest's official scope: the document for that area carries its catalog. */
+export function contestScope(id: string) {
+  return id.replace(/^[^:]+:[^:]+:[^:]+:/, '')
 }
 export function count(value: string | undefined): number | null {
   if (value === undefined) return null

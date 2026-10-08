@@ -14,7 +14,7 @@ import type {
   Sections,
   UnifiedResult,
 } from './types.js'
-import { EDITION, PARSER_VERSION, contestId, regionStates } from './types.js'
+import { EDITION, PARSER_VERSION, contestId, regionNames, regionStates } from './types.js'
 
 type TaskContext = {
   areaId: string
@@ -234,7 +234,7 @@ export async function importElection(pool: pg.Pool, options: ImportOptions): Pro
         ...Object.keys(regionStates).map((region): AreaRow => [
           `region:${region}`,
           'region',
-          region,
+          regionNames[region]!,
           null,
           null,
           null,
@@ -312,7 +312,7 @@ export async function importElection(pool: pg.Pool, options: ImportOptions): Pro
               scope,
               office.tp === '2' ? 'proportional' : 'majoritarian',
             ])
-            // Candidacy catalog is always populated from the official full contest before local observations.
+            // The contest's scope document carries its candidacy catalog; it is normalized first.
             const mainUf = office.cd === '1' ? 'br' : state.cd
             const mainPrefix = office.cd === '25' ? `${state.cd}${scope.split(':')[1]}` : mainUf
             tasks.push([
@@ -482,13 +482,16 @@ export async function importElection(pool: pg.Pool, options: ImportOptions): Pro
         estimate: await estimateVolume(client, pub, archive.directory, fetcher.policy),
       })
 
-    // Pending units are listed once per invocation in their semantic order: every EA20 (catalogs
-    // and aggregates) before section files, and full contests before local observations.
+    // Pending units are listed once per invocation in their semantic order: every EA20 before
+    // section files, each contest's scope document (its candidacy catalog) before any other EA20,
+    // then wider areas before narrower ones.
     cursor = `import_tasks_${randomUUID().replaceAll('-', '')}`
     await client.query(
       `DECLARE ${cursor} NO SCROLL CURSOR WITH HOLD FOR
        SELECT url,kind,context FROM import_tasks WHERE publication_id=$1 AND state='pending'
-       ORDER BY CASE WHEN kind='EA20' THEN 0 ELSE 1 END,length(context->>'areaId'),url`,
+       ORDER BY CASE WHEN kind='EA20' THEN 0 ELSE 1 END,
+       CASE WHEN context->>'areaId'=regexp_replace(context->>'contestId','^[^:]+:[^:]+:[^:]+:','') THEN 0 ELSE 1 END,
+       length(context->>'areaId'),url`,
       [pub],
     )
     const window = archive.offline ? 0 : 4 * fetcher.policy.concurrency

@@ -13,10 +13,11 @@ import {
 } from '../src/modules/elections/ingestion/import.js'
 import { normalizeUnified } from '../src/modules/elections/ingestion/normalize.js'
 import { BASE, hash, sectionOutcome } from '../src/modules/elections/ingestion/source.js'
-import type {
-  Auxiliary,
-  ImportOptions,
-  UnifiedResult,
+import {
+  type Auxiliary,
+  type ImportOptions,
+  type UnifiedResult,
+  contestScope,
 } from '../src/modules/elections/ingestion/types.js'
 
 if (!process.env.TEST_DATABASE_URL || !process.env.ELECTION_ARCHIVE_DIR)
@@ -208,6 +209,14 @@ function expectPaused(result: ImportResult, reason: string) {
   assert.equal(result.reason, reason, JSON.stringify(result))
   return result
 }
+// Archived bytes of an official URL, as the offline importer reads them.
+async function archived(url: string) {
+  const reference = JSON.parse(
+    await readFile(join(options.archiveDir, 'urls', `${hash(Buffer.from(url))}.json`), 'utf8'),
+  ) as { sha256: string }
+  const bytes = await readFile(join(options.archiveDir, 'sha256', reference.sha256))
+  return { bytes, sha256: reference.sha256, data: JSON.parse(bytes.toString('utf8')) }
+}
 const state = async (pub: string) =>
   (await pool.query('SELECT state,error FROM import_runs WHERE publication_id=$1', [pub])).rows[0]
 try {
@@ -236,6 +245,89 @@ try {
   assert.equal(
     (await pool.query('SELECT active_publication_id FROM editions')).rows[0].active_publication_id,
     null,
+  )
+  // The scope document of each contest, which carries its candidacy catalog, is normalized before
+  // any other EA20 document; the first one is the national presidential file.
+  const completedTasks = async () =>
+    (
+      await pool.query(
+        "SELECT url,context FROM import_tasks WHERE publication_id=$1 AND state='complete'",
+        [paused.publicationId],
+      )
+    ).rows as { url: string; context: { contestId: string; areaId: string } }[]
+  assert.deepEqual(
+    (await completedTasks()).map((task) => task.url),
+    [`${BASE}/ele2026/6257/dados/br/br-c0001-e006257-u.json`],
+  )
+  {
+    const client = await pool.connect()
+    try {
+      // A local document whose contest has no catalog yet fails clearly instead of hitting a
+      // foreign key; a local candidacy missing from an existing catalog fails as well.
+      const local = async (
+        url: string,
+        context: Record<string, string>,
+        edit?: (data: UnifiedResult) => void,
+      ) => {
+        const { bytes, sha256, data } = await archived(url)
+        edit?.(data)
+        const id = randomUUID()
+        await client.query('BEGIN')
+        try {
+          await client.query(
+            "INSERT INTO source_documents(id,publication_id,url,sha256,archive_path,kind) VALUES($1,$2,$3,$4,$5,'EA20')",
+            [id, paused.publicationId, url, sha256, `sha256/${sha256}`],
+          )
+          await normalizeUnified(
+            client,
+            paused.publicationId,
+            { id, bytes, sha256, url },
+            data,
+            context as never,
+          )
+        } finally {
+          await client.query('ROLLBACK')
+        }
+      }
+      await assert.rejects(
+        local(`${BASE}/ele2026/6259/dados/ac/ac01066-c0003-e006259-u.json`, {
+          contestId: 'BR-2026-1:6259:3:ac',
+          areaId: 'ac:01066',
+          electionId: '6259',
+          officeCode: '3',
+        }),
+        /Catalog for BR-2026-1:6259:3:ac must precede/,
+      )
+      await assert.rejects(
+        local(
+          `${BASE}/ele2026/6257/dados/ac/ac-c0001-e006257-u.json`,
+          { contestId: 'BR-2026-1:6257:1:br', areaId: 'ac', electionId: '6257', officeCode: '1' },
+          (data) => {
+            const party = data.carg[0]!.agr[0]!.par[0]!
+            party.cand = [...party.cand, { ...party.cand[0]!, sqcand: '999999999999' }]
+          },
+        ),
+        /Candidacies absent from the BR-2026-1:6257:1:br catalog \(BR-2026-1:6257:1:br:999999999999\)/,
+      )
+    } finally {
+      client.release()
+    }
+  }
+  const contestCount = (
+    await pool.query('SELECT count(*)::integer n FROM contests WHERE publication_id=$1', [
+      paused.publicationId,
+    ])
+  ).rows[0].n
+  await importElection(pool, {
+    ...options,
+    publicationId: paused.publicationId,
+    stopAfter: contestCount - 1,
+  })
+  const catalogTasks = await completedTasks()
+  assert.equal(catalogTasks.length, contestCount)
+  assert.ok(
+    catalogTasks.every((task) => task.context.areaId === contestScope(task.context.contestId)),
+    'every contest scope document precedes other EA20 documents',
   )
   const before = (await pool.query('SELECT count(*)::integer AS n FROM area_results')).rows[0].n
   await importElection(pool, { ...options, publicationId: paused.publicationId, stopAfter: 0 })
@@ -384,6 +476,75 @@ try {
       total_votes: '261',
       valid_votes: null,
     })
+    // Fernando de Noronha's council is non-partisan: TSE's empty party rows are not parties.
+    assert.equal(
+      (
+        await client.query(
+          "SELECT count(*)::integer n FROM parties WHERE abbreviation='' OR name=''",
+        )
+      ).rows[0].n,
+      0,
+    )
+    assert.deepEqual(
+      (
+        await client.query(
+          `SELECT count(*)::integer n,count(*) FILTER(WHERE party_number IS NULL AND coalition IS NULL AND federation IS NULL)::integer non_partisan,
+           (SELECT count(*)::integer FROM party_results WHERE publication_id=$1 AND contest_id=$2) party_results
+           FROM candidacies WHERE publication_id=$1 AND contest_id=$2`,
+          [pub, 'BR-2026-1:6261:25:pe:30015'],
+        )
+      ).rows[0],
+      { n: 22, non_partisan: 22, party_results: 0 },
+    )
+    // Catalogs come from each contest's scope document: no empty or missing official status, and
+    // the presidential statuses are those of the national file.
+    assert.equal(
+      (
+        await client.query(
+          "SELECT count(*)::integer n FROM candidacies WHERE publication_id=$1 AND (status IS NULL OR status='')",
+          [pub],
+        )
+      ).rows[0].n,
+      0,
+    )
+    const national = (await archived(`${BASE}/ele2026/6257/dados/br/br-c0001-e006257-u.json`))
+      .data as UnifiedResult
+    const nationalStatus = Object.fromEntries(
+      national.carg[0]!.agr.flatMap((g) =>
+        g.par.flatMap((party) => party.cand.map((c) => [`BR-2026-1:6257:1:br:${c.sqcand}`, c.st])),
+      ),
+    )
+    const presidential = (
+      await client.query(
+        "SELECT id,status FROM candidacies WHERE publication_id=$1 AND contest_id='BR-2026-1:6257:1:br'",
+        [pub],
+      )
+    ).rows
+    assert.deepEqual(
+      Object.fromEntries(presidential.map((row) => [row.id, row.status])),
+      nationalStatus,
+    )
+    // Every BU result keeps its printed totals by vote type, which add up to its total votes.
+    assert.deepEqual(
+      (
+        await client.query(
+          `SELECT count(*)::integer n,count(*) FILTER(WHERE (SELECT sum(value::bigint) FROM jsonb_each_text(metadata->'printedVoteTotals') WHERE key<>'total')=total_votes
+           AND (metadata->'printedVoteTotals'->>'total')::bigint=total_votes AND (metadata->'printedVoteTotals'->>'null')::bigint=null_votes)::integer consistent
+           FROM area_results WHERE publication_id=$1 AND source_kind='BU'`,
+          [pub],
+        )
+      ).rows[0],
+      { n: 32, consistent: 32 },
+    )
+    assert.deepEqual(
+      (
+        await client.query(
+          "SELECT name FROM areas WHERE publication_id=$1 AND level='region' ORDER BY id",
+          [pub],
+        )
+      ).rows.map((row) => row.name),
+      ['Centro-Oeste', 'Norte', 'Nordeste', 'Sul', 'Sudeste'],
+    )
     const exterior = (
       await client.query(
         "SELECT eligible,turnout FROM area_results WHERE publication_id=$1 AND area_id='zz:29254:0001:0001'",
@@ -707,7 +868,7 @@ try {
         sourceCount,
         resultCount,
         checks:
-          'offline replay, interrupted publication, idempotent resume, lower correction replacement, incompatible candidacy FK, aggregate nonduplication, retained prior publication, IBGE state IDs, EA18 status fixtures, reconciliation with official absences, sections without auxiliary file, scripted online acquisition with 404 pause/interruption/resume equal to offline, estimate without result downloads, legacy resume options, keep-going with EA20 gate, mid-queue stop at concurrency 4 equal to sequential',
+          'offline replay, interrupted publication, idempotent resume, lower correction replacement, incompatible candidacy FK, aggregate nonduplication, retained prior publication, IBGE state IDs, EA18 status fixtures, reconciliation with official absences, sections without auxiliary file, scripted online acquisition with 404 pause/interruption/resume equal to offline, estimate without result downloads, legacy resume options, keep-going with EA20 gate, mid-queue stop at concurrency 4 equal to sequential, scope-document catalogs first with clear errors otherwise, non-partisan council without placeholder parties, printed BU totals by vote type, Portuguese region names',
       }),
     )
   } finally {

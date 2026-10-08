@@ -2,7 +2,7 @@ import type pg from 'pg'
 import { decodeBu } from './bu.js'
 import type { Source } from './source.js'
 import type { UnifiedResult } from './types.js'
-import { contestId, count } from './types.js'
+import { contestId, contestScope, count } from './types.js'
 
 export async function normalizeUnified(
   client: pg.PoolClient,
@@ -30,11 +30,15 @@ export async function normalizeUnified(
   if (data.tpabr !== expected[0] || data.cdabr !== expected[1])
     throw new Error(`EA20 area does not match inventory: ${source.url}`)
   const cargo = data.carg[0]
-  await client.query('UPDATE contests SET seats=$3 WHERE publication_id=$1 AND id=$2', [
-    pub,
-    context.contestId,
-    count(cargo.nv),
-  ])
+  // Only the document of the contest's own scope defines its catalog (seats, parties and
+  // candidacies): local documents can carry empty statuses and differing elected flags.
+  const catalog = context.areaId === contestScope(context.contestId)
+  if (catalog)
+    await client.query('UPDATE contests SET seats=$3 WHERE publication_id=$1 AND id=$2', [
+      pub,
+      context.contestId,
+      count(cargo.nv),
+    ])
   await client.query(
     'DELETE FROM area_results WHERE publication_id=$1 AND contest_id=$2 AND area_id=$3',
     [pub, context.contestId, context.areaId],
@@ -79,14 +83,19 @@ export async function normalizeUnified(
   const candidateResults = columns(4)
   for (const group of cargo.agr)
     for (const party of group.par) {
-      parties.set(party.n, [party.sg, party.nm])
-      push(partyResults, [
-        party.n,
-        count(party.tvtn),
-        count(party.tvan),
-        count(party.tvtl),
-        count(party.tval),
-      ])
+      // TSE groups the candidacies of a non-partisan contest (Fernando de Noronha's district
+      // council) under party rows without abbreviation or name; they are not parties.
+      const placeholder = party.sg === '' && party.nm === ''
+      if (!placeholder) {
+        parties.set(party.n, [party.sg, party.nm])
+        push(partyResults, [
+          party.n,
+          count(party.tvtn),
+          count(party.tvan),
+          count(party.tvtl),
+          count(party.tval),
+        ])
+      }
       for (const candidate of party.cand ?? []) {
         const id = `${context.contestId}:${candidate.sqcand}`
         if (!candidacies.has(id))
@@ -96,17 +105,19 @@ export async function normalizeUnified(
             candidate.n,
             candidate.nm,
             candidate.nmu,
-            party.n,
-            candidate.st ?? null,
-            candidate.dvt ?? null,
+            placeholder ? null : party.n,
+            candidate.st || null,
+            candidate.dvt || null,
             candidate.e === undefined ? null : candidate.e === 's',
-            JSON.stringify({
-              number: group.n,
-              name: group.nm,
-              type: group.tp,
-              composition: group.com,
-            }),
-            json(cargo.fed?.find((f) => f.n === party.nfed) ?? null),
+            placeholder
+              ? null
+              : JSON.stringify({
+                  number: group.n,
+                  name: group.nm,
+                  type: group.tp,
+                  composition: group.com,
+                }),
+            placeholder ? null : json(cargo.fed?.find((f) => f.n === party.nfed) ?? null),
             JSON.stringify(candidate.vs ?? []),
           ])
         if (candidate.vap !== undefined)
@@ -114,11 +125,30 @@ export async function normalizeUnified(
             id,
             count(candidate.vap),
             candidate.pvapn?.replace(',', '.') ?? null,
-            candidate.dvt ?? null,
+            candidate.dvt || null,
           ])
       }
     }
-  if (parties.size)
+  if (!catalog) {
+    // Every candidacy listed locally must already be in the catalog of its contest.
+    const listed = [...candidacies.keys()]
+    const known = new Set(
+      (
+        await client.query<{ id: string }>(
+          'SELECT id FROM candidacies WHERE publication_id=$1 AND contest_id=$2 AND id=ANY($3::text[])',
+          [pub, context.contestId, listed],
+        )
+      ).rows.map((row) => row.id),
+    )
+    const unknown = listed.filter((id) => !known.has(id))
+    if (unknown.length)
+      throw new Error(
+        known.size
+          ? `Candidacies absent from the ${context.contestId} catalog (${unknown.slice(0, 5).join(', ')}): ${source.url}`
+          : `Catalog for ${context.contestId} must precede ${source.url}`,
+      )
+  }
+  if (catalog && parties.size)
     await client.query(
       `INSERT INTO parties(publication_id,number,abbreviation,name)
    SELECT $1,* FROM unnest($2::text[],$3::text[],$4::text[])
@@ -131,7 +161,7 @@ export async function normalizeUnified(
    SELECT $1,$2,$3,* FROM unnest($4::text[],$5::bigint[],$6::bigint[],$7::bigint[],$8::bigint[])`,
       [pub, context.contestId, context.areaId, ...partyResults],
     )
-  if (candidacies.size)
+  if (catalog && candidacies.size)
     await client.query(
       `INSERT INTO candidacies(publication_id,contest_id,id,official_id,number,name,display_name,party_number,status,vote_destination,elected,coalition,federation,running_mates)
    SELECT $1,$2,id,official,number,name,display,party,status,destination,elected,coalition::jsonb,federation::jsonb,mates::jsonb
@@ -146,6 +176,24 @@ export async function normalizeUnified(
    SELECT $1,$2,$3,* FROM unnest($4::text[],$5::bigint[],$6::numeric[],$7::text[])`,
       [pub, context.contestId, context.areaId, ...candidateResults],
     )
+}
+
+/**
+ * Printed vote totals of one BU office by vote type: nominal (1), blank (2), null (3), legend (4)
+ * and no candidate for the office (5). A type the bulletin does not list counts zero; the total
+ * is the sum of all five, never relabeled into judicial categories.
+ */
+export function printedVoteTotals(votes: { type: number; votes: number }[]) {
+  const sum = (type: number) =>
+    votes.filter((v) => v.type === type).reduce((n, v) => n + v.votes, 0)
+  return {
+    nominal: sum(1),
+    blank: sum(2),
+    null: sum(3),
+    legend: sum(4),
+    noCandidate: sum(5),
+    total: votes.reduce((n, v) => n + v.votes, 0),
+  }
 }
 
 /**
@@ -217,8 +265,7 @@ export async function normalizeBulletin(
       const contest = contestId(election.electionId, office.officeCode, scope)
       if (areas[0]!.includes(contest)) throw new Error(`Duplicate BU contest ${contest}`)
       const numbers = await catalog.candidacies(contest)
-      const totals = (type: number) =>
-        office.votes.filter((v) => v.type === type).reduce((n, v) => n + v.votes, 0)
+      const printed = printedVoteTotals(office.votes)
       const legend = [6, 7, 8].includes(Number(office.officeCode))
       // Printed BU votes precede judicial destination. Valid totals remain unknown here.
       push(areas, [
@@ -226,13 +273,14 @@ export async function normalizeBulletin(
         election.eligible,
         office.turnout,
         election.eligible - office.turnout,
-        office.votes.reduce((n, v) => n + v.votes, 0),
-        totals(1),
-        legend ? totals(4) : null,
-        totals(2),
-        totals(3),
+        printed.total,
+        printed.nominal,
+        legend ? printed.legend : null,
+        printed.blank,
+        printed.null,
         JSON.stringify({
           emittedAt: bulletin.emittedAt,
+          printedVoteTotals: printed,
           eligibleOriginal: election.eligibleOriginal,
           eligibleTemporary: election.eligibleTemporary,
           voteBasis: 'printed BU votes; judicial destination unavailable',
