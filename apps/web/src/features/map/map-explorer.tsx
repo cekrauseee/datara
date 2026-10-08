@@ -28,7 +28,15 @@ import {
 
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
-import { ElectionControls, ElectionStatus, useElection } from '../elections'
+import {
+  ElectionControls,
+  ElectionStatus,
+  hoverTarget,
+  MapHoverDetail,
+  MapLegend,
+  useElection,
+  useMapLayer,
+} from '../elections'
 import { loadDetailFeature } from './map-cache'
 import { createMap, type MapControls, type MapHover } from './map-canvas'
 import { countries, type CountryCode } from './map-countries'
@@ -117,6 +125,7 @@ function CountryMap({
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const election = useElection({ countryCode, selectionId })
+  const mapLayer = useMapLayer(election, selected?.stateCode ?? null)
 
   const deferredQuery = useDeferredValue(query)
 
@@ -181,6 +190,9 @@ function CountryMap({
       controls.current = null
     }
   }, [data])
+  useEffect(() => {
+    controls.current?.setLayer(mapLayer.layer)
+  }, [mapLayer.layer, data])
 
   const areas = data
     ? [...data.states, ...data.regions].map((feature) => feature.properties).concat(localAreas)
@@ -414,7 +426,19 @@ function CountryMap({
           </Card>
         )}
 
-        {hover && <MapTooltip hover={hover} />}
+        {hover && (
+          <MapTooltip hover={hover}>
+            {(() => {
+              const target = hoverTarget(
+                mapLayer,
+                hover.area,
+                data?.states.find((item) => item.properties.stateCode === hover.area.stateCode)
+                  ?.properties.name,
+              )
+              return target && <MapHoverDetail target={target} />
+            })()}
+          </MapTooltip>
+        )}
 
         {!ready && !error && <MapSkeleton outline={country.outline} />}
 
@@ -510,6 +534,10 @@ function CountryMap({
               </Button>
             )}
           </div>
+        )}
+
+        {ready && mapLayer.active && (
+          <MapLegend layer={mapLayer} scopeLabel={(selected && state?.name) || country.name} />
         )}
 
         <footer className="pointer-events-none absolute right-5 bottom-5 flex max-w-[calc(100%-6rem)] flex-col items-end gap-1 text-right text-xs text-muted-foreground sm:right-7">
