@@ -1,3 +1,3 @@
 import config from '@datara/eslint'
 
-export default config(import.meta.dirname)
+export default [{ ignores: ['.generated/**'] }, ...config(import.meta.dirname)]
