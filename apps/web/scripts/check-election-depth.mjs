@@ -16,6 +16,7 @@ const PUBLICATION = '2a4cee03-930c-4377-b383-fcb27f9da55d'
 const EDITION = 'BR-2026-1'
 const PRESIDENT = `${EDITION}:6257:1:br`
 const GOVERNOR_AC = `${EDITION}:6259:3:ac`
+const COUNCIL = `${EDITION}:6261:25:pe:30015`
 
 const realFetch = window.fetch.bind(window)
 const activeRoot = () => document.querySelector('[data-map-country]:not([hidden])') ?? document
@@ -133,6 +134,7 @@ const ABIDJA = area('zz:29254', 'municipality', 'ABIDJÃ', {
   parentId: 'exterior',
 })
 const ABU_ZONE = zone('zz:29262', 'zz', '0001')
+const NORONHA_ZONE = zone('pe:30015', 'pe', '0004')
 const CHILDREN = {
   'ac:01066|zone': [PORTO_ZONE],
   'df:97012|zone': [zone('df:97012', 'df', '0001'), BSB_ZONE],
@@ -148,6 +150,7 @@ const CHILDREN = {
   ],
   'exterior|municipality': [ABIDJA, ABU],
   'zz:29262|zone': [ABU_ZONE],
+  'pe:30015|zone': [NORONHA_ZONE],
   'region:north|state': [
     area('ac', 'state', 'ACRE', { uf: 'ac', featureId: '12', parentId: 'region:north' }),
   ],
@@ -197,6 +200,14 @@ async function areasRoute(query) {
 
 const REGION_STATES = { north: 7, northeast: 9, centralwest: 4, southeast: 4, south: 3 }
 async function resultFor(contestId, areaId) {
+  if (contestId === COUNCIL) {
+    const council = await fixture('results-council-noronha')
+    if (areaId === 'pe:30015') return council
+    // The zone result keeps the municipal contest and its statuses scoped to `pe:30015`.
+    if (areaId === NORONHA_ZONE.id)
+      return { ...structuredClone(council), area: NORONHA_ZONE, resultAreaId: NORONHA_ZONE.id }
+    return null
+  }
   const base = structuredClone(
     await fixture(contestId === GOVERNOR_AC ? 'results-governor-ac' : 'results-president-ac'),
   )
@@ -551,6 +562,36 @@ export async function checkClearing() {
     restore()
   }
   return 'Clearing passed: municipality change clears zone and section, geographic choice removes area, area with governor and unknown region ignored with notices'
+}
+
+export async function checkMunicipalScopeAtZone() {
+  const restore = serve()
+  try {
+    go('/br?collection=elections&office=council&state=26&municipality=2605459&zone=0004')
+    await until(settled('pe:30015:0004'), 'Noronha council at zone 0004')
+    await expandSheet()
+    const subtitle = panel().querySelector('h2')?.parentElement?.nextElementSibling?.textContent
+    assert(
+      subtitle === 'Conselho distrital · Fernando de Noronha',
+      `Subtitle names the contest's municipality (${subtitle})`,
+    )
+    const rows = [...panel().querySelectorAll('[data-candidate-row]')].map(
+      (node) => node.textContent,
+    )
+    assert(rows.length > 0, 'Council rows at zone level')
+    assert(
+      rows.some((row) => row.includes('Eleito · Fernando de Noronha')),
+      'Status scoped to the municipality',
+    )
+    assert(
+      rows.every((row) => !row.includes('· Zona 0004') && !row.includes('pe:30015')),
+      'No zone name or raw ID in the status badges',
+    )
+    assert(!text().includes('pe:30015'), 'No raw scope ID in the panel')
+  } finally {
+    restore()
+  }
+  return 'Municipal scope at zone passed: subtitle "Conselho distrital · Fernando de Noronha", statuses "Eleito · Fernando de Noronha", no zone name or raw ID in badges'
 }
 
 export async function checkZoneListErrorAndPublication() {

@@ -156,8 +156,20 @@ export function ResultsPanel({
     : selection
       ? `${selection.name} · ${areaLabel(selection)}`
       : countryName
+  // The area that owns a municipal or locality contest, named from the mesh when it is the
+  // selected municipality; scope labels never use a zone or section on screen.
+  const electoral = election.electoralArea
+  const owner = electoral
+    ? {
+        id: electoral.id,
+        name: selection && selection.type !== 'state' ? selection.name : electoral.name,
+      }
+    : election.areaKind === 'locality' && election.state.area
+      ? { id: election.state.area, name: depth?.name ?? election.state.area }
+      : null
+  const scopeAreas = [owner, results.data?.area ?? null]
   const subtitle = contest
-    ? `${officeName} · ${contestScopeName(data, contest, results.data?.area ?? null)}`
+    ? `${officeName} · ${contestScopeName(data, contest, scopeAreas)}`
     : national
       ? `${officeName} por UF`
       : officeName
@@ -238,6 +250,7 @@ export function ResultsPanel({
         data={data}
         states={states}
         stale={stale}
+        scopeAreas={scopeAreas}
         onSelect={navigate}
         meshLists={!election.areaKind}
         onPatch={patch}
@@ -524,6 +537,7 @@ function ContestBody({
   data,
   states,
   stale,
+  scopeAreas,
   onSelect,
   meshLists,
   onPatch,
@@ -538,6 +552,8 @@ function ContestBody({
   data: MapViewData | null
   states: Area[]
   stale: boolean
+  /** Areas that can name a status scope (the contest owner, the result area). */
+  scopeAreas: readonly (Pick<AreaResult['area'], 'id' | 'name'> | null)[]
   onSelect: (area: Area) => void
   /** States of the country and municipalities of a state (off for `area`). */
   meshLists: boolean
@@ -577,7 +593,7 @@ function ContestBody({
             result={result}
             contest={contest}
             mode={mode}
-            statusScope={(areaId) => scopeName(data, areaId, result)}
+            statusScope={(areaId) => scopeName(data, areaId, scopeAreas)}
           />
           <Separator />
           {section ? (

@@ -28,25 +28,40 @@ export function stateName(data: MapViewData | null, abbreviation: string): strin
   )
 }
 
-/** Name of a status scope: `br`, a state by the mesh, otherwise the result area itself. */
-export function scopeName(data: MapViewData | null, areaId: string, result: AreaResult): string {
+type NamedArea = Pick<AreaResult['area'], 'id' | 'name'>
+
+/** Name of a scope ID among known areas (matched by ID); never the area merely on screen. */
+function namedScope(
+  data: MapViewData | null,
+  areaId: string,
+  areas: readonly (NamedArea | null | undefined)[],
+): string | null {
   if (areaId === 'br') return 'Brasil'
   if (STATE_AREA.test(areaId)) return stateName(data, areaId) ?? areaId.toUpperCase()
-  if (areaId === result.area.id) return titleCase(result.area.name)
-  return titleCase(result.area.name)
+  const area = areas.find((item) => item?.id === areaId)
+  return area ? titleCase(area.name) : null
 }
 
-/** Label of the contest scope ("Brasil", the state or the municipality). */
+/**
+ * Name of a status scope: `br`, a state by the mesh, otherwise one of `areas` with that ID (the
+ * area that owns the contest, or the result area when it is the scope). Below the scope (a zone or
+ * a section of a municipal contest) the result area is not the scope and is never used.
+ */
+export function scopeName(
+  data: MapViewData | null,
+  areaId: string,
+  areas: readonly (NamedArea | null | undefined)[],
+): string {
+  return namedScope(data, areaId, areas) ?? 'área da disputa'
+}
+
+/** Label of the contest scope ("Brasil", the state or the municipality that owns the contest). */
 export function contestScopeName(
   data: MapViewData | null,
   contest: Contest,
-  area: Pick<AreaResult['area'], 'id' | 'name'> | null,
+  areas: readonly (NamedArea | null | undefined)[],
 ): string {
-  if (contest.scopeAreaId === 'br') return 'Brasil'
-  if (STATE_AREA.test(contest.scopeAreaId))
-    return stateName(data, contest.scopeAreaId) ?? contest.scopeAreaId.toUpperCase()
-  if (area && area.id === contest.scopeAreaId) return titleCase(area.name)
-  return contest.scopeAreaId
+  return namedScope(data, contest.scopeAreaId, areas) ?? 'área da disputa'
 }
 
 export function leaderOf(result: AreaResult): CandidateRowData | null {
