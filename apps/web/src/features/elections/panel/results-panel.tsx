@@ -105,8 +105,10 @@ export function ResultsPanel({
   const { results, contest, national } = election
   const error = election.error ?? results.error
   const loadingResults = results.status === 'loading'
-  const current = results.data ?? (loadingResults ? results.previous : null)
-  const stale = loadingResults && results.data === null && results.previous !== null
+  // The previous key may belong to another contest (office change in the same area): skeleton then.
+  const previous = contest && results.previous?.contest.id === contest.id ? results.previous : null
+  const current = results.data ?? (loadingResults ? previous : null)
+  const stale = loadingResults && results.data === null && previous !== null
   const status = error
     ? 'error'
     : election.loading || loadingResults || map.status === 'loading'
@@ -254,6 +256,11 @@ export function ResultsPanel({
       expanded={expanded}
       onToggle={() => setExpanded((value) => !value)}
       attributes={attributes}
+      status={
+        <p className="sr-only" role="status">
+          {statusText}
+        </p>
+      }
       summary={
         <SheetSummary
           status={status}
@@ -266,9 +273,6 @@ export function ResultsPanel({
       }
     >
       {content}
-      <p className="sr-only" role="status">
-        {statusText}
-      </p>
     </MobileSheet>
   )
 }
@@ -401,7 +405,9 @@ function CoverageLine({ result, coverage }: { result: AreaResult; coverage: Cove
       data-coverage=""
     >
       <Badge variant="outline">{scope === 'national' ? 'Nacional' : 'Piloto'}</Badge>
-      {!result.complete && <Badge variant="secondary">Parcial</Badge>}
+      {result.state === 'available' && !result.complete && (
+        <Badge variant="secondary">Parcial</Badge>
+      )}
       {items.map((item, index) => (
         <span key={index} className="contents">
           {index > 0 && <span aria-hidden="true">·</span>}

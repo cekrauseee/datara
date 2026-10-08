@@ -58,7 +58,8 @@ export function CandidateList({
   }, [])
 
   const summary = result.summary
-  const leaders = new Set(summary?.leaders ?? [])
+  // Ranking mode (deputies, council) has no leader badge.
+  const leaders = new Set(mode === 'summary' ? (summary?.leaders ?? []) : [])
   const tie = summary?.tie ?? false
   const limit = result.pagination.limit
   const total = result.pagination.total

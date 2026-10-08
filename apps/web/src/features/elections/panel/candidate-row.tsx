@@ -86,15 +86,17 @@ export function CandidateRow({
             {voidDestination && <Badge variant="outline">{destination}</Badge>}
           </p>
         )}
-        <div aria-hidden="true" className="h-1 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${Math.max(0, Math.min(100, share ?? 0))}%`,
-              backgroundColor: candidate.color,
-            }}
-          />
-        </div>
+        {share !== null && (
+          <div aria-hidden="true" className="h-1 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.max(0, Math.min(100, share))}%`,
+                backgroundColor: candidate.color,
+              }}
+            />
+          </div>
+        )}
       </div>
     </li>
   )

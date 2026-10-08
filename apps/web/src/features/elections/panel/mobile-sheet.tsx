@@ -12,6 +12,7 @@ export function MobileSheet({
   expanded,
   onToggle,
   summary,
+  status,
   children,
   attributes,
 }: {
@@ -19,6 +20,8 @@ export function MobileSheet({
   expanded: boolean
   onToggle: () => void
   summary: React.ReactNode
+  /** Live region kept outside the inert body so it is announced while the sheet is collapsed. */
+  status?: React.ReactNode
   children: React.ReactNode
   attributes?: Record<string, string>
 }) {
@@ -46,6 +49,7 @@ export function MobileSheet({
           )}
         />
       </button>
+      {status}
       <div
         id={contentId}
         className="grid min-h-0 overflow-hidden transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
