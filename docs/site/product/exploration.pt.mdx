@@ -34,6 +34,26 @@ Com um cargo, o painel de resultados substitui o cartão da seleção e usa o me
 
 Um traço (—) é dado não informado pela fonte, nunca zero. Uma área sem resultado nesta publicação mostra o recorte do piloto; a falha da API mostra o erro com "Tentar novamente" sem derrubar o mapa, a busca e a seleção. Abaixo de 640 px o painel é uma folha inferior recolhida com o mais votado e o percentual; o cabeçalho da folha a expande.
 
+## Zonas, seções e exterior
+
+Abaixo do município, o painel lista as **zonas eleitorais**; abaixo da zona, as **seções**. As listas seguem a ordem da API em páginas de 100 com "Carregar mais"; não há busca por zona ou seção. Escolher uma linha carrega só o resultado daquela área. O mapa continua enquadrado no município, com a mesma camada e legenda; o breadcrumb ganha "Zona 0004" e "Seção 0077", e cada ancestral volta ao seu nível.
+
+- **Zona**: totalização oficial (EA20), com seções apuradas sobre o total e percentuais sobre os votos nominais registrados.
+- **Seção**: boletim de urna (BU), com percentuais sobre os votos nominais impressos e a hora local da urna. Os totais impressos (nominais, legenda, brancos, nulos e sem candidato) somam o total de votos; "válidos" não existe no BU. Votáveis sem candidatura verificada aparecem em nota ("nº 55 (1 voto)"); quando podem mudar a ordem, o mais votado fica indeterminado.
+- **Seção agregada**: votos contados junto com outra seção. A lista marca "agregada → Seção 0471"; o painel mostra a faixa "Votos contados junto com a Seção 0471", os totais e candidatos da principal e um link para ela. URL e breadcrumb ficam na seção agregada.
+
+Exterior e regiões só têm resultados para **Presidente**. O painel nacional de presidente traz o bloco "Regiões e exterior": Norte, Nordeste, Centro-Oeste, Sudeste e Sul como soma das UFs (o exterior não entra; a cobertura vem declarada, por exemplo "7/7") e o Exterior com suas seções apuradas. Nenhum deles tem geometria: o mapa volta à visão do país. O Exterior lista as localidades (cidades com seções no exterior); cada localidade lista suas zonas e seções como um município. Uma região lista seus estados, que levam ao mapa.
+
+| Exemplo                                                                                          | Painel                      |
+| ------------------------------------------------------------------------------------------------ | --------------------------- |
+| `/br?collection=elections&office=president&state=12&municipality=1200393&zone=0004`              | Zona 0004 de Porto Walter   |
+| `/br?collection=elections&office=president&state=12&municipality=1200393&zone=0004&section=0077` | Seção 0077 (BU)             |
+| `/br?collection=elections&office=president&area=exterior`                                        | Exterior e localidades      |
+| `/br?collection=elections&office=president&area=zz:29262`                                        | Abu Dhabi                   |
+| `/br?collection=elections&office=president&area=region:north`                                    | Região Norte (soma das UFs) |
+
+`zone` exige `municipality` (ou uma localidade `area=zz:…`) e `section` exige `zone`; ambos têm quatro dígitos. Uma zona ou seção inexistente é removida da URL com aviso ("Zona 9999 não encontrada neste município."); uma seção inexistente mantém a zona. `area` substitui a seleção geográfica e é removido ao escolher um estado ou município. Com outro cargo ou sem cargo, `area` é ignorado com o aviso "Exterior e regiões só têm resultados para presidente."; uma área desconhecida volta ao Brasil com aviso. Uma combinação que a API recusa mostra "Combinação não disponível" sem nova tentativa.
+
 ## URLs
 
 | Exemplo                               | Seleção                          |

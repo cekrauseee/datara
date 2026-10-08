@@ -34,6 +34,26 @@ With an office, the results panel replaces the selection card and uses one skele
 
 A dash (—) is a value the source did not report, never zero. An area without a result in this publication shows the pilot scope; an API failure shows the error with "Tentar novamente" while the map, the search and the selection keep working. Below 640 px the panel is a collapsed bottom sheet with the leader and the share; its header expands it.
 
+## Zones, sections and exterior
+
+Below a municipality the panel lists its **electoral zones**; below a zone, its **sections**. Lists follow the API order in pages of 100 with "Carregar mais"; there is no zone or section search. Choosing a row loads only that area's result. The map stays framed on the municipality with the same layer and legend; the breadcrumb gains "Zona 0004" and "Seção 0077", and each ancestor returns to its level.
+
+- **Zone**: official totalization (EA20), with counted over total sections and shares over recorded nominal votes.
+- **Section**: ballot-box report (BU), with shares over printed nominal votes and the ballot box's local time. The printed totals (nominal, party-list, blank, null and no candidate) sum to the total votes; "valid" does not exist in a BU. Votables without a verified candidacy appear in a note ("nº 55 (1 voto)"); when they could change the order, the leader is undetermined.
+- **Aggregated section**: votes counted together with another section. The list marks "agregada → Seção 0471"; the panel shows the band "Votos contados junto com a Seção 0471", the principal's totals and candidates and a link to it. The URL and the breadcrumb stay on the aggregated section.
+
+The exterior and the regions only have results for **president**. The national president panel adds the "Regiões e exterior" block: North, Northeast, Center-West, Southeast and South as sums of their states (the exterior is excluded; coverage is declared, for example "7/7") and the exterior with its counted sections. None of them has geometry: the map returns to the country view. The exterior lists its localities (cities with sections abroad); each locality lists its zones and sections like a municipality. A region lists its states, which lead to the map.
+
+| Example                                                                                          | Panel                        |
+| ------------------------------------------------------------------------------------------------ | ---------------------------- |
+| `/br?collection=elections&office=president&state=12&municipality=1200393&zone=0004`              | Zone 0004 of Porto Walter    |
+| `/br?collection=elections&office=president&state=12&municipality=1200393&zone=0004&section=0077` | Section 0077 (BU)            |
+| `/br?collection=elections&office=president&area=exterior`                                        | Exterior and its localities  |
+| `/br?collection=elections&office=president&area=zz:29262`                                        | Abu Dhabi                    |
+| `/br?collection=elections&office=president&area=region:north`                                    | North region (sum of states) |
+
+`zone` requires `municipality` (or a locality `area=zz:…`) and `section` requires `zone`; both have four digits. An unknown zone or section is removed from the URL with a notice ("Zona 9999 não encontrada neste município."); an unknown section keeps the zone. `area` replaces the geographic selection and is removed when a state or municipality is chosen. With another office or none, `area` is ignored with the notice "Exterior e regiões só têm resultados para presidente."; an unknown area returns to Brazil with a notice. A combination the API rejects shows "Combinação não disponível" without a retry.
+
 ## URLs
 
 | Example                               | Selection                                   |

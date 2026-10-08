@@ -98,6 +98,15 @@ for (const check of Object.values(panel)) console.log(await check())
 
 Run it once at desktop width and once with device emulation below 640 px, where the bottom-sheet assertions apply. It covers the selectors without requests, the president and Senate summaries (margin, second-seat cutoff, status with scope), the paginated ranking with party totals, the national governor view, an area without results, a 503 and a network failure with retry, a delayed response, `/us` without a panel and the `--panel-inset` variables. The steps that depend on the Canvas only run while the page is visible.
 
+The zones, sections, exterior and regions check also replaces `fetch`, with synthetic responses built on the same fixtures (BU section, section without BU, aggregated section, localities, regions):
+
+```js
+const depth = await import('/scripts/check-election-depth.mjs')
+for (const check of Object.values(depth)) console.log(await check())
+```
+
+It covers the section URL round trip, the breadcrumb and the lists, the band "Votos contados junto com a Seção 0471" and its link, `zone=9999` and `section=9999` with notices, the "Regiões e exterior" rows, `area=exterior`, `area=zz:29262` and `area=region:north`, clearing when the municipality changes or a state is chosen, `area` with another office, a `LEVEL_TOO_DEEP` without retry and one `publicationId` on every request. The pure rules (region labels, printed totals, zones under a locality) run in `pnpm --filter @datara/web election:check`.
+
 For performance measurements:
 
 ```js
