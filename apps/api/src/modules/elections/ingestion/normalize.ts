@@ -250,6 +250,11 @@ export async function normalizeBulletin(
     bulletin.section !== context.section
   )
     throw new Error('BU identity does not match inventory')
+  // The bulletin's emission time (voting machine local time) is its source generation time.
+  await client.query('UPDATE source_documents SET generated_at=$2 WHERE id=$1', [
+    source.id,
+    bulletin.emittedAt,
+  ])
   const areas = columns(10)
   const votables = columns(5)
   const candidates = columns(3)

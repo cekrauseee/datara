@@ -7,6 +7,7 @@ import { createPool, migrate } from '../src/db/index.js'
 import { classifyError } from '../src/http/errors.js'
 import { importElection } from '../src/modules/elections/ingestion/import.js'
 import { measure } from '../src/modules/elections/metrics.js'
+import { isoGeneratedAt, resultStatus } from '../src/modules/elections/status.js'
 
 if (!process.env.TEST_DATABASE_URL || !process.env.ELECTION_ARCHIVE_DIR)
   throw new Error('TEST_DATABASE_URL and ELECTION_ARCHIVE_DIR are required')
@@ -51,6 +52,50 @@ try {
     candidate.photoUrl === null || /^\/assets\/photos\/[a-f0-9]{64}\.jpg$/.test(candidate.photoUrl),
   )
   assert.match(candidate.color, /^#[a-fA-F0-9]{6}$/)
+  // Coverage is typed camelCase and present in every list response, candidates included.
+  assert.equal(candidates.coverage.scope, 'pilot')
+  assert.equal(typeof candidates.coverage.buFiles, 'number')
+  assert.equal(candidates.coverage.officialAbsences, 0)
+  assert.deepEqual(candidates.coverage.selection.ufs, ['ac', 'df', 'pe', 'zz'])
+  assert.ok(Array.isArray(candidates.coverage.discrepancies))
+  assert.equal('bu_files' in candidates.coverage, false)
+  for (const path of [
+    '/elections/BR-2026-1/areas?limit=1',
+    '/elections/BR-2026-1/contests',
+    `/contests/${contest}/results?areaId=br&limit=1`,
+  ])
+    assert.deepEqual((await request(path)).coverage, candidates.coverage)
+  assert.deepEqual(list.items[0].publication.coverage, candidates.coverage)
+  // Two-letter codes ignore case.
+  assert.equal((await request('/elections?country=br')).items[0].id, 'BR-2026-1')
+  assert.deepEqual(
+    await request('/elections/BR-2026-1/areas?uf=AC&level=municipality'),
+    await request('/elections/BR-2026-1/areas?uf=ac&level=municipality'),
+  )
+  assert.deepEqual(
+    (await request('/elections/BR-2026-1/areas?level=region')).items.map(
+      (a: { name: string }) => a.name,
+    ),
+    ['Centro-Oeste', 'Norte', 'Nordeste', 'Sul', 'Sudeste'],
+  )
+  // Candidacy groupings and running mates are typed, without TSE abbreviations.
+  const presidential = (await request(`/contests/${contest}/candidates?limit=100`)).items
+  for (const item of presidential) {
+    assert.ok(['coalition', 'party'].includes(item.coalition.type), item.coalition.type)
+    assert.ok(item.federation === null || Array.isArray(item.federation.partyNumbers))
+    assert.equal(item.runningMates[0].role, 'vice')
+    assert.match(item.runningMates[0].officialId, /^\d+$/)
+  }
+  const federated = presidential.find((item: { federation: unknown }) => item.federation)
+  assert.ok(federated.federation.partyNumbers.length > 1)
+  assert.ok(federated.federation.abbreviation)
+  const senators = (await request('/contests/BR-2026-1:6259:5:ac/candidates?limit=100')).items
+  assert.ok(
+    senators.every(
+      (item: { runningMates: { role: string }[] }) =>
+        item.runningMates.map((m) => m.role).join() === 'firstSubstitute,secondSubstitute',
+    ),
+  )
   const first = await request(`/contests/${contest}/results?areaId=br&limit=1`)
   const next = await request(`/contests/${contest}/results?areaId=br&limit=25`)
   const denominator = Number(
@@ -80,6 +125,37 @@ try {
   assert.equal(bulletin.totals.totalVotes, 2 * bulletin.totals.turnout)
   assert.equal(bulletin.totals.validVotes, null)
   assert.equal(bulletin.summary.shareBasis, 'printedNominalVotes')
+  // Result statuses are documented values with Portuguese labels; the stored code stays visible.
+  assert.deepEqual(
+    [first.officialStatus, first.officialStatusCode, first.officialStatusLabel],
+    ['finished', 'f', 'Totalização finalizada'],
+  )
+  assert.deepEqual(
+    [bulletin.officialStatus, bulletin.officialStatusCode, bulletin.officialStatusLabel],
+    ['printed', 'printed', 'Boletim de urna impresso'],
+  )
+  assert.deepEqual(resultStatus('X', 'EA20'), {
+    status: 'unknown',
+    label: 'Situação oficial desconhecida',
+  })
+  assert.equal(resultStatus('constructor', 'EA20').status, 'unknown')
+  assert.equal(resultStatus('P', 'EA20').status, 'inProgress')
+  // Source times are ISO-8601: TSE JSON in Brasília time, bulletins in local time without offset.
+  const brasilia = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00$/
+  const local = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/
+  assert.match(first.provenance.generatedAt, brasilia)
+  assert.match(bulletin.provenance.generatedAt, local)
+  assert.equal(isoGeneratedAt('05/10/2026 12:51:40'), '2026-10-05T12:51:40-03:00')
+  assert.equal(isoGeneratedAt('20261004T154409'), '2026-10-04T15:44:09')
+  assert.equal(isoGeneratedAt('31/02/2026 12:00:00'), null)
+  assert.equal(isoGeneratedAt('2026-10-04'), null)
+  const jsonSource = await request(`/sources/${first.provenance.sourceIds[0]}`)
+  assert.match(jsonSource.generatedAt, brasilia)
+  assert.match(jsonSource.generatedAtOriginal, /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
+  const buSource = await request(`/sources/${bulletin.provenance.sourceIds[0]}`)
+  assert.equal(buSource.kind, 'BU')
+  assert.match(buSource.generatedAt, local)
+  assert.match(buSource.generatedAtOriginal, /^\d{8}T\d{6}$/)
   const shared = (
     await pool.query(
       "SELECT a.id,a.principal_area_id,r.contest_id FROM areas a JOIN area_results r ON r.publication_id=a.publication_id AND r.area_id=a.principal_area_id WHERE a.publication_id=$1 AND a.principal_area_id IS NOT NULL AND r.source_kind='BU' LIMIT 1",
@@ -324,12 +400,33 @@ try {
   const region = await request(`/contests/${contest}/results?areaId=region:north`)
   assert.equal(region.provenance.sourceKind, 'aggregate')
   assert.equal(region.complete, true)
+  assert.deepEqual(
+    [region.officialStatus, region.officialStatusLabel, region.provenance.generatedAt],
+    ['regionComplete', 'Soma das UFs completa', null],
+  )
   const exterior = await request(`/contests/${contest}/results?areaId=exterior`)
   assert.equal(exterior.area.featureId, null)
   assert.equal(exterior.state, 'available')
   const schema = await request('/openapi.json')
   assert.equal(Object.keys(schema.paths).length, 9)
   assert.ok(schema.components.schemas.AreaResult)
+  // Typed contracts: no untyped (`{}`) property in candidacies, coverage and maps.
+  const untyped = (node: unknown): boolean =>
+    !!node &&
+    typeof node === 'object' &&
+    (Object.keys(node).length === 0 || Object.values(node).some(untyped))
+  for (const name of ['Candidate', 'Coverage'])
+    assert.equal(untyped(schema.components.schemas[name].properties), false, name)
+  assert.deepEqual(schema.components.schemas.AreaResult.properties.officialStatus.enum, [
+    'notStarted',
+    'inProgress',
+    'finished',
+    'printed',
+    'regionComplete',
+    'regionPartial',
+    'unknown',
+    null,
+  ])
   assert.ok(schema.components.schemas.ResultTotals.properties.noCandidateVotes)
   assert.equal(
     schema.paths['/elections/{electionId}'].get.responses['503'].description,

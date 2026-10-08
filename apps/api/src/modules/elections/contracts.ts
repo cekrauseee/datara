@@ -2,26 +2,43 @@ import { z } from '@hono/zod-openapi'
 
 export const Id = z.string().min(1).max(200)
 export const Level = z.enum(['country', 'region', 'state', 'municipality', 'zone', 'section'])
+export const SourceKind = z.enum(['EA20', 'BU', 'aggregate'])
+export const ResultState = z.enum(['available', 'unavailable', 'shared'])
+export const MapLevel = z.enum(['state', 'municipality'])
+export const MapMetric = z.enum([
+  'candidateVotes',
+  'candidateShare',
+  'contribution',
+  'leader',
+  'margin',
+  'turnout',
+])
+/** Official situation of a stored result, independent of the source's own codes. */
+export const ResultStatus = z.enum([
+  'notStarted',
+  'inProgress',
+  'finished',
+  'printed',
+  'regionComplete',
+  'regionPartial',
+  'unknown',
+])
 export const PublicationQuery = z.object({ publicationId: z.uuid().optional() })
 export const PageQuery = PublicationQuery.extend({
   limit: z.coerce.number().int().min(1).max(100).default(25),
   offset: z.coerce.number().int().min(0).max(10_000_000).default(0),
 })
+// Two-letter codes are matched without regard to case.
+const letters = z.string().regex(/^[a-zA-Z]{2}$/)
 export const EditionQuery = z.object({
-  country: z
-    .string()
-    .regex(/^[A-Z]{2}$/)
-    .optional(),
+  country: letters.transform((v) => v.toUpperCase()).optional(),
   year: z.coerce.number().int().min(1900).max(2100).optional(),
   round: z.coerce.number().int().min(1).max(2).optional(),
 })
 export const AreaQuery = PageQuery.extend({
   level: Level.optional(),
   parentId: Id.optional(),
-  uf: z
-    .string()
-    .regex(/^[a-z]{2}$/)
-    .optional(),
+  uf: letters.transform((v) => v.toLowerCase()).optional(),
   municipalityCode: z.string().regex(/^\d+$/).optional(),
   zoneCode: z.string().regex(/^\d+$/).optional(),
   q: z.string().max(100).optional(),
@@ -39,10 +56,8 @@ export const DistributionQuery = PageQuery.extend({
 export const MapQuery = PublicationQuery.extend({
   areaId: Id.optional(),
   candidateId: Id.optional(),
-  level: z.enum(['state', 'municipality']).default('municipality'),
-  metric: z
-    .enum(['candidateVotes', 'candidateShare', 'contribution', 'leader', 'margin', 'turnout'])
-    .default('leader'),
+  level: MapLevel.default('municipality'),
+  metric: MapMetric.default('leader'),
 })
 export const ErrorSchema = z
   .object({
@@ -55,12 +70,46 @@ export const ErrorSchema = z
   })
   .openapi('Error')
 const Count = z.number().int().nonnegative().nullable()
+const Total = z.number().int().nonnegative()
+export const Coverage = z
+  .object({
+    scope: z.enum(['pilot', 'national']),
+    complete: z.boolean(),
+    expected: Total,
+    completed: Total,
+    officialAbsences: Total,
+    results: Total,
+    buResults: Total,
+    buFiles: Total,
+    aggregates: Total,
+    reconciliation: z.string(),
+    reconciledZoneResults: Total,
+    unreconciledZoneResults: Total.nullable(),
+    discrepancies: z.array(
+      z.object({
+        contestId: z.string(),
+        areaId: z.string(),
+        officialVotes: z.string(),
+        printedVotes: z.string(),
+      }),
+    ),
+    officialSectionStatuses: z.record(z.string(), Total).nullable(),
+    sectionsWithoutAuxiliaryFile: Total.nullable(),
+    selection: z
+      .object({
+        ufs: z.array(z.string()),
+        municipalitiesPerUf: Total,
+        primarySectionsPerUf: Total,
+      })
+      .nullable(),
+  })
+  .openapi('Coverage')
 const Publication = z
   .object({
     id: z.uuid(),
     scope: z.enum(['pilot', 'national']),
     publishedAt: z.string().nullable(),
-    coverage: z.record(z.string(), z.unknown()),
+    coverage: Coverage,
   })
   .openapi('Publication')
 export const Edition = z
@@ -99,6 +148,27 @@ export const Contest = z
     voteType: z.string(),
   })
   .openapi('Contest')
+// Inline (not named components): a nullable named schema loses its null in the OpenAPI output.
+const Coalition = z.object({
+  number: z.string(),
+  name: z.string(),
+  composition: z.string(),
+  type: z.enum(['party', 'coalition', 'federation', 'unknown']),
+})
+const Federation = z.object({
+  number: z.string(),
+  name: z.string(),
+  abbreviation: z.string(),
+  composition: z.string(),
+  partyNumbers: z.array(z.string()),
+})
+const RunningMate = z.object({
+  name: z.string(),
+  displayName: z.string(),
+  partyAbbreviation: z.string(),
+  officialId: z.string(),
+  role: z.enum(['vice', 'firstSubstitute', 'secondSubstitute', 'unknown']),
+})
 export const Candidate = z
   .object({
     id: Id,
@@ -120,9 +190,9 @@ export const Candidate = z
     voteDestination: z.string().nullable(),
     officialSelectedFlag: z.boolean().nullable(),
     officialStatusScopeAreaId: Id,
-    coalition: z.unknown(),
-    federation: z.unknown(),
-    runningMates: z.array(z.unknown()),
+    coalition: Coalition.nullable(),
+    federation: Federation.nullable(),
+    runningMates: z.array(RunningMate),
   })
   .openapi('Candidate')
 const Pagination = z.object({
@@ -133,17 +203,18 @@ const Pagination = z.object({
 })
 export const AreasResponse = z.object({
   publicationId: z.uuid(),
-  coverage: Publication.shape.coverage,
+  coverage: Coverage,
   items: z.array(Area),
   pagination: Pagination,
 })
 export const ContestsResponse = z.object({
   publicationId: z.uuid(),
-  coverage: Publication.shape.coverage,
+  coverage: Coverage,
   items: z.array(Contest),
 })
 export const CandidatesResponse = z.object({
   publicationId: z.uuid(),
+  coverage: Coverage,
   items: z.array(Candidate),
   pagination: Pagination,
 })
@@ -173,7 +244,7 @@ export const Totals = z
   })
   .openapi('ResultTotals')
 const Provenance = z.object({
-  sourceKind: z.enum(['EA20', 'BU', 'aggregate']),
+  sourceKind: SourceKind,
   sourceIds: z.array(z.uuid()),
   meaning: z.string(),
   generatedAt: z.string().nullable(),
@@ -212,13 +283,15 @@ const Summary = z.object({
 export const ResultsResponse = z
   .object({
     publicationId: z.uuid(),
-    coverage: Publication.shape.coverage,
+    coverage: Coverage,
     contest: Contest,
     area: Area,
     resultAreaId: Id,
-    state: z.enum(['available', 'unavailable', 'shared']),
+    state: ResultState,
     complete: z.boolean(),
-    officialStatus: z.string().nullable(),
+    officialStatus: ResultStatus.nullable(),
+    officialStatusLabel: z.string().nullable(),
+    officialStatusCode: z.string().nullable(),
     totals: Totals.nullable(),
     provenance: Provenance.nullable(),
     summary: Summary.nullable(),
@@ -230,16 +303,16 @@ export const ResultsResponse = z
   .openapi('AreaResult')
 export const DistributionItem = z.object({
   area: Area,
-  state: z.enum(['available', 'unavailable', 'shared']),
+  state: ResultState,
   complete: z.boolean(),
-  sourceKind: z.enum(['EA20', 'BU', 'aggregate']).nullable(),
+  sourceKind: SourceKind.nullable(),
   votes: Count,
   support: Measure,
   contribution: Measure,
 })
 export const DistributionResponse = z.object({
   publicationId: z.uuid(),
-  coverage: Publication.shape.coverage,
+  coverage: Coverage,
   contestId: Id,
   candidateId: Id,
   scopeAreaId: Id,
@@ -248,19 +321,19 @@ export const DistributionResponse = z.object({
 })
 export const MapResponse = z.object({
   publicationId: z.uuid(),
-  coverage: Publication.shape.coverage,
+  coverage: Coverage,
   contestId: Id,
   scopeAreaId: Id,
-  level: z.string(),
-  metric: z.string(),
+  level: MapLevel,
+  metric: MapMetric,
   candidateId: Id.nullable(),
   items: z.array(
     z.object({
       areaId: Id,
       featureId: z.string(),
       value: z.number().nullable(),
-      state: z.string(),
-      sourceKind: z.string().nullable(),
+      state: ResultState,
+      sourceKind: SourceKind.nullable(),
       basis: z.string(),
       leaders: z.array(Id),
       tie: z.boolean(),
@@ -278,6 +351,7 @@ export const SourceResponse = z
     sha256: z.string(),
     kind: z.string(),
     generatedAt: z.string().nullable(),
+    generatedAtOriginal: z.string().nullable(),
     collectedAt: z.string(),
     meaning: z.string(),
   })

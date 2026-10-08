@@ -12,6 +12,7 @@ import type {
 import { Level } from './contracts.js'
 import { integer, measure, percentage } from './metrics.js'
 import type { Presentation } from './presentation.js'
+import { isoGeneratedAt, resultStatus } from './status.js'
 
 type AreaRow = {
   id: string
@@ -80,7 +81,7 @@ type ResultRow = {
 type Context = {
   client: pg.PoolClient
   publicationId: string
-  coverage: Record<string, unknown>
+  coverage: ReturnType<typeof coverageDto>
   contest?: ContestRow
 }
 const candidateSelect = `SELECT c.*,p.abbreviation,p.name AS party_name FROM candidacies c LEFT JOIN parties p ON p.publication_id=c.publication_id AND p.number=c.party_number`
@@ -113,17 +114,51 @@ export async function read<T>(pool: pg.Pool, run: (client: pg.PoolClient) => Pro
     client.release()
   }
 }
+type Fields = Record<string, unknown>
+const own = <T>(table: Record<string, T>, key: unknown) =>
+  typeof key === 'string' && Object.hasOwn(table, key) ? table[key] : undefined
+/**
+ * Publication coverage in camelCase. Stored coverage mixes snake_case and camelCase keys, and
+ * publications written before a key existed lack it (null here).
+ */
+export function coverageDto(raw: Fields) {
+  const value = (camel: string, snake = camel) => raw[camel] ?? raw[snake]
+  const discrepancies = Array.isArray(raw.discrepancies) ? (raw.discrepancies as Fields[]) : []
+  return {
+    scope: raw.scope,
+    complete: raw.complete,
+    expected: raw.expected,
+    completed: raw.completed,
+    officialAbsences: value('officialAbsences', 'official_absences'),
+    results: raw.results,
+    buResults: value('buResults', 'bu_results'),
+    buFiles: value('buFiles', 'bu_files'),
+    aggregates: raw.aggregates,
+    reconciliation: raw.reconciliation,
+    reconciledZoneResults: value('reconciledZoneResults', 'reconciled_zone_results'),
+    unreconciledZoneResults: raw.unreconciledZoneResults ?? null,
+    discrepancies: discrepancies.map((d) => ({
+      contestId: d.contestId ?? d.contest_id,
+      areaId: d.areaId ?? d.area_id,
+      officialVotes: String(d.officialVotes ?? d.official_votes),
+      printedVotes: String(d.printedVotes ?? d.printed_votes),
+    })),
+    officialSectionStatuses: raw.officialSectionStatuses ?? null,
+    sectionsWithoutAuxiliaryFile: raw.sectionsWithoutAuxiliaryFile ?? null,
+    selection: raw.selection ?? null,
+  }
+}
 function publication(row: {
   id: string
   scope: string
   published_at: Date | null
-  coverage: Record<string, unknown>
+  coverage: Fields
 }) {
   return {
     id: row.id,
     scope: row.scope,
     publishedAt: row.published_at?.toISOString() ?? null,
-    coverage: row.coverage,
+    coverage: coverageDto(row.coverage),
   }
 }
 export async function listElections(client: pg.PoolClient, query: z.output<typeof EditionQuery>) {
@@ -184,7 +219,9 @@ export async function electionContext(client: pg.PoolClient, id: string, request
   ).rows[0]
   if (!pub)
     throw new ApiError(404, 'PUBLICATION_NOT_FOUND', 'Published data not found for this election')
-  return { context: { client, publicationId: pub.id, coverage: pub.coverage } as Context }
+  return {
+    context: { client, publicationId: pub.id, coverage: coverageDto(pub.coverage) } as Context,
+  }
 }
 export async function contestContext(
   client: pg.PoolClient,
@@ -208,7 +245,7 @@ export async function contestContext(
   ).rows[0]
   if (!row)
     throw new ApiError(404, 'CONTEST_NOT_FOUND', 'Contest not found in the selected publication')
-  return { client, publicationId: row.pub_id, coverage: row.coverage, contest: row }
+  return { client, publicationId: row.pub_id, coverage: coverageDto(row.coverage), contest: row }
 }
 export function areaDto(a: AreaRow) {
   return {
@@ -235,6 +272,44 @@ export function contestDto(c: ContestRow) {
     voteType: c.vote_type,
   }
 }
+const text = (value: unknown) =>
+  typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value)
+const coalitionTypes = { i: 'party', c: 'coalition', f: 'federation' } as const
+const runningMateRoles = { v: 'vice', s1: 'firstSubstitute', s2: 'secondSubstitute' } as const
+// Candidacy groupings are stored as the TSE publishes them (coalition already renamed at import);
+// missing fields read as empty text, empty lists or `unknown`.
+function coalitionDto(raw: unknown) {
+  if (!raw || typeof raw !== 'object') return null
+  const c = raw as Fields
+  return {
+    number: text(c.number),
+    name: text(c.name),
+    composition: text(c.composition),
+    type: own(coalitionTypes, c.type) ?? 'unknown',
+  }
+}
+function federationDto(raw: unknown) {
+  if (!raw || typeof raw !== 'object') return null
+  const f = raw as Fields
+  return {
+    number: text(f.n),
+    name: text(f.nm),
+    abbreviation: text(f.sg),
+    composition: text(f.com),
+    partyNumbers: Array.isArray(f.npar) ? f.npar.map(text) : [],
+  }
+}
+function runningMatesDto(raw: unknown) {
+  return (Array.isArray(raw) ? raw : [])
+    .filter((m): m is Fields => !!m && typeof m === 'object')
+    .map((m) => ({
+      name: text(m.nm),
+      displayName: text(m.nmu),
+      partyAbbreviation: text(m.sgp),
+      officialId: text(m.sqcand),
+      role: own(runningMateRoles, m.tp) ?? 'unknown',
+    }))
+}
 function candidateDto(c: CandidateRow, scope: string, present: Presentation) {
   const { partyDisplayName, ...presentation } = present(c)
   return {
@@ -255,9 +330,9 @@ function candidateDto(c: CandidateRow, scope: string, present: Presentation) {
     voteDestination: c.vote_destination,
     officialSelectedFlag: c.elected,
     officialStatusScopeAreaId: scope,
-    coalition: c.coalition,
-    federation: c.federation,
-    runningMates: c.running_mates,
+    coalition: coalitionDto(c.coalition),
+    federation: federationDto(c.federation),
+    runningMates: runningMatesDto(c.running_mates),
   }
 }
 function pagination(query: z.output<typeof PageQuery>, total: number) {
@@ -357,6 +432,7 @@ export async function candidates(
   )
   return {
     publicationId: ctx.publicationId,
+    coverage: ctx.coverage,
     items: rows.rows.map((c) => candidateDto(c, ctx.contest.scope_area_id, present)),
     pagination: pagination(query, total),
   }
@@ -493,6 +569,8 @@ export async function results(
       state: 'unavailable',
       complete: false,
       officialStatus: null,
+      officialStatusLabel: null,
+      officialStatusCode: null,
       totals: null,
       provenance: null,
       summary: null,
@@ -502,6 +580,7 @@ export async function results(
       unresolvedVotables: [],
     }
   const { summary, ordered } = await voteSummary(ctx, r, areaIds)
+  const status = resultStatus(r.status, r.source_kind)
   const voting = `WITH voting AS (SELECT candidate_id,sum(votes)::text votes,CASE WHEN count(*)=1 THEN max(official_percentage) END official_percentage,CASE WHEN count(DISTINCT vote_destination)=1 THEN max(vote_destination) END destination FROM candidate_results WHERE publication_id=$1 AND contest_id=$2 AND area_id=ANY($3::text[]) GROUP BY candidate_id)`
   const total = Number(
     (
@@ -555,7 +634,9 @@ export async function results(
     ...base,
     state: area.principal_area_id ? 'shared' : 'available',
     complete: r.complete,
-    officialStatus: r.status,
+    officialStatus: status.status,
+    officialStatusLabel: status.label,
+    officialStatusCode: r.status,
     totals: totals(r),
     provenance: {
       sourceKind: r.source_kind,
@@ -565,7 +646,7 @@ export async function results(
         (r.source_kind === 'BU'
           ? 'Printed ballot votes; judicial destination unavailable'
           : 'Official judicial totalization; candidate recorded votes retain their destination'),
-      generatedAt: r.metadata.generatedAt ?? r.metadata.emittedAt ?? null,
+      generatedAt: isoGeneratedAt(r.metadata.generatedAt ?? r.metadata.emittedAt),
     },
     summary,
     candidates: rows.map((c) => ({
@@ -794,7 +875,8 @@ export async function source(client: pg.PoolClient, id: string, requested?: stri
     url: row.url,
     sha256: row.sha256,
     kind: row.kind,
-    generatedAt: row.generated_at,
+    generatedAt: isoGeneratedAt(row.generated_at),
+    generatedAtOriginal: row.generated_at,
     collectedAt: row.collected_at.toISOString(),
     meaning:
       row.kind === 'BU'
