@@ -529,7 +529,11 @@ function CountryMap({
         )}
 
         {ready && mapLayer.active && (
-          <MapLegend layer={mapLayer} scopeLabel={(selected && state?.name) || country.name} />
+          <MapLegend
+            layer={mapLayer}
+            scopeLabel={(selected && state?.name) || country.name}
+            focusArea={election.results.data?.area ?? null}
+          />
         )}
 
         <footer className="pointer-events-none absolute right-5 bottom-[calc(var(--panel-inset-bottom)+1.25rem)] flex max-w-[calc(100%-6rem)] flex-col items-end gap-1 text-right text-xs text-muted-foreground sm:right-7">

@@ -1,6 +1,6 @@
 import { cn } from 'cn'
 import { XIcon } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator'
 import { areaLabel, type Area, type MapViewData } from '../../map/map-data'
 import { API_URL } from '../api-client'
 import type { AreaResult, Candidate, Contest, Coverage } from '../api-types'
-import { formatFocusPercent, inArea } from '../candidate-focus'
+import { formatFocusPercent, inArea, LEVEL_BELOW } from '../candidate-focus'
 import { OFFICE_CODES, type Metric, type OfficeKey } from '../election-location'
 import { MAJORITARIAN_OFFICES, OFFICE_NAMES } from '../election-model'
 import { formatDateTime, formatInteger, formatPercent, sourceKindLabel, titleCase } from '../format'
@@ -27,6 +27,7 @@ import { useElectionMap } from '../use-election-data'
 import { navigateElection } from '../use-election-location'
 import { ContestAreaList, OfficeAreaList } from './area-list'
 import { CandidateCard, exitFocus } from './candidate-card'
+import { CandidateDistribution } from './candidate-distribution'
 import { CandidateList } from './candidate-list'
 import { MobileSheet } from './mobile-sheet'
 import { byName, contestScopeName, leaderOf, panelMode, scopeName, topCount } from './panel-model'
@@ -484,6 +485,19 @@ function ContestBody({
 }) {
   const mode = panelMode(contest)
   const statusScope = (areaId: string) => scopeName(data, areaId, result)
+  const focusLevel = focus ? (LEVEL_BELOW[result.area.level] ?? null) : null
+  const meshAreas = useMemo(
+    () =>
+      new Map(
+        data
+          ? [...data.states, ...data.regions].map((feature) => [
+              feature.properties.id,
+              feature.properties,
+            ])
+          : [],
+      ),
+    [data],
+  )
   const majoritarian = contest.voteType === 'majoritarian' && mode === 'summary'
   const municipalities =
     selection?.type === 'state' && data
@@ -501,6 +515,18 @@ function ContestBody({
       {focus && (
         <>
           <CandidateCard focus={focus} metric={metric} statusScope={statusScope} />
+          {focusLevel && (
+            <CandidateDistribution
+              key={`${focus.candidate.id}:${result.area.id}`}
+              contestId={contest.id}
+              candidateId={focus.candidate.id}
+              areaId={result.area.id}
+              level={focusLevel}
+              placeLabel={inArea(result.area)}
+              meshAreas={meshAreas}
+              onSelect={onSelect}
+            />
+          )}
           <Separator />
         </>
       )}
@@ -525,7 +551,7 @@ function ContestBody({
           <TotalsBlock result={result} seats={contest.seats} />
         </>
       )}
-      {selection === null && states.length > 0 && (
+      {!focus && selection === null && states.length > 0 && (
         <ContestAreaList
           heading="Estados"
           description={
@@ -540,7 +566,7 @@ function ContestBody({
           onSelect={onSelect}
         />
       )}
-      {selection?.type === 'state' && municipalities.length > 0 && (
+      {!focus && selection?.type === 'state' && municipalities.length > 0 && (
         <ContestAreaList
           heading="Municípios"
           description={

@@ -108,6 +108,7 @@ export type { HoverTarget } from './map-hover-detail'
 export { MapLegend } from './map-legend'
 export { AreaList, ContestAreaList, OfficeAreaList } from './panel/area-list'
 export { CandidateCard, exitFocus } from './panel/candidate-card'
+export { CandidateDistribution } from './panel/candidate-distribution'
 export { MetricToggle } from './panel/metric-toggle'
 export {
   byName,

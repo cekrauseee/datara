@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
-import { formatInteger } from './format'
-import type { LegendRow } from './map-classes'
+import type { ElectoralArea } from './api-types'
+import { candidateTitle, focusBasisLabel, toArea } from './candidate-focus'
+import { basisLabel, formatInteger, titleCase } from './format'
+import type { ClassifiedMap, LegendRow } from './map-classes'
 import { METRIC_TITLES, METRIC_UNITS, swatchColor } from './map-format'
 import type { MapLayerState } from './use-map-layer'
 
@@ -65,13 +67,49 @@ function BandRow({ row, band }: { row: LegendRow; band: LegendRow['bands'][numbe
  * coverage. Bottom right, above the source footer, offset by the panel's `--panel-inset`;
  * collapsed into a button below `sm`.
  */
-export function MapLegend({ layer, scopeLabel }: { layer: MapLayerState; scopeLabel: string }) {
+/**
+ * Title of a candidate metric: "Apoio a Lula (13 · PT)", "Votos de Lula (13 · PT)",
+ * "Contribuição de Lula (13 · PT) para o Acre", and the basis of its percentages.
+ */
+function focusHeading(classified: ClassifiedMap, area: ElectoralArea | null) {
+  const { candidate, metric, data } = classified
+  if (!candidate || metric === 'leader') return null
+  const name = candidateTitle(candidate, titleCase(candidate.displayName))
+  const scopeAreaId = 'scopeAreaId' in data ? data.scopeAreaId : null
+  const basis = classified.items.values().next().value?.basis ?? null
+  const percentages =
+    basis && metric !== 'candidateVotes'
+      ? `Percentuais ${focusBasisLabel(basis, basisLabel)}`
+      : null
+  if (metric === 'candidateShare') return { title: `Apoio a ${name}`, percentages }
+  if (metric === 'candidateVotes') return { title: `Votos de ${name}`, percentages }
+  if (metric === 'contribution')
+    return {
+      title: `Contribuição de ${name} ${area && area.id === scopeAreaId ? toArea(area) : 'para a área selecionada'}`,
+      percentages,
+    }
+  return null
+}
+
+export function MapLegend({
+  layer,
+  scopeLabel,
+  focusArea = null,
+}: {
+  layer: MapLayerState
+  scopeLabel: string
+  /** Selected electoral area, which names the scope of a contribution map. */
+  focusArea?: ElectoralArea | null
+}) {
   const [open, setOpen] = useState(() => matchMedia('(min-width: 40rem)').matches)
   const { legend, classified, status, coverage } = layer
   const metric = classified?.metric
-  const title = metric
-    ? `${METRIC_TITLES[metric]}${classified.candidate && metric !== 'leader' ? ` · ${classified.candidate.displayName}` : ''}`
-    : 'Mapa'
+  const focus = classified ? focusHeading(classified, focusArea) : null
+  const title = focus
+    ? focus.title
+    : metric
+      ? `${METRIC_TITLES[metric]}${classified.candidate && metric !== 'leader' ? ` · ${classified.candidate.displayName}` : ''}`
+      : 'Mapa'
   const grainLabel = layer.grain === 'state' ? 'Estados' : 'Municípios'
   return (
     <section
@@ -85,9 +123,14 @@ export function MapLegend({ layer, scopeLabel }: { layer: MapLayerState; scopeLa
       {open ? (
         <Card size="sm" className="max-h-[55dvh] w-64 overflow-y-auto">
           <CardHeader>
-            <CardTitle>{title}</CardTitle>
+            <CardTitle data-map-legend-title="">{title}</CardTitle>
             <CardDescription>
               {grainLabel} · {scopeLabel}
+              {focus?.percentages && (
+                <span className="block" data-map-legend-basis="">
+                  {focus.percentages}
+                </span>
+              )}
             </CardDescription>
             <CardAction>
               <Button
