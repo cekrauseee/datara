@@ -133,6 +133,35 @@ try {
   assert.ok(invalid.error.details.length)
   const notPublished = await request(`/elections/BR-2026-1?publicationId=${randomUUID()}`, 404)
   assert.equal(notPublished.error.code, 'PUBLICATION_NOT_FOUND')
+  // Unknown candidacies are missing resources; those of another contest are incompatible.
+  for (const path of [
+    `/contests/${contest}/distribution?candidateId=nope`,
+    `/contests/${contest}/map?metric=candidateVotes&candidateId=nope`,
+  ])
+    assert.equal((await request(path, 404)).error.code, 'CANDIDATE_NOT_FOUND')
+  // An edition without an active publication reads as in the list; its data routes do not.
+  await pool.query("UPDATE editions SET active_publication_id=NULL WHERE id='BR-2026-1'")
+  try {
+    assert.equal((await request('/elections/BR-2026-1')).publication, null)
+    assert.equal((await request('/elections')).items[0].publication, null)
+    assert.equal(
+      (await request('/elections/BR-2026-1/contests', 404)).error.code,
+      'PUBLICATION_NOT_FOUND',
+    )
+    assert.equal(
+      (await request(`/elections/BR-2026-1?publicationId=${randomUUID()}`, 404)).error.code,
+      'PUBLICATION_NOT_FOUND',
+    )
+    assert.equal(
+      (await request(`/elections/BR-2026-1?publicationId=${publicationId}`)).publication.id,
+      publicationId,
+    )
+  } finally {
+    await pool.query("UPDATE editions SET active_publication_id=$1 WHERE id='BR-2026-1'", [
+      publicationId,
+    ])
+  }
+  assert.equal((await request('/elections/nope', 404)).error.code, 'ELECTION_NOT_FOUND')
   const source = await request(`/sources/${first.provenance.sourceIds[0]}`)
   assert.match(source.sha256, /^[a-f0-9]{64}$/)
   assert.equal('archive_path' in source, false)
@@ -155,7 +184,14 @@ try {
   const within = (query: string, status?: number) =>
     request(`/contests/${contest}/distribution?candidateId=${candidate.id}&${query}`, status)
   assert.equal((await within('areaId=br&level=state&limit=1')).pagination.total, 28)
-  assert.equal((await within('areaId=ac&level=country')).pagination.total, 0)
+  // Levels at or above the area cannot lie inside it; regions are below the country.
+  for (const query of [
+    'areaId=ac&level=country',
+    'areaId=ac&level=state',
+    'areaId=ac&level=region',
+  ])
+    assert.equal((await within(query, 400)).error.code, 'LEVEL_NOT_BELOW_SCOPE')
+  assert.equal((await within('areaId=br&level=region')).pagination.total, 5)
   // Rankings are computed for the requested page only and match the full listing.
   const listed = await within('areaId=ac&level=municipality&limit=100')
   const index = listed.items.findIndex((item: { state: string }) => item.state === 'available')

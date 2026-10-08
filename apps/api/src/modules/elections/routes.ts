@@ -66,16 +66,12 @@ export function electionRoutes(pool: pg.Pool, present: Presentation) {
     async (c) =>
       c.json(
         schema.Edition.parse(
-          await query.read(
-            pool,
-            async (client) =>
-              (
-                await query.electionContext(
-                  client,
-                  c.req.valid('param').electionId,
-                  c.req.valid('query').publicationId,
-                )
-              ).election,
+          await query.read(pool, (client) =>
+            query.edition(
+              client,
+              c.req.valid('param').electionId,
+              c.req.valid('query').publicationId,
+            ),
           ),
         ),
         200,

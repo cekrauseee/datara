@@ -141,9 +141,38 @@ export async function listElections(client: pg.PoolClient, query: z.output<typeo
     })),
   }
 }
+/**
+ * The edition with its publication: an explicitly requested publication must be published, while
+ * an edition without an active publication is listed with `publication: null`, as in the list.
+ */
+export async function edition(client: pg.PoolClient, id: string, requested?: string) {
+  const row = (
+    await client.query('SELECT *,election_date::text date FROM editions WHERE id=$1', [id])
+  ).rows[0]
+  if (!row) throw new ApiError(404, 'ELECTION_NOT_FOUND', 'Election not found')
+  const selected = requested ?? row.active_publication_id
+  const pub = selected
+    ? (
+        await client.query(
+          "SELECT * FROM publications WHERE edition_id=$1 AND id=$2 AND status='published'",
+          [id, selected],
+        )
+      ).rows[0]
+    : undefined
+  if (requested && !pub)
+    throw new ApiError(404, 'PUBLICATION_NOT_FOUND', 'Published data not found for this election')
+  return {
+    id: row.id,
+    country: row.country,
+    year: row.year,
+    round: row.round,
+    electionDate: row.date,
+    publication: pub ? publication(pub) : null,
+  }
+}
 export async function electionContext(client: pg.PoolClient, id: string, requested?: string) {
   const edition = (
-    await client.query('SELECT *,election_date::text date FROM editions WHERE id=$1', [id])
+    await client.query('SELECT id,active_publication_id FROM editions WHERE id=$1', [id])
   ).rows[0]
   if (!edition) throw new ApiError(404, 'ELECTION_NOT_FOUND', 'Election not found')
   const pub = (
@@ -154,17 +183,7 @@ export async function electionContext(client: pg.PoolClient, id: string, request
   ).rows[0]
   if (!pub)
     throw new ApiError(404, 'PUBLICATION_NOT_FOUND', 'Published data not found for this election')
-  return {
-    context: { client, publicationId: pub.id, coverage: pub.coverage } as Context,
-    election: {
-      id: edition.id,
-      country: edition.country,
-      year: edition.year,
-      round: edition.round,
-      electionDate: edition.date,
-      publication: publication(pub),
-    },
-  }
+  return { context: { client, publicationId: pub.id, coverage: pub.coverage } as Context }
 }
 export async function contestContext(
   client: pg.PoolClient,
@@ -305,12 +324,14 @@ export async function areas(ctx: Context, query: z.output<typeof AreaQuery>) {
 }
 export async function getCandidate(ctx: Context & { contest: ContestRow }, id: string) {
   const row = (
-    await ctx.client.query<CandidateRow>(
-      `${candidateSelect} WHERE c.publication_id=$1 AND c.contest_id=$2 AND c.id=$3`,
-      [ctx.publicationId, ctx.contest.id, id],
+    await ctx.client.query<CandidateRow & { contest_id: string }>(
+      `${candidateSelect} WHERE c.publication_id=$1 AND c.id=$2`,
+      [ctx.publicationId, id],
     )
   ).rows[0]
   if (!row)
+    throw new ApiError(404, 'CANDIDATE_NOT_FOUND', 'Candidate not found in this publication')
+  if (row.contest_id !== ctx.contest.id)
     throw new ApiError(
       400,
       'INCOMPATIBLE_CANDIDATE',
@@ -650,6 +671,13 @@ export async function distribution(
 ) {
   await getCandidate(ctx, query.candidateId)
   const scope = await getArea(ctx, query.areaId ?? ctx.contest.scope_area_id)
+  // Areas at or above the selected area's level cannot lie inside it.
+  if (levels.indexOf(query.level) <= levels.indexOf(scope.level))
+    throw new ApiError(
+      400,
+      'LEVEL_NOT_BELOW_SCOPE',
+      'Select a level below the area (country, region, state, municipality, zone, section)',
+    )
   // A level more than two navigation steps below the area (e.g. every section of a state) is
   // refused instead of enumerating hundreds of thousands of areas for each page.
   if (depth(query.level) - depth(scope.level) > 2)
