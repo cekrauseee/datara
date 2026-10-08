@@ -90,8 +90,13 @@ export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
 # Primary BU selection includes Noronha and prioritizes principals with aggregated children.
 pnpm --filter @datara/api elections --scope pilot --archive "$ELECTION_ARCHIVE_DIR" --pilot-ufs ac,df,pe,zz --municipalities 1 --sections 2
 
-# Full national acquisition, all applicable municipality/zone/primary-section units:
-pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR"
+# National volume estimate: downloads only the EA11/EA12/EA16 catalogs, builds the inventory,
+# projects requests, archive and database size and hours, and leaves the publication paused:
+pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR" --estimate
+
+# Full national acquisition of all applicable municipality/zone/primary-section units,
+# continuing the estimated publication (network defaults shown):
+pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR" --resume PUBLICATION_UUID --concurrency 10 --rate 20 --timeout 60 --progress-interval 30
 
 # The CLI prints a publication UUID immediately. Resume an interrupted pilot with the SAME scope/limits/archive:
 pnpm --filter @datara/api elections --scope pilot --resume PUBLICATION_UUID --archive "$ELECTION_ARCHIVE_DIR" --pilot-ufs ac,df,pe,zz --municipalities 1 --sections 2
@@ -109,13 +114,33 @@ pnpm --filter @datara/api elections --publish PUBLICATION_UUID
 
 `--stop-after N` intentionally pauses after N result/auxiliary units, for interruption verification. The pilot is marked `scope=pilot, complete=false`; its missing section votes are never national zero votes. It includes all official applicable contest catalogs but imports only the chosen local observations and BUs. Catalog-only areas may be listed with no result. `--pilot-ufs`, `--municipalities` and `--sections` do not limit `--scope national`.
 
-National loading is intentionally a separate user command. It may download hundreds of thousands of documents and take substantial time and disk space. This implementation uses one resumable sequential importer, not background workers. The archive hash store deduplicates identical bytes. A URL cache allows new imports to reuse previous acquisitions; `--refresh` replaces that cache only for new acquisitions, while resumed publications use their frozen source manifest. `--offline` fails if a required source is absent or corrupt. Restore both database and archive to preserve provenance and replay.
+National loading is intentionally a separate user command; the national acquisition section below describes its network policy, progress and estimate. The archive hash store deduplicates identical bytes. A URL cache allows new imports to reuse previous acquisitions; `--refresh` replaces that cache only for new acquisitions, while resumed publications use their frozen source manifest. `--offline` fails if a required source is absent or corrupt. Restore both database and archive to preserve provenance and replay.
+
+## National acquisition
+
+The national first round has 58,896 EA20 units and 499,248 primary sections; all but 41 have an auxiliary file, nearly always with a BU, so the load makes about 1.06 million requests. Run `--estimate` first. It downloads only the catalogs, counts units by kind and projects requests, archive and database size, rows and hours from the archived contest-level EA20 files and constants measured on the pilot. It states that no result file was downloaded and leaves the publication paused, so the full run resumes it.
+
+All TSE requests of an invocation share one fetcher: `--concurrency` simultaneous requests (default 10), `--rate` request starts per second for the whole process (default 20, at most the TSE limit of 100 per IP) and a per-attempt `--timeout` in seconds (default 60) covering headers and body. Network errors, timeouts, HTTP 408 and 5xx are retried, up to six attempts, with exponential backoff from 1 s to 32 s, ±25% jitter and `Retry-After`. HTTP 429 or 403 means the TSE is blocking the IP: every request then waits a 10 min 30 s cool-down, because retrying during a block renews it. HTTP 404/410 is never retried and never becomes an absence: the run pauses with the URL in `import_runs.error`, and three consecutive missing responses stop all requests at once. Bodies above 64 MiB are rejected, and `User-Agent` identifies the project.
+
+Throughput is the lower of `--rate` and the latency bound. With TSE latencies of 0.31–0.55 s measured on warm connections, each concurrent request completes about 2.4 requests per second, so the default concurrency of 10 sustains the default rate of 20 per second; 40 per second needs `--concurrency 18 --rate 40`, and concurrency below about 0.45 × rate leaves part of the rate unused. These flags are operational: they are not stored with the publication and may change between resumptions.
+
+Pending units are listed once per invocation in their semantic order: every EA20 before section files, full contests before local observations. A window of 4 × concurrency upcoming units is downloaded ahead into the archive only, complete bytes under `sha256/` and then the URL reference, including the BU selected from each section's auxiliary file. Normalization stays sequential: each unit's normalization, state and counter commit in one transaction, reading the prefetched bytes through the same manifest and hash verification. A killed write leaves at most a temporary file, removed by a later start once older than five minutes. With `--refresh`, a source acquired by the same invocation is not downloaded again.
+
+Every `--progress-interval` seconds (default 30) the CLI prints a JSON line with units done in this invocation and in the publication, units and requests per second over a five-minute window, bytes, retries, cool-downs and ETA; `import_runs` can be queried meanwhile. SIGINT or SIGTERM finishes the unit being written, aborts downloads, marks the run paused and exits with 130 or 143; a second signal exits immediately. Resume with `--resume` and the same scope, limits and archive.
+
+With `--keep-going`, the default for `--scope national` (`--no-keep-going` disables it), a unit that fails validation or decoding is recorded and the run continues; it ends paused listing the failures, and stops at 50. Failed units stay pending, so coverage never shrinks. EA20 failures pause the run before any section bulletin, because bulletins resolve ballot numbers against EA20 candidacies. A failed unit's source remains frozen in the manifest: resuming replays the same bytes, and a corrected source needs a new publication with `--refresh`. Acquisition failures pause the run rather than being recorded per unit.
+
+Each primary section's EA18 status decides its bulletin. `Totalizada` uses the `bu` or `busa` file of its single `Totalizado` hash. `Não instalada`, `Não apurada` and `Anulada` have no totalized bulletin: the unit completes as `official_absence` and keeps the status in its manifest metadata. `Recebida` (files received, not yet totalized) is not final and fails, as do such an absence status next to a totalized BU, other section or hash statuses, several totalized hashes, or a totalized section without a bulletin; under `--keep-going` these units stay pending. TSE generates no auxiliary file for a section without urn files, and EA16 then omits its `da`/`ha` timestamp; such sections are recorded as official absences without requesting the missing file, and validation requires each zone's EA20 `sni` plus `sna` (sections not installed or not counted) to account for them. Nationally these are the 41 exterior sections reported as not installed.
+
+Reconciliation compares total ballots in every zone whose primary sections all have a BU or an official status without one; absences contribute no printed ballots. `coverage` also reports `officialSectionStatuses` (sections by EA18 status), `sectionsWithoutAuxiliaryFile` and `unreconciledZoneResults` (zone results outside that comparison).
+
+The estimate measured on 2026-10-08 from the pilot archive: about 10.3 GB of sources (about 18 GB allocated with 4 KiB blocks and URL references); 173–313 million rows and 57–102 GB of PostgreSQL with indexes; about 14.7 hours of downloads at the default 20 requests per second and 7.3 hours at 40; 1.4–1.9 hours of normalization, overlapped with downloads. The ranges come from rows per bulletin, 322 on average in the pilot's domestic sections and up to 600 assumed for large urban ones.
 
 ## Publication and integrity
 
 Migrations `001-election` and `002-areas-parent` are applied in order, once each, in one transaction under an advisory lock; `db:migrate` applies only the pending ones to an existing database. An import gets a UUID and a preparing publication. PostgreSQL stores its source manifest, expected tasks, completion state, catalogs and normalized observations. Each unit's normalization and completion marker commit together; retries replace that unit rather than add vote deltas. Downloaded raw bytes are written atomically by SHA-256 before their manifest row is committed. Corrupt archive bytes fail verification.
 
-Published datasets are immutable through the importer. New imports preserve old publications. Validation requires all expected units, both EA20/BU observations and no unexplained total-ballot differences in fully imported zones. Publication and the edition's active pointer update in one transaction. Failed or paused imports do not change the active dataset. Explicitly noninstalled sections require the official auxiliary status; missing files, unknown statuses and ambiguous totalized hashes fail rather than becoming zero votes.
+Published datasets are immutable through the importer. New imports preserve old publications. Validation requires all expected units, both EA20/BU observations and no unexplained total-ballot differences in fully imported zones. Publication and the edition's active pointer update in one transaction. Failed or paused imports do not change the active dataset. A section without a totalized bulletin requires an official EA18 status, or an EA16 entry without auxiliary file that the zone's EA20 section totals explain; missing files, unknown statuses and ambiguous totalized hashes fail rather than becoming zero votes.
 
 Aggregated sections retain their IDs and `principal_area_id`, and receive no duplicate result. Administrative zones are represented by municipal zone slices; whole-zone consumers must combine slices. Geography IDs remain electoral codes with optional static-map correspondence; exterior has no geometry. Rows from different publications/contests cannot link through the composite foreign keys.
 
@@ -127,15 +152,18 @@ The BU2026 reader uses the official September 2026 ASN.1 structure, verifies fil
 
 ```sh
 pnpm --filter @datara/api check:bu
+pnpm --filter @datara/api check:acquisition
 pnpm --filter @datara/api check:settings
 pnpm --filter @datara/api typecheck
 pnpm --filter @datara/api lint
 pnpm --filter @datara/api build
 ```
 
+`check:acquisition` drives the fetcher and archive prefetch against a scripted server, without network or database: rate ceiling, bounded concurrency, backoff and `Retry-After`, the 429/403 cool-down, 404 without retry and the halt after three, timeouts, the size limit, aborts that leave no temporary file, and removal of stale temporary files.
+
 The checked-in official Porto Walter, Abu Dhabi SA and Noronha fixtures exercise presidency, proportional legend, Senate's two choices, optional BU fields, council office 25, distinct per-election participation and truncated-file rejection. It was independently decoded using `asn1tools` and the official ASN.1 specification preserved beside it. Database/API integration checks and HTTP commands are documented with the API module.
 
-The ingestion integration check requires the completed default pilot archive and an explicitly selected isolated PostgreSQL database. It creates and cleans up a temporary schema, imports genuine archived documents offline, checks interrupted/repeated imports and publication retention, and tests composite candidacy foreign keys. A synthetic one-vote reduction is tested inside a rolled-back transaction solely to verify replacement semantics; it is never published as official data.
+The ingestion integration check requires the completed default pilot archive and an explicitly selected isolated PostgreSQL database. It creates and cleans up a temporary schema, imports genuine archived documents offline, checks interrupted/repeated imports and publication retention, and tests composite candidacy foreign keys. It also acquires the pilot from a scripted TSE served by the archive into a temporary directory, with prefetch at concurrency 4, a 404 pause, an interruption and a resumption whose tables equal the offline import, and covers synthetic EA18 statuses, sections without an auxiliary file, official absences in reconciliation, the estimate, legacy resume options, keep-going with the EA20 hold, and a mid-queue stop. A synthetic one-vote reduction is tested inside a rolled-back transaction solely to verify replacement semantics; it is never published as official data.
 
 ```sh
 createdb -h 127.0.0.1 -p 55432 datara_ingestion_check
@@ -157,13 +185,13 @@ export PHOTO_DIRECTORY="$PWD/.data/presentation" # contains photos/; use the sam
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6257:1:br --limit 1
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6259:6:ac --limit 1
 # All primary candidacies in the active publication (national when that publication is national):
-pnpm --filter @datara/api elections:photos
+pnpm --filter @datara/api elections:photos --concurrency 10 --rate 20
 # Select an explicit retained snapshot, or replay/update its photos:
 pnpm --filter @datara/api elections:photos --publication PUBLICATION_UUID --offline
 pnpm --filter @datara/api elections:photos --refresh
 ```
 
-The default output is `apps/api/public/photos/` when `PHOTO_DIRECTORY` is unset. Photo URL checkpoints, original SHA-256 bytes and per-publication manifests live in the ignored election archive, separate from the immutable published voting manifest. This provenance records URLs, collection times, HTTP status and hashes. Missing optional photos (HTTP 404/410) are recorded and do not block voting publication; other acquisition failures are reported with a nonzero CLI exit so they can be retried. Offline replay needs all requested photo sources archived; select the same contest/limit for a partial pilot. Existing manually modified generated files and presentation JSON are preserved. A refresh can replace a generated file only if its current hash matches the previously acquired original. Back up the photo output directory too.
+The default output is `apps/api/public/photos/` when `PHOTO_DIRECTORY` is unset. Photo URL checkpoints, original SHA-256 bytes and per-publication manifests live in the ignored election archive, separate from the immutable published voting manifest. This provenance records URLs, collection times, HTTP status and hashes. Missing optional photos (HTTP 404/410) are recorded and do not block voting publication; other acquisition failures are reported with a nonzero CLI exit so they can be retried. Downloads use the acquisition fetcher's concurrency, rate, retry and cool-down policy, with a 30 s timeout and 10 MiB limit, and print progress every `--progress-interval` seconds. Twenty-five consecutive missing photos stop the run, since repeated 404 responses can block the IP; a rerun continues from the URL checkpoints. SIGINT stops scheduling photos, keeps finished checkpoints and writes the manifest. Offline replay needs all requested photo sources archived; select the same contest/limit for a partial pilot. Existing manually modified generated files and presentation JSON are preserved. A refresh can replace a generated file only if its current hash matches the previously acquired original. Back up the photo output directory too.
 
 For the targeted photo/API check, use a database containing the published pilot and the two photo sources acquired above:
 
@@ -172,4 +200,4 @@ export TEST_DATABASE_URL="$DATABASE_URL" # must reference the populated local te
 pnpm --filter @datara/api check:photos
 ```
 
-This check replays real archived JPEGs to a temporary directory, checks candidate `photoUrl` and actual local HTTP image bytes/hash, verifies that the voting manifest was not changed, and removes only its temporary output. `check:presentation` separately verifies override precedence and absent-image fallback.
+This check replays real archived JPEGs to a temporary directory, checks candidate `photoUrl` and actual local HTTP image bytes/hash, verifies that the voting manifest was not changed, and removes only its temporary output. It also acquires a batch from a scripted server into a temporary archive: bounded concurrency, retry, missing and failed photos, and a later run that retries only the failure. `check:presentation` separately verifies override precedence and absent-image fallback.

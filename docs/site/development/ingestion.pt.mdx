@@ -88,8 +88,13 @@ export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
 # A seleção inclui Noronha e prioriza principais com seções agregadas.
 pnpm --filter @datara/api elections --scope pilot --archive "$ELECTION_ARCHIVE_DIR" --pilot-ufs ac,df,pe,zz --municipalities 1 --sections 2
 
-# Aquisição nacional completa, com todas as unidades aplicáveis:
-pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR"
+# Estimativa nacional: baixa só os catálogos EA11/EA12/EA16, monta o inventário, projeta
+# requisições, disco, banco e horas, e deixa a publicação pausada:
+pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR" --estimate
+
+# Aquisição nacional completa, com todas as unidades aplicáveis, retomando a publicação
+# estimada (padrões de rede explícitos):
+pnpm --filter @datara/api elections --scope national --archive "$ELECTION_ARCHIVE_DIR" --resume PUBLICATION_UUID --concurrency 10 --rate 20 --timeout 60 --progress-interval 30
 
 # Retome com o MESMO UUID, escopo, limites e arquivo:
 pnpm --filter @datara/api elections --scope pilot --resume PUBLICATION_UUID --archive "$ELECTION_ARCHIVE_DIR" --pilot-ufs ac,df,pe,zz --municipalities 1 --sections 2
@@ -107,13 +112,33 @@ pnpm --filter @datara/api elections --publish PUBLICATION_UUID
 
 A CLI imprime UUID imediatamente. `--stop-after N` pausa após N unidades para verificar interrupção. O piloto marca `scope=pilot, complete=false`; votos de seções ausentes nunca são zeros nacionais. Tem catálogos de disputas aplicáveis, mas só observações/BUs escolhidos. Áreas só catalogadas podem não ter resultado. Limites de piloto não limitam `--scope national`.
 
-Aquisição nacional é comando separado: pode baixar centenas de milhares de documentos e consumir bastante tempo/disco. Há um importador sequencial retomável, sem workers de fundo. O arquivo por hash deduplica bytes; cache de URLs permite reutilização. `--refresh` substitui esse cache apenas para novas aquisições; retomadas usam manifesto congelado. `--offline` falha se fonte exigida estiver ausente/corrompida. Preserve banco e arquivo para procedência/replay.
+Aquisição nacional é comando separado; a seção Aquisição nacional abaixo descreve política de rede, progresso e estimativa. O arquivo por hash deduplica bytes; cache de URLs permite reutilização. `--refresh` substitui esse cache apenas para novas aquisições; retomadas usam manifesto congelado. `--offline` falha se fonte exigida estiver ausente/corrompida. Preserve banco e arquivo para procedência/replay.
+
+## Aquisição nacional
+
+O primeiro turno nacional tem 58.896 unidades EA20 e 499.248 seções principais; todas menos 41 têm arquivo auxiliar, quase sempre com BU: cerca de 1,06 milhão de requisições. Rode `--estimate` antes. Ele baixa só os catálogos, conta unidades por tipo e projeta requisições, disco, banco, linhas e horas a partir dos EA20 de disputa arquivados e de constantes medidas no piloto. Declara que nenhum arquivo de resultado foi baixado e deixa a publicação pausada para a carga completa retomá-la.
+
+Todas as requisições ao TSE de uma execução passam por um único fetcher: `--concurrency` requisições simultâneas (padrão 10), `--rate` inícios por segundo no processo inteiro (padrão 20, no máximo o limite do TSE de 100 por IP) e `--timeout` por tentativa em segundos (padrão 60), cobrindo cabeçalhos e corpo. Erros de rede, timeouts, HTTP 408 e 5xx são repetidos até seis tentativas, com backoff exponencial de 1 s a 32 s, jitter de ±25% e `Retry-After`. HTTP 429 ou 403 indica bloqueio do IP: todas as requisições aguardam cool-down de 10 min 30 s, pois insistir durante o bloqueio o renova. HTTP 404/410 nunca é repetido nem vira ausência: a execução pausa com a URL em `import_runs.error`, e três ausências seguidas interrompem todas as requisições. Corpos acima de 64 MiB são rejeitados; o `User-Agent` identifica o projeto.
+
+A vazão é o menor entre `--rate` e o limite imposto pela latência. Com latências do TSE de 0,31–0,55 s medidas em conexões já abertas, cada requisição simultânea completa cerca de 2,4 por segundo, e a concorrência padrão de 10 sustenta a taxa padrão de 20 por segundo; 40 por segundo exige `--concurrency 18 --rate 40`, e concorrência abaixo de cerca de 0,45 × taxa deixa parte da taxa sem uso. Essas opções são operacionais: não ficam gravadas na publicação e podem mudar entre retomadas.
+
+As unidades pendentes são listadas uma vez por execução na ordem semântica: todo EA20 antes dos arquivos de seção, disputas completas antes de observações locais. Uma janela de 4 × concorrência unidades à frente é baixada só para o arquivo, bytes completos em `sha256/` e depois a referência da URL, incluindo o BU escolhido pelo auxiliar de cada seção. A normalização continua sequencial: normalização, estado e contador de cada unidade comitam numa transação, lendo os bytes pré-baixados pelo mesmo manifesto e verificação de hash. Uma escrita interrompida à força deixa no máximo arquivo temporário, removido numa partida seguinte quando tiver mais de cinco minutos. Com `--refresh`, fonte adquirida pela própria execução não é baixada de novo.
+
+A cada `--progress-interval` segundos (padrão 30) a CLI imprime uma linha JSON com unidades feitas na execução e na publicação, unidades e requisições por segundo numa janela de cinco minutos, bytes, retries, cool-downs e ETA; `import_runs` pode ser consultada durante a carga. SIGINT ou SIGTERM termina a unidade em gravação, aborta downloads, marca a execução como pausada e sai com 130 ou 143; um segundo sinal sai na hora. Retome com `--resume` e o mesmo escopo, limites e arquivo.
+
+Com `--keep-going`, padrão de `--scope national` (`--no-keep-going` desliga), uma unidade que falha em validação ou decodificação é registrada e a execução segue; termina pausada listando as falhas e para em 50. Unidades falhas continuam pendentes, sem reduzir cobertura. Falhas de EA20 pausam antes de qualquer BU de seção, que resolve números de urna contra candidaturas do EA20. A fonte de uma unidade falha fica congelada no manifesto: retomar repete os mesmos bytes, e fonte corrigida exige nova publicação com `--refresh`. Falhas de aquisição pausam a execução em vez de virar falha de unidade.
+
+A situação EA18 de cada seção principal decide o BU. `Totalizada` usa o arquivo `bu` ou `busa` do único hash `Totalizado`. `Não instalada`, `Não apurada` e `Anulada` não têm BU totalizado: a unidade termina como `official_absence` e a situação fica nos metadados do manifesto. `Recebida` (arquivos recebidos, ainda não totalizados) não é final e falha, assim como situação de ausência junto de BU totalizado, outras situações de seção ou hash, mais de um hash totalizado ou seção totalizada sem BU; com `--keep-going` essas unidades ficam pendentes. O TSE não gera auxiliar para seção sem arquivos de urna, e o EA16 omite seu `da`/`ha`; essas seções viram ausência oficial sem requisitar o arquivo inexistente, e a validação exige que `sni` mais `sna` (seções não instaladas ou não apuradas) do EA20 de cada zona as expliquem. No país são as 41 seções do exterior informadas como não instaladas.
+
+A reconciliação compara cédulas totais em toda zona cujas seções principais têm BU ou situação oficial sem BU; ausências não contribuem cédulas impressas. `coverage` também informa `officialSectionStatuses` (seções por situação EA18), `sectionsWithoutAuxiliaryFile` e `unreconciledZoneResults` (resultados de zona fora dessa comparação).
+
+Estimativa medida em 2026-10-08 com o arquivo do piloto: cerca de 10,3 GB de fontes (cerca de 18 GB alocados com blocos de 4 KiB e referências de URL); 173–313 milhões de linhas e 57–102 GB de PostgreSQL com índices; cerca de 14,7 horas de download na taxa padrão de 20 requisições por segundo e 7,3 horas a 40; 1,4–1,9 hora de normalização, sobreposta aos downloads. As faixas vêm das linhas por BU, 322 em média nas seções domésticas do piloto e até 600 supostas para seções urbanas grandes.
 
 ## Publicação e integridade
 
 Migrações `001-election` e `002-areas-parent` aplicam em ordem, uma vez cada, na mesma transação com advisory lock; `db:migrate` aplica as pendentes num banco existente. Cada import tem UUID/publicação em preparação. PostgreSQL guarda manifesto, tarefas esperadas, conclusão, catálogos e observações normalizadas. Normalização e marcador de conclusão de cada unidade commitam juntos; retry substitui unidade, sem somar deltas. Bytes brutos são gravados atomicamente por SHA-256 antes da linha de manifesto. Bytes corruptos falham verificação.
 
-Publicações são imutáveis pelo importador. Imports novos preservam anteriores. Validação exige todas as unidades esperadas, observações EA20/BU e nenhuma diferença inexplicada de cédulas em zonas completas. Publicação e ponteiro ativo mudam na mesma transação. Falhas/pausas não mudam dataset ativo. Seções explicitamente não instaladas exigem estado auxiliar oficial; arquivos ausentes, estados desconhecidos e hashes ambíguos falham em vez de virar zero.
+Publicações são imutáveis pelo importador. Imports novos preservam anteriores. Validação exige todas as unidades esperadas, observações EA20/BU e nenhuma diferença inexplicada de cédulas em zonas completas. Publicação e ponteiro ativo mudam na mesma transação. Falhas/pausas não mudam dataset ativo. Seção sem BU totalizado exige situação EA18 oficial, ou entrada EA16 sem auxiliar explicada pelos totais de seções do EA20 da zona; arquivos ausentes, estados desconhecidos e hashes ambíguos falham em vez de virar zero.
 
 Seções agregadas preservam IDs e `principal_area_id`, sem resultado duplicado. Zonas são fatias municipais; consumidores de zona completa precisam combiná-las. IDs são códigos eleitorais com correspondência opcional ao mapa; exterior não tem geometria. Chaves estrangeiras compostas impedem ligações entre publicações/disputas diferentes.
 
@@ -125,15 +150,18 @@ O leitor BU2026 usa ASN.1 oficial de setembro de 2026, valida identidade pelo in
 
 ```sh
 pnpm --filter @datara/api check:bu
+pnpm --filter @datara/api check:acquisition
 pnpm --filter @datara/api check:settings
 pnpm --filter @datara/api typecheck
 pnpm --filter @datara/api lint
 pnpm --filter @datara/api build
 ```
 
+`check:acquisition` exercita o fetcher e a pré-busca do arquivo contra um servidor roteirizado, sem rede nem banco: teto de taxa, concorrência limitada, backoff e `Retry-After`, cool-down de 429/403, 404 sem retry e parada após três, timeouts, limite de tamanho, abortos sem arquivo temporário e remoção de temporários antigos.
+
 Fixtures oficiais versionadas de Porto Walter, Abu Dhabi SA e Noronha cobrem presidente, legenda proporcional, duas escolhas do Senado, campos opcionais, cargo 25, participação por eleição e rejeição de truncamento. Foram decodificadas independentemente com `asn1tools`/ASN.1 preservado. Checks de banco/API estão em [desenvolvimento](/development/setup).
 
-Integração de ingestão exige arquivo padrão completo do piloto e banco PostgreSQL isolado explícito. Cria/remove schema temporário, importa documentos reais offline, verifica interrupção/repetição, retenção de publicação e integridade composta. Redução sintética de um voto ocorre em transação revertida só para testar substituição; nunca é publicada como dado oficial.
+Integração de ingestão exige arquivo padrão completo do piloto e banco PostgreSQL isolado explícito. Cria/remove schema temporário, importa documentos reais offline, verifica interrupção/repetição, retenção de publicação e integridade composta. Também adquire o piloto de um TSE roteirizado servido pelo arquivo para um diretório temporário, com pré-busca em concorrência 4, pausa por 404, interrupção e retomada cujas tabelas igualam a importação offline, e cobre situações EA18 sintéticas, seções sem auxiliar, ausências oficiais na reconciliação, estimativa, opções de retomada antigas, `--keep-going` com retenção por falha de EA20 e parada no meio da fila. Redução sintética de um voto ocorre em transação revertida só para testar substituição; nunca é publicada como dado oficial.
 
 ```sh
 createdb -h 127.0.0.1 -p 55432 datara_ingestion_check
@@ -154,14 +182,14 @@ export PHOTO_DIRECTORY="$PWD/.data/presentation" # contém photos/; use o mesmo 
 # Piloto real rápido: presidente e deputado federal do Acre.
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6257:1:br --limit 1
 pnpm --filter @datara/api elections:photos --contest BR-2026-1:6259:6:ac --limit 1
-# Todas as candidaturas principais da publicação ativa:
-pnpm --filter @datara/api elections:photos
+# Todas as candidaturas principais da publicação ativa (nacional quando ela for nacional):
+pnpm --filter @datara/api elections:photos --concurrency 10 --rate 20
 # Publicação específica, replay ou atualização:
 pnpm --filter @datara/api elections:photos --publication PUBLICATION_UUID --offline
 pnpm --filter @datara/api elections:photos --refresh
 ```
 
-O output padrão é `apps/api/public/photos/`. Checkpoints de URL, SHA-256 originais e manifestos por publicação ficam no arquivo eleitoral ignorado, separados do manifesto imutável de votos. Registram URLs, coleta, HTTP e hashes. Fotos opcionais 404/410 não bloqueiam publicação; outras falhas saem com erro para retry. Replay offline exige todas as fontes solicitadas; use o mesmo contest/limite de um piloto parcial.
+O output padrão é `apps/api/public/photos/`. Checkpoints de URL, SHA-256 originais e manifestos por publicação ficam no arquivo eleitoral ignorado, separados do manifesto imutável de votos. Registram URLs, coleta, HTTP e hashes. Fotos opcionais 404/410 não bloqueiam publicação; outras falhas saem com erro para retry. Downloads usam a política do fetcher de aquisição (concorrência, taxa, retry e cool-down), com timeout de 30 s e limite de 10 MiB, e imprimem progresso a cada `--progress-interval` segundos. Vinte e cinco fotos ausentes seguidas interrompem a execução, pois 404 repetidos podem bloquear o IP; repetir continua dos checkpoints de URL. SIGINT para de agendar fotos, mantém checkpoints concluídos e grava o manifesto. Replay offline exige todas as fontes solicitadas; use o mesmo contest/limite de um piloto parcial.
 
 Arquivos gerados modificados manualmente e JSON de apresentação são preservados. Refresh só substitui gerado se o hash atual corresponder ao original adquirido. Faça backup do diretório de fotos também.
 
@@ -172,4 +200,4 @@ export TEST_DATABASE_URL="$DATABASE_URL" # precisa ser dataset local de testes p
 pnpm --filter @datara/api check:photos
 ```
 
-O check reprocessa JPEGs reais em diretório temporário, verifica `photoUrl`, bytes HTTP/hash, manifesto de votos inalterado e remove só seu output temporário. `check:presentation` cobre precedência e ausência de imagem separadamente.
+O check reprocessa JPEGs reais em diretório temporário, verifica `photoUrl`, bytes HTTP/hash, manifesto de votos inalterado e remove só seu output temporário. Também adquire um lote de um servidor roteirizado para arquivo temporário: concorrência limitada, retry, fotos ausentes e falhas, e nova execução que repete só a falha. `check:presentation` cobre precedência e ausência de imagem separadamente.

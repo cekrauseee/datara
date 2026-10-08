@@ -1,3 +1,5 @@
+import type { NetworkOptions } from './fetch.js'
+
 export type Office = { cd: string; ds: string; tp: string }
 export type Configuration = {
   f: string
@@ -14,13 +16,20 @@ export type Sections = {
   f: string
   abr: {
     cd: string
-    mu: { cd: string; zon: { cd: string; sec: { ns: string; nsp?: string; nsa?: string[] }[] }[] }[]
+    mu: {
+      cd: string
+      zon: {
+        cd: string
+        // da/ha: when the section auxiliary file (EA18) was produced; absent when none exists.
+        sec: { ns: string; nsp?: string; nsa?: string[]; da?: string; ha?: string }[]
+      }[]
+    }[]
   }[]
 }
 export type Auxiliary = {
   f: string
   st: string
-  hashes: { hash: string; st: string; arq: { nm: string; tp: string }[] }[]
+  hashes?: { hash: string; st: string; arq?: { nm: string; tp: string }[] }[]
 }
 export type Candidate = {
   sqcand: string
@@ -77,7 +86,16 @@ export type ImportOptions = {
   sectionsPerUf?: number
   pilotUfs?: string[]
   publish?: boolean
+  // Operational parameters below never change the dataset and are not persisted for resume.
   stopAfter?: number
+  /** Record unit failures and continue; the run then ends paused. Default: national scope. */
+  keepGoing?: boolean
+  /** Build the inventory, report the expected volume and pause without downloading results. */
+  estimate?: boolean
+  progressIntervalMs?: number
+  network?: NetworkOptions
+  /** Aborting pauses the run after the current unit. */
+  signal?: AbortSignal
 }
 export const EDITION = 'BR-2026-1'
 export const PARSER_VERSION = 'tse2026-1'
