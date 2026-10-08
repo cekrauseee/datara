@@ -24,11 +24,18 @@ async function exists(path: string) {
   }
 }
 export async function settings(directory = repository, shell = process.env) {
-  const file = join(directory, '.env')
-  const text = (await exists(file)) ? await readFile(file, 'utf8') : ''
+  const file = join(directory, 'apps/api/.env')
+  const legacyFile = join(directory, '.env')
+  const hasFile = await exists(file)
+  const legacy = !hasFile && (await exists(legacyFile))
+  const text = hasFile
+    ? await readFile(file, 'utf8')
+    : legacy
+      ? await readFile(legacyFile, 'utf8')
+      : ''
   const stored = parseEnv(text)
   if (stored.DATABASE_URL && shell.DATABASE_URL && stored.DATABASE_URL !== shell.DATABASE_URL)
-    throw new Error('DATABASE_URL differs from .env. Edit .env or unset the shell override.')
+    throw new Error('DATABASE_URL differs from apps/api/.env. Edit it or unset the shell override.')
   const env = { ...stored, ...shell }
   if (!env.DATABASE_URL) {
     env.LOCAL_POSTGRES_DIR = join(directory, '.data/postgres')
@@ -41,31 +48,25 @@ export async function settings(directory = repository, shell = process.env) {
   env.CORS_ORIGIN ??= 'http://localhost:5173'
   env.ASSET_BASE_URL ??= '/assets'
   readConfig(env)
-  return { directory, file, text, stored, env }
+  return { directory, file, text, stored, env, legacy }
 }
 export async function saveSettings(config: Awaited<ReturnType<typeof settings>>) {
-  const keys = [
-    'DATABASE_URL',
-    'LOCAL_POSTGRES_DIR',
-    'LOCAL_POSTGRES_PORT',
-    'ELECTION_ARCHIVE_DIR',
-    'PHOTO_DIRECTORY',
-    'PORT',
-    'CORS_ORIGIN',
-    'ASSET_BASE_URL',
-    'ELECTION_PRESENTATION_FILE',
-    'PG_BIN',
-  ]
+  const template = await readFile(new URL('../.env.example', import.meta.url), 'utf8')
+  const keys = [...template.matchAll(/^(?:#\s*)?([A-Z_]+)=/gm)].map((match) => match[1]!)
   const added = keys.filter(
     (key) => config.env[key] !== undefined && config.stored[key] === undefined,
   )
-  if (!added.length) return
-  const text =
-    config.text +
-    (config.text && !config.text.endsWith('\n') ? '\n' : '') +
-    added.map((key) => `${key}=${JSON.stringify(config.env[key])}`).join('\n') +
-    '\n'
-  if (!config.text && !(await exists(config.file)))
+  if (!added.length && !config.legacy) return
+  const text = config.text
+    ? config.text +
+      (config.text.endsWith('\n') ? '' : '\n') +
+      added.map((key) => `${key}=${JSON.stringify(config.env[key])}`).join('\n') +
+      '\n'
+    : template.replace(/^(?:#\s*)?([A-Z_]+)=.*$/gm, (line, key: string) =>
+        config.env[key] === undefined ? line : `${key}=${JSON.stringify(config.env[key])}`,
+      )
+  await mkdir(dirname(config.file), { recursive: true })
+  if (config.legacy || !(await exists(config.file)))
     await writeFile(config.file, text, { flag: 'wx', mode: 0o600 })
   else await atomicWrite(config.file, Buffer.from(text), 0o600)
 }

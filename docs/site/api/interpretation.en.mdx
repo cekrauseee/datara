@@ -1,0 +1,14 @@
+---
+title: Interpret results and coverage
+description: Source bases, missing values, ties, aggregated sections and exterior.
+---
+
+Counts are integers; unavailable measures are `null`, never invented zeros. Percentages include numerator, denominator, basis and state; denominator zero is `undefined`. Candidate omissions remain unknown unless the stored complete-result contract explicitly guarantees zero.
+
+`recordedCandidateVotesSum` sums all stored candidate rows for the result before pagination and includes their recorded destinations; it is not a valid-vote share. `printedNominalVotes` includes all nominal BU votables, including those without a verified candidacy. Judicial valid votes remain unavailable in a BU. Official EA20 `pvapn` is returned separately with its original competing-candidate basis. BU and judicial-totalization votes are not interchangeable: territorial contribution is unavailable when the selected scope and local result have different source bases. Turnout always uses that contest/result's own electorate, including Senate and Noronha distinctions.
+
+Tied leaders remain an array. Senate's two-seat cutoff also exposes second-versus-third margin. No margin predicts election, and a local leader does not imply an elected candidate. `officialSelectedFlag` retains the source `e=s` indicator, which can include second-round selection; the complete official status and its scope accompany it. Proportional seat allocation is never inferred from candidate rank.
+
+Aggregated-section result requests return `state=shared`, `resultAreaId` of the principal and the shared totals. Distribution reports no isolated votes for those sections. Regions sum disjoint domestic UF EA20 observations, retain source references and report whether every member state was covered; exterior is separate. A known catalog area without an observation returns `state=unavailable`.
+
+Errors use `error.code`, `message`, `requestId` and optional field details. Invalid input is HTTP 400, missing resources/publications HTTP 404, database unavailability HTTP 503 and unexpected faults HTTP 500. Query failures never become successful empty datasets. SQL and local paths do not appear in error responses; request IDs link internal diagnostics.

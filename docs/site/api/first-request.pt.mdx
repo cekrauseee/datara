@@ -1,0 +1,28 @@
+---
+title: Primeira requisição à API
+description: Descubra edições, fixe uma publicação e consulte os dados publicados.
+---
+
+## Execute a API local
+
+Na raiz do repositório, `pnpm run setup` prepara o piloto oficial limitado e `pnpm dev` inicia a API na porta 3000 por padrão. Iniciar a API exige PostgreSQL. Ler esta documentação não exige.
+
+```sh
+curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
+curl -fsS 'http://localhost:3000/elections/BR-2026-1/contests'
+```
+
+As URLs apontam para a API local. Troque a origem pela origem da API implantada. Uma origem pública da API ainda não foi configurada.
+
+## Preserve a mesma publicação
+
+Leia `publication.id` da edição e envie `publicationId` nas próximas consultas. Ele seleciona uma publicação imutável dos dados, não uma versão da API. Publicações explícitas ausentes causam erro em vez de troca silenciosa.
+
+```sh
+curl -fsS --get 'http://localhost:3000/elections/BR-2026-1/areas' \
+  --data-urlencode 'publicationId=PUBLICATION_UUID' \
+  --data-urlencode 'level=municipality' --data-urlencode 'uf=ac' \
+  --data-urlencode 'limit=25'
+```
+
+Substitua os placeholders por IDs reais das respostas de descoberta. A [referência de endpoints](/api/reference/elections) descreve parâmetros, schemas e erros sem executar requisições no navegador.

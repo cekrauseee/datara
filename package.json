@@ -14,7 +14,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "setup": "node --import ./apps/api/node_modules/tsx/dist/loader.mjs apps/api/scripts/local.ts setup",
-    "dev:stop": "node --import ./apps/api/node_modules/tsx/dist/loader.mjs apps/api/scripts/local.ts stop"
+    "dev:stop": "node --import ./apps/api/node_modules/tsx/dist/loader.mjs apps/api/scripts/local.ts stop",
+    "docs:dev": "pnpm --filter @datara/docs dev",
+    "docs:start": "pnpm --filter @datara/docs start"
   },
   "devDependencies": {
     "@datara/prettier": "workspace:*",

@@ -1,0 +1,26 @@
+---
+title: Interpretação dos resultados e cobertura
+description: Bases de origem, valores ausentes, empates, seções agregadas e exterior.
+---
+
+## Contagens e percentuais
+
+Contagens são inteiros; medidas indisponíveis são `null`, nunca zeros inventados. Percentuais incluem numerador, denominador, base e estado; denominador zero resulta em `undefined`. Candidaturas omitidas permanecem desconhecidas, salvo quando o contrato de resultado completo garante zero explicitamente.
+
+`recordedCandidateVotesSum` soma todas as linhas de candidatura armazenadas antes da paginação, incluindo destinos registrados; não é uma participação nos votos válidos. `printedNominalVotes` inclui todos os votáveis nominais do BU, mesmo sem candidatura verificada. Votos judicialmente válidos ficam indisponíveis no BU. O `pvapn` oficial do EA20 é retornado separadamente com sua base original de candidaturas concorrentes.
+
+Votos de BU e totalização judicial não são intercambiáveis: a contribuição territorial é indisponível quando território selecionado e resultado local têm bases diferentes. Comparecimento usa o eleitorado próprio daquela disputa/resultado, incluindo diferenças do Senado e de Noronha.
+
+## Empates e situação oficial
+
+Líderes empatados permanecem em um array. O corte das duas vagas do Senado também expõe margem entre segundo e terceiro. Margem não prevê eleição e liderança local não significa candidatura eleita. `officialSelectedFlag` preserva o indicador de origem `e=s`, que pode indicar seleção para segundo turno; a situação oficial completa e seu território acompanham o campo. A distribuição proporcional de vagas nunca é inferida pelo ranking de candidatos.
+
+## Seções, regiões e exterior
+
+Seções agregadas retornam `state=shared`, `resultAreaId` da seção principal e os totais compartilhados. A distribuição não atribui votos isolados a essas seções. Regiões somam observações EA20 de UFs domésticas disjuntas, preservam referências de origem e indicam se todas as UFs estavam cobertas; exterior é separado. Uma área conhecida no catálogo sem observação retorna `state=unavailable`.
+
+A publicação informa sua cobertura. O piloto oficial é limitado; uma área existir no catálogo não comprova votos disponíveis e ausência de seção não é zero nacional.
+
+## Erros
+
+Erros incluem `error.code`, `message`, `requestId` e detalhes de campos quando disponíveis. Entrada inválida retorna HTTP 400; recursos/publicações ausentes, 404; banco indisponível, 503; falha inesperada, 500. Falhas de consulta não viram datasets vazios bem-sucedidos. SQL e caminhos locais não aparecem nas respostas; o ID da requisição liga o erro aos diagnósticos internos.

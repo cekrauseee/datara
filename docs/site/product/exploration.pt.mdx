@@ -1,0 +1,50 @@
+---
+title: Explore o mapa
+description: Pesquise, selecione e navegue por limites geográficos.
+---
+
+## Exploração
+
+O seletor de país alterna entre Brasil e Estados Unidos. Cada país visitado mantém sua página, área selecionada, posição da câmera, zoom e texto de busca em memória. Páginas ocultas não ficam expostas como interface ativa; sua busca fecha. Recarregar limpa essa sessão e reconstrói a seleção pela URL.
+
+A busca aceita nomes, siglas de UF e códigos de origem. Ignora maiúsculas e acentos, aceita várias palavras, prioriza estados e retorna até 30 resultados. A busca local dos EUA carrega separadamente do mapa nacional. Um lugar e uma subdivisão com o mesmo nome continuam distintos.
+
+Clique em um limite ou selecione um resultado para enquadrar a área. Os breadcrumbs voltam ao estado ou país. No desktop, o cartão da seleção mostra tipo, estado e identificador. Os nomes aparecem ao passar o ponteiro e na seleção, não permanentemente no mapa.
+
+Arraste para mover; use roda do mouse, pinça no trackpad ou botões para ampliar. Com o Canvas em foco:
+
+| Tecla             | Ação                              |
+| ----------------- | --------------------------------- |
+| Setas             | Mover                             |
+| `+` / `=`         | Ampliar                           |
+| `-`               | Reduzir                           |
+| `Home` / `Escape` | Limpar seleção e enquadrar o país |
+
+O zoom vai de 1 a 100. A animação de seleção dura 260 ms e pode ser interrompida. A preferência por movimento reduzido desativa animação da câmera e pulsação do skeleton. Uma URL com seleção mostra primeiro o país e depois aproxima a área; voltar a um país retido preserva sua câmera.
+
+## URLs
+
+| Exemplo                               | Seleção                          |
+| ------------------------------------- | -------------------------------- |
+| `/br`                                 | Brasil                           |
+| `/br?state=35`                        | Estado de São Paulo              |
+| `/br?state=35&municipality=3550308`   | Município de São Paulo           |
+| `/us`                                 | Estados Unidos                   |
+| `/us?state=02`                        | Alaska                           |
+| `/us?state=06&county=06037`           | Los Angeles County               |
+| `/us?state=36&place=3651000`          | New York city                    |
+| `/us?state=36&subdivision=3606150617` | Subdivisão pelo código de origem |
+
+Os caminhos de país são minúsculos e os parâmetros são em inglês. Códigos são strings e preservam zeros iniciais. A análise valida comprimentos numéricos: estado 2, município/lugar 7, county 5, subdivisão 10. No Brasil, resolve município antes do estado; nos EUA, lugar, subdivisão, county e estado. Um ID bem formado desconhecido mostra mensagem de não encontrado. Valores malformados são ignorados em favor de outro nível válido.
+
+A seleção escreve parâmetros canônicos do estado da área. Remove parâmetros antigos, incluindo nomes anteriores em português, e preserva parâmetros não relacionados e o fragmento. Voltar/avançar no navegador restaura seleções. A raiz e países desconhecidos normalizam para Brasil; o mapa não tem página 404 separada. A base do Vite serve para navegação e assets.
+
+## Níveis geográficos
+
+O Brasil inclui estados e municípios. Os EUA incluem 50 estados mais Distrito de Columbia, counties/equivalentes, lugares e subdivisões. Alaska e Hawaii aparecem em encaixes; a composição nacional não preserva sua posição real ou escala relativa. Territórios dos EUA são excluídos.
+
+No zoom nacional, aparecem limites estaduais. Limites municipais/counties começam em 2,5× e chegam à opacidade final em 4×. Detalhes locais dos EUA são solicitados a partir de 4×; lugares/subdivisões aparecem em 8× e chegam à opacidade final em 10×. Detalhes novos também aparecem gradualmente por 240 ms. Lugares têm prioridade na seleção, depois subdivisões e counties; fora de lugares, o contexto administrativo continua disponível.
+
+## Carregamento e erros
+
+O skeleton com a silhueta permanece até o primeiro desenho Canvas. Os controles ficam desativados enquanto o mapa está indisponível. Falhas de download/preparação oferecem tentativa novamente; falhas de detalhes e busca são separadas. Carregamento de detalhes não significa ausência de geografia. O rodapé identifica fonte e edição.

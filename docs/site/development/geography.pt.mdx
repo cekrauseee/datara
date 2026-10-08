@@ -1,0 +1,65 @@
+---
+title: Assets geográficos
+description: Fontes, identificadores, regeneração e verificações de limites.
+---
+
+## Fontes e cobertura
+
+| País           | Fonte e edição                                     | Camadas                                                                                 |
+| -------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Brasil         | API de limites do IBGE, geometria 2025             | 27 UFs e municípios                                                                     |
+| Estados Unidos | Census Cartographic Boundary Files 2025, 1:500.000 | 51 unidades estaduais, 3.144 counties/equivalentes, 32.058 lugares e 35.396 subdivisões |
+
+Fontes oficiais: [malhas do IBGE](https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774--malhas.html) e [catálogo Census 2025](https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.2025.html). URLs de download dos EUA, SHA-256, tamanhos, datas e inventários estão em `apps/web/public/maps/us/2025/manifest.json`.
+
+São limites simplificados para visualização, não dados de levantamento. EUA incluem Alaska, Hawaii e D.C.; a lista de códigos exclui territórios. Equivalentes de county preservam identidade, incluindo parishes, boroughs, independent cities e planning regions. Lugares não cobrem toda a terra e podem cruzar counties; não infira um county pai pelo nome/centroide. Subdivisões e lugares são camadas separadas que podem se sobrepor.
+
+## Arquivos servidos
+
+```text
+apps/web/public/maps/
+  brazil.json
+  brazil-outline.svg
+  us/2025/
+    national.json
+    outline.svg
+    search.json
+    manifest.json
+    details/<STATEFP>.json
+```
+
+TopoJSON nacional contém `states` e `regions`; `regions` significa municípios no Brasil e counties nos EUA. Detalhes têm `places` e `subdivisions`. Busca dos EUA contém apenas metadados e carrega independentemente; coordenadas detalhadas são solicitadas por estado. Silhuetas SVG vêm da mesma geometria.
+
+As propriedades de `Area` incluem `id`, `countryCode`, `geoid`, `name`, `stateCode`, `stateAbbr` e `type`, com nome oficial opcional. IDs brasileiros preservam o código IBGE. IDs dos EUA usam `US:<type>:<GEOID>`, evitando colisões entre níveis. Preserve códigos como strings. Arquivos dos EUA retêm ano/tipo e códigos quando fornecidos; o índice de busca retém menos campos.
+
+## Regeneração
+
+Na raiz do repositório:
+
+```sh
+pnpm --filter @datara/web map:update
+pnpm --filter @datara/web map:update:us
+pnpm --filter @datara/web map:check
+```
+
+Regenerar sobrescreve os artefatos estáticos respectivos e exige rede. Desenvolvimento/build usam arquivos versionados sem contatar IBGE/Census. Processamento dos EUA exige `unzip`, disco temporário e memória; o script limita heap Node a 8 GB. Mapshaper é dependência de preparação, apenas no desenvolvimento.
+
+### Brasil
+
+`update-map.mjs` obtém geometria municipal 2025 em qualidade mínima e catálogos de nomes/UF. A geometria é fixada; endpoints de nomes são catálogos vivos. Valida contagens/nomes, ajusta orientação de anéis para D3 e usa `map-topology.mjs`. Estados são unidos pelos arcos municipais, sem contornos simplificados independentemente.
+
+O output tem URLs e edição, mas a preparação brasileira não tem manifesto de hashes de download. Não presuma reprodução byte a byte dos catálogos vivos nem paridade com a procedência dos EUA.
+
+### Estados Unidos
+
+`update-us-map.mjs` baixa ZIPs de estados/counties/lugares/subdivisões em `GENZ2025/shp`. Verifica assinaturas ZIP, HTTP e hashes em cache. O cache temporário fica em `<OS temporary directory>/datara-us-data`; apagá-lo força download posterior.
+
+Extrai shapefiles, valida contagens DBF, converte NAD83 com `.prj` para WGS84 e simplifica todas as camadas juntas em 300 m com `keep-shapes`. Arredonda coordenadas para sete casas, preserva Polygon/MultiPolygon e orientação D3 e gera TopoJSON com limites compartilhados. Estados derivam de arcos de counties. Detalhes e busca preservam entidades incluídas; o manifesto reconcilia contagens com exclusões territoriais deliberadas.
+
+A exibição usa `geoAlbersUsa` nos EUA e `geoMercator` no Brasil. O antimeridiano do Alaska e todas as entidades retidas têm bounds finitos e área projetada positiva verificados. Mudar projeção, edição ou simplificação exige checks e inspeção dos casos relevantes, não apenas renomear arquivo.
+
+## Verificação e manutenção
+
+`check-map.mjs` cobre contagens brasileiras, IDs, busca, enquadramento, geometria e arcos comuns. `check-us-map.mjs` verifica toda geometria/inventário retido, IDs, exclusões, procedência e diferenças administrativas; inclui New York city, Alaska, Hawaii, D.C., lugar não incorporado e rótulos de equivalentes. `check-map-location.mjs` verifica códigos de URL.
+
+Ao atualizar edição, mude caminhos, configuração do país, worker, preparação e checks juntos. Registre procedência e examine contagens alteradas. Não remova entidades pequenas silenciosamente para melhorar desempenho.

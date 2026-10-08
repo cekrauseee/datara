@@ -1,0 +1,28 @@
+---
+title: First API request
+description: Discover editions, pin a publication and query published data.
+---
+
+## Run the local API
+
+From the repository root, `pnpm run setup` prepares the limited official pilot and `pnpm dev` starts the API on port 3000 by default. API startup needs PostgreSQL. Reading these docs does not.
+
+```sh
+curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
+curl -fsS 'http://localhost:3000/elections/BR-2026-1/contests'
+```
+
+The URLs here refer to the local API. Replace the origin with your deployment's API origin. A public API origin has not been configured.
+
+## Keep one snapshot
+
+Read `publication.id` from the edition and pass `publicationId` to subsequent requests. It selects an immutable data snapshot, not an API version. Missing explicit publications fail instead of switching silently.
+
+```sh
+curl -fsS --get 'http://localhost:3000/elections/BR-2026-1/areas' \
+  --data-urlencode 'publicationId=PUBLICATION_UUID' \
+  --data-urlencode 'level=municipality' --data-urlencode 'uf=ac' \
+  --data-urlencode 'limit=25'
+```
+
+Use actual IDs from discovery responses in place of placeholders. The generated [endpoint reference](/api/reference/elections) describes parameters, schemas and errors without executing requests in your browser.

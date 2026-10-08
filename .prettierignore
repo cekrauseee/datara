@@ -3,3 +3,7 @@ dist/
 .turbo/
 pnpm-lock.yaml
 apps/web/public/maps/**/*.json
+.next/
+.source/
+.generated/
+apps/docs/next-env.d.ts
