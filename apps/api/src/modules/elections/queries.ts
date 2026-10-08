@@ -74,6 +74,7 @@ type ResultRow = {
     officialPercentageBasis?: string
     candidateOmissionMeansZero?: boolean
     meaning?: string
+    printedVoteTotals?: { noCandidate?: number }
   }
 }
 type Context = {
@@ -420,6 +421,9 @@ function totals(r: ResultRow) {
     legendVotes: integer(r.legend_votes),
     blankVotes: integer(r.blank_votes),
     nullVotes: integer(r.null_votes),
+    // Printed only in bulletins (vote type 5); bulletins normalized by older parsers lack it.
+    noCandidateVotes:
+      r.source_kind === 'BU' ? integer(r.metadata.printedVoteTotals?.noCandidate) : null,
     sectionsTotal: integer(r.sections_total),
     sectionsCounted: integer(r.sections_counted),
   }

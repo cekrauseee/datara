@@ -138,6 +138,15 @@ try {
   assert.equal(governorSection.tie, false)
   assert.equal(governorSection.margin.votes, 12)
   assert.equal(governorSection.margin.basis, 'printedNominalVotes')
+  // Type 5 (no candidate for the office) is printed only in bulletins; no archived one has it.
+  const governorTotals = (await request(`/contests/${governor}/results?areaId=${section}&limit=1`))
+    .totals
+  assert.equal(governorTotals.noCandidateVotes, 0)
+  assert.equal(
+    governorTotals.nominalVotes + governorTotals.blankVotes + governorTotals.nullVotes,
+    governorTotals.totalVotes,
+  )
+  assert.equal(first.totals.noCandidateVotes, null)
   const senateSection = await sectionSummary(senatorDf, 'df:97012:0002:0478')
   assert.equal(senateSection.unresolved[0].number, '555')
   assert.equal(senateSection.margin.votes, 4)
@@ -321,6 +330,11 @@ try {
   const schema = await request('/openapi.json')
   assert.equal(Object.keys(schema.paths).length, 9)
   assert.ok(schema.components.schemas.AreaResult)
+  assert.ok(schema.components.schemas.ResultTotals.properties.noCandidateVotes)
+  assert.equal(
+    schema.paths['/elections/{electionId}'].get.responses['503'].description,
+    'Database unavailable or query time limit exceeded',
+  )
   assert.equal(measure(0, 0, 'test').state, 'undefined')
   assert.equal(measure(null, 1, 'test').state, 'unavailable')
   // A statement timeout is a query limit, not an unavailable database.

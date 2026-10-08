@@ -167,6 +167,7 @@ export const Totals = z
     legendVotes: Count,
     blankVotes: Count,
     nullVotes: Count,
+    noCandidateVotes: Count,
     sectionsTotal: Count,
     sectionsCounted: Count,
   })
