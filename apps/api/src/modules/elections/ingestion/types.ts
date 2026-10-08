@@ -1,3 +1,5 @@
+import type { NetworkOptions } from './fetch.js'
+
 export type Office = { cd: string; ds: string; tp: string }
 export type Configuration = {
   f: string
@@ -77,7 +79,16 @@ export type ImportOptions = {
   sectionsPerUf?: number
   pilotUfs?: string[]
   publish?: boolean
+  // Operational parameters below never change the dataset and are not persisted for resume.
   stopAfter?: number
+  /** Record unit failures and continue; the run then ends paused. Default: national scope. */
+  keepGoing?: boolean
+  /** Build the inventory, report the expected volume and pause without downloading results. */
+  estimate?: boolean
+  progressIntervalMs?: number
+  network?: NetworkOptions
+  /** Aborting pauses the run after the current unit. */
+  signal?: AbortSignal
 }
 export const EDITION = 'BR-2026-1'
 export const PARSER_VERSION = 'tse2026-1'

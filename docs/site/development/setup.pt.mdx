@@ -125,6 +125,7 @@ O check da API reimporta o piloto oficial completo offline num schema aleatório
 export TEST_DATABASE_URL='postgresql://YOUR_USER:YOUR_PASSWORD@127.0.0.1:5432/datara_test'
 export ELECTION_ARCHIVE_DIR="$PWD/.data/elections"
 pnpm --filter @datara/api check:bu
+pnpm --filter @datara/api check:acquisition
 pnpm --filter @datara/api check:ingestion
 pnpm --filter @datara/api check:api
 pnpm --filter @datara/api typecheck

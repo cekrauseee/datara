@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
+import { readFile, stat } from 'node:fs/promises'
+import { join } from 'node:path'
+import { performance } from 'node:perf_hooks'
 import type pg from 'pg'
-import { normalizeBulletin, normalizeUnified } from './normalize.js'
-import { Archive, BASE } from './source.js'
+import { FetchError, Fetcher, InterruptedError } from './fetch.js'
+import { BulletinCatalog, normalizeBulletin, normalizeUnified } from './normalize.js'
+import { Archive, BASE, bulletinUrl, hash, removeStaleTemporaryFiles } from './source.js'
 import type {
   Auxiliary,
   Configuration,
@@ -22,13 +26,94 @@ type TaskContext = {
   electionId: string
   officeCode: string
 }
+type Task = { url: string; kind: string; context: TaskContext; archived: boolean }
+type AreaRow = [
+  id: string,
+  level: string,
+  name: string,
+  uf: string | null,
+  municipality: string | null,
+  zone: string | null,
+  section: string | null,
+  feature: string | null,
+  parent: string | null,
+  principal: string | null,
+]
+type UnitFailure = { url: string; kind: string; error: string }
+export type PauseReason =
+  'stop-after' | 'estimate' | 'interrupted' | 'source-unavailable' | 'unit-failures'
+export type ImportResult =
+  | {
+      publicationId: string
+      status: 'paused'
+      reason: PauseReason
+      processed: number
+      error?: string
+      failures?: UnitFailure[]
+      estimate?: Awaited<ReturnType<typeof estimateVolume>>
+    }
+  | {
+      publicationId: string
+      status: 'ready' | 'published'
+      coverage: Awaited<ReturnType<typeof validatePublication>> & { selection: unknown }
+    }
+
+const MAX_FAILURES = 50
+const BATCH = 1000
+const ROWS_PER_STATEMENT = 10_000
+const RATE_WINDOW_MS = 5 * 60_000
 const pad = (value: string, width: number) => value.padStart(width, '0')
-export async function importElection(pool: pg.Pool, options: ImportOptions) {
+const log = (event: Record<string, unknown>) => console.log(JSON.stringify(event))
+
+export async function importElection(pool: pg.Pool, options: ImportOptions): Promise<ImportResult> {
   const pub = options.publicationId ?? randomUUID()
+  const keepGoing = options.keepGoing ?? options.scope === 'national'
   const client = await pool.connect()
+  // Prefetches stop on any pause, including an interruption while a download is in flight.
+  const prefetching = new AbortController()
+  const stopPrefetching = () => prefetching.abort()
+  options.signal?.addEventListener('abort', stopPrefetching, { once: true })
+  const prefetches = new Map<string, Promise<void>>()
+  let stats: Record<string, number> = {}
+  let cursor: string | undefined
+  let progress: NodeJS.Timeout | undefined
   let started = false
+  let processed = 0
+  const failures: UnitFailure[] = []
+  const settle = async () => {
+    prefetching.abort()
+    await Promise.allSettled(prefetches.values())
+  }
+  const pause = async (
+    reason: PauseReason,
+    error: string | null,
+    extra: { estimate?: Awaited<ReturnType<typeof estimateVolume>> } = {},
+  ): Promise<ImportResult> => {
+    await settle()
+    await client.query(
+      "UPDATE import_runs SET state='paused',error=$2,updated_at=now() WHERE publication_id=$1",
+      [pub, error],
+    )
+    log({
+      event: 'paused',
+      publicationId: pub,
+      reason,
+      processed,
+      failures: failures.length,
+      network: stats,
+    })
+    return {
+      publicationId: pub,
+      status: 'paused' as const,
+      reason,
+      processed,
+      ...(error ? { error } : {}),
+      ...(failures.length ? { failures } : {}),
+      ...extra,
+    }
+  }
   try {
-    // ponytail: one importer per database; shard acquisition only if measured national throughput needs it.
+    // One importer per database; acquisition concurrency lives inside the shared fetcher.
     if (!(await client.query('SELECT pg_try_advisory_lock(202602) AS locked')).rows[0].locked)
       throw new Error('Another election import is running')
     await client.query(
@@ -48,6 +133,11 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
       publicationId: undefined,
       publish: undefined,
       stopAfter: undefined,
+      keepGoing: undefined,
+      estimate: undefined,
+      progressIntervalMs: undefined,
+      network: undefined,
+      signal: undefined,
     }
     const run = (
       await client.query('SELECT options FROM import_runs WHERE publication_id=$1', [pub])
@@ -78,7 +168,55 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
     )
     started = true
     console.log(`Publication ${pub} (${options.scope})`)
-    const archive = new Archive(client, pub, options.archiveDir, options.offline, options.refresh)
+    const removed = await removeStaleTemporaryFiles(options.archiveDir).catch((error) => {
+      log({ event: 'warning', message: `Temporary file cleanup failed: ${error}` })
+      return 0
+    })
+    if (removed) log({ event: 'cleanup', removedTemporaryFiles: removed })
+    const fetcher = new Fetcher({ ...options.network, log })
+    stats = fetcher.stats
+    const archive = new Archive(client, pub, options.archiveDir, {
+      offline: options.offline,
+      refresh: options.refresh,
+      fetcher,
+      signal: options.signal,
+    })
+    const interrupted = () => {
+      if (options.signal?.aborted) throw options.signal.reason ?? new InterruptedError('abort')
+    }
+    const startedAt = performance.now()
+    let phase = 'inventory'
+    const samples: { t: number; units: number; requests: number }[] = []
+    let counts = { expected: 0, completedBefore: 0, pending: 0 }
+    const report = () => {
+      const now = performance.now()
+      samples.push({ t: now, units: processed, requests: fetcher.stats.requests })
+      while (samples.length > 2 && now - samples[1]!.t >= RATE_WINDOW_MS) samples.shift()
+      const first = samples[0]!
+      const seconds = (now - first.t) / 1000
+      const unitsPerSecond = seconds > 0 ? (processed - first.units) / seconds : 0
+      const remaining = counts.pending - processed - failures.length
+      const etaSeconds =
+        phase === 'units' && unitsPerSecond > 0 ? Math.round(remaining / unitsPerSecond) : null
+      log({
+        event: 'progress',
+        phase,
+        elapsedSeconds: Math.round((now - startedAt) / 1000),
+        units: processed,
+        failures: failures.length,
+        completed: counts.completedBefore + processed,
+        expected: counts.expected || null,
+        unitsPerSecond: round(unitsPerSecond),
+        requestsPerSecond:
+          seconds > 0 ? round((fetcher.stats.requests - first.requests) / seconds) : 0,
+        network: fetcher.stats,
+        etaSeconds,
+        eta: etaSeconds === null ? null : new Date(Date.now() + etaSeconds * 1000).toISOString(),
+      })
+    }
+    const interval = options.progressIntervalMs ?? 30_000
+    if (interval > 0) progress = setInterval(report, interval).unref()
+
     const { data: configuration } = await archive.json<Configuration>(
       `${BASE}/comum/config/ele-c.json`,
       'EA11',
@@ -88,13 +226,10 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
     )
     if (!poll) throw new Error('Official 2026 first-round poll not found')
     const elections = poll.e.filter((e) => e.t === '1')
-    await client.query('BEGIN')
-    try {
-      await area(client, pub, 'br', 'country', 'Brasil', null, null, null, null, null, null)
-      for (const [region] of Object.entries(regionStates))
-        await area(
-          client,
-          pub,
+    await transaction(client, () =>
+      upsertAreas(client, pub, [
+        ['br', 'country', 'Brasil', null, null, null, null, null, null, null],
+        ...Object.keys(regionStates).map((region): AreaRow => [
           `region:${region}`,
           'region',
           region,
@@ -104,74 +239,56 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
           null,
           null,
           'br',
-        )
-      await area(client, pub, 'exterior', 'state', 'Exterior', 'zz', null, null, null, null, 'br')
-      await client.query('COMMIT')
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    }
+          null,
+        ]),
+        ['exterior', 'state', 'Exterior', 'zz', null, null, null, null, 'br', null],
+      ]),
+    )
     const catalogs = new Map<string, Municipalities>()
     for (const election of elections) {
+      interrupted()
       const { data } = await archive.json<Municipalities>(
         `${BASE}/ele2026/${election.cd}/config/mun-e${pad(election.cd, 6)}-cm.json`,
         'EA12',
       )
       catalogs.set(election.cd, data)
-      await client.query('BEGIN')
-      try {
-        for (const state of data.abr) {
-          const stateId = state.cd === 'zz' ? 'exterior' : state.cd
-          const region = Object.entries(regionStates).find(([, ufs]) => ufs.includes(state.cd))?.[0]
-          await area(
-            client,
-            pub,
-            stateId,
-            'state',
-            state.ds,
+      const areas: AreaRow[] = []
+      for (const state of data.abr) {
+        const stateId = state.cd === 'zz' ? 'exterior' : state.cd
+        const region = Object.entries(regionStates).find(([, ufs]) => ufs.includes(state.cd))?.[0]
+        areas.push([
+          stateId,
+          'state',
+          state.ds,
+          state.cd,
+          null,
+          null,
+          null,
+          state.cd === 'zz' ? null : (state.mu.find((m) => m.cdi)?.cdi?.slice(0, 2) ?? null),
+          region ? `region:${region}` : 'br',
+          null,
+        ])
+        for (const m of state.mu) {
+          const id = `${state.cd}:${m.cd}`
+          areas.push([
+            id,
+            'municipality',
+            m.nm,
             state.cd,
+            m.cd,
             null,
             null,
+            m.cdi || null,
+            stateId,
             null,
-            state.cd === 'zz' ? null : (state.mu.find((m) => m.cdi)?.cdi?.slice(0, 2) ?? null),
-            region ? `region:${region}` : 'br',
-          )
-          for (const m of state.mu) {
-            const id = `${state.cd}:${m.cd}`
-            await area(
-              client,
-              pub,
-              id,
-              'municipality',
-              m.nm,
-              state.cd,
-              m.cd,
-              null,
-              null,
-              m.cdi || null,
-              stateId,
-            )
-            for (const z of m.z)
-              await area(
-                client,
-                pub,
-                `${id}:${z}`,
-                'zone',
-                `Zona ${z}`,
-                state.cd,
-                m.cd,
-                z,
-                null,
-                null,
-                id,
-              )
-          }
+          ])
+          for (const z of m.z)
+            areas.push([`${id}:${z}`, 'zone', `Zona ${z}`, state.cd, m.cd, z, null, null, id, null])
         }
-        await client.query('COMMIT')
-      } catch (error) {
-        await client.query('ROLLBACK')
-        throw error
       }
+      await transaction(client, () => upsertAreas(client, pub, areas))
+      const contests: unknown[][] = []
+      const tasks: [string, string, Partial<TaskContext>][] = []
       for (const office of election.abr.flatMap((a) => a.cp)) {
         for (const state of data.abr) {
           if (office.cd !== '1' && state.cd === 'zz') continue
@@ -185,34 +302,25 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
                 : [state.cd]
           for (const scope of scopes) {
             const id = contestId(election.cd, office.cd, scope)
-            await client.query(
-              `INSERT INTO contests(publication_id,id,election_id,office_code,office_name,scope_area_id,vote_type)
-       VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`,
-              [
-                pub,
-                id,
-                election.cd,
-                office.cd,
-                office.ds,
-                scope,
-                office.tp === '2' ? 'proportional' : 'majoritarian',
-              ],
-            )
+            contests.push([
+              id,
+              election.cd,
+              office.cd,
+              office.ds,
+              scope,
+              office.tp === '2' ? 'proportional' : 'majoritarian',
+            ])
             // Candidacy catalog is always populated from the official full contest before local observations.
             const mainUf = office.cd === '1' ? 'br' : state.cd
             const mainPrefix = office.cd === '25' ? `${state.cd}${scope.split(':')[1]}` : mainUf
-            await task(
-              client,
-              pub,
+            tasks.push([
               unifiedUrl(election.cd, office.cd, mainUf, mainPrefix),
               'EA20',
               { contestId: id, areaId: scope, electionId: election.cd, officeCode: office.cd },
-            )
+            ])
           }
           if (office.cd === '1' && state.cd !== 'br')
-            await task(
-              client,
-              pub,
+            tasks.push([
               unifiedUrl(election.cd, office.cd, state.cd, state.cd),
               'EA20',
               {
@@ -221,7 +329,7 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
                 electionId: election.cd,
                 officeCode: office.cd,
               },
-            )
+            ])
           const municipalities =
             options.scope === 'pilot' &&
             !(options.pilotUfs ?? ['ac', 'df', 'pe', 'zz']).includes(state.cd)
@@ -235,24 +343,24 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
               electionId: election.cd,
               officeCode: office.cd,
             }
-            await task(
-              client,
-              pub,
+            tasks.push([
               unifiedUrl(election.cd, office.cd, state.cd, `${state.cd}${m.cd}`),
               'EA20',
               { ...common, areaId: `${state.cd}:${m.cd}` },
-            )
+            ])
             for (const z of m.z)
-              await task(
-                client,
-                pub,
+              tasks.push([
                 unifiedUrl(election.cd, office.cd, state.cd, `${state.cd}${m.cd}-z${z}`),
                 'EA20',
                 { ...common, areaId: `${state.cd}:${m.cd}:${z}` },
-              )
+              ])
           }
         }
       }
+      await transaction(client, async () => {
+        await insertContests(client, pub, contests)
+        await insertTasks(client, pub, tasks)
+      })
     }
     // Build the full section inventory, including identifiable aggregated sections without duplicate votes.
     const sectionStates = [
@@ -261,6 +369,7 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
     for (const uf of sectionStates) {
       if (options.scope === 'pilot' && !(options.pilotUfs ?? ['ac', 'df', 'pe', 'zz']).includes(uf))
         continue
+      interrupted()
       const { data } = await archive.json<Sections>(
         `${BASE}/ele2026/arquivo-urna/${poll.cd}/config/${uf}/${uf}-p${pad(poll.cd, 6)}-cs.json`,
         'EA16',
@@ -272,6 +381,7 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
             .flatMap((a) => selectMunicipalities(a.mu, options, uf).map((m) => m.cd)),
         ),
       )
+      const sectionAreas: AreaRow[] = []
       const sectionCandidates: {
         url: string
         aggregated: boolean
@@ -281,30 +391,19 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
         for (const m of state.mu) {
           if (options.scope === 'pilot' && !chosen.has(m.cd)) continue
           for (const z of m.zon) {
-            await client.query('BEGIN')
-            try {
-              for (const section of z.sec) {
-                const areaId = `${uf}:${m.cd}:${z.cd}:${section.ns}`
-                await area(
-                  client,
-                  pub,
-                  areaId,
-                  'section',
-                  `Seção ${section.ns}`,
-                  uf,
-                  m.cd,
-                  z.cd,
-                  section.ns,
-                  null,
-                  `${uf}:${m.cd}:${z.cd}`,
-                  section.nsp ? `${uf}:${m.cd}:${z.cd}:${section.nsp}` : null,
-                )
-              }
-              await client.query('COMMIT')
-            } catch (error) {
-              await client.query('ROLLBACK')
-              throw error
-            }
+            for (const section of z.sec)
+              sectionAreas.push([
+                `${uf}:${m.cd}:${z.cd}:${section.ns}`,
+                'section',
+                `Seção ${section.ns}`,
+                uf,
+                m.cd,
+                z.cd,
+                section.ns,
+                null,
+                `${uf}:${m.cd}:${z.cd}`,
+                section.nsp ? `${uf}:${m.cd}:${z.cd}:${section.nsp}` : null,
+              ])
             for (const section of z.sec.filter((s) => !s.nsp)) {
               const stem = `p${pad(poll.cd, 6)}-${uf}-m${m.cd}-z${z.cd}-s${section.ns}`
               sectionCandidates.push({
@@ -342,78 +441,173 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
           for (const group of groups)
             if (group[i] && selected.length < (options.sectionsPerUf ?? 2)) selected.push(group[i]!)
       }
-      for (const section of selected) await task(client, pub, section.url, 'EA18', section.context)
+      await transaction(client, async () => {
+        await upsertAreas(client, pub, sectionAreas)
+        await insertTasks(
+          client,
+          pub,
+          selected.map((section) => [section.url, 'EA18', section.context]),
+        )
+      })
     }
     const total = (
       await client.query(
-        'SELECT count(*)::integer AS n FROM import_tasks WHERE publication_id=$1',
+        `SELECT count(*)::integer AS n,count(*) FILTER(WHERE state='pending')::integer AS pending
+         FROM import_tasks WHERE publication_id=$1`,
         [pub],
       )
-    ).rows[0].n
+    ).rows[0]
     await client.query('UPDATE import_runs SET expected_documents=$2 WHERE publication_id=$1', [
       pub,
-      total,
+      total.n,
     ])
-    let processed = 0
-    while (true) {
-      const jobs = await client.query(
-        `SELECT * FROM import_tasks WHERE publication_id=$1 AND state='pending'
-    ORDER BY CASE WHEN kind='EA20' THEN 0 ELSE 1 END, length(context->>'areaId'),url LIMIT 100`,
-        [pub],
-      )
-      if (!jobs.rowCount) break
-      for (const job of jobs.rows) {
-        if (options.stopAfter !== undefined && processed >= options.stopAfter) {
-          await client.query("UPDATE import_runs SET state='paused' WHERE publication_id=$1", [pub])
-          return { publicationId: pub, status: 'paused', processed }
-        }
-        const context = job.context as TaskContext
-        const { source, data } = await archive.json<UnifiedResult | Auxiliary>(job.url, job.kind)
-        let bulletin: Awaited<ReturnType<Archive['get']>> | undefined
-        if (job.kind === 'EA18') {
-          const auxiliary = data as Auxiliary
-          const hashes = auxiliary.hashes.filter((h) => h.st === 'Totalizado')
-          if (hashes.length > 1) throw new Error(`Multiple totalized BU hashes: ${job.url}`)
-          const selected = hashes[0]
-          const bu = selected?.arq.find((a) => a.tp === 'bu' || a.tp === 'busa')
-          if (bu) {
-            if (!/^[a-fA-F0-9]+$/.test(selected!.hash) || !/^[\w.-]+$/.test(bu.nm))
-              throw new Error('Invalid BU source path')
-            bulletin = await archive.get(
-              `${job.url.slice(0, job.url.lastIndexOf('/'))}/${selected!.hash}/${bu.nm}`,
-              'BU',
+    counts = { expected: total.n, completedBefore: total.n - total.pending, pending: total.pending }
+    log({
+      event: 'inventory',
+      publicationId: pub,
+      expected: total.n,
+      pending: total.pending,
+      seconds: round((performance.now() - startedAt) / 1000),
+      requests: fetcher.stats.requests,
+    })
+    if (options.estimate)
+      return await pause('estimate', null, {
+        estimate: await estimateVolume(client, pub, archive.directory, fetcher.policy),
+      })
+
+    // Pending units are listed once per invocation in their semantic order: every EA20 (catalogs
+    // and aggregates) before section files, and full contests before local observations.
+    cursor = `import_tasks_${randomUUID().replaceAll('-', '')}`
+    await client.query(
+      `DECLARE ${cursor} NO SCROLL CURSOR WITH HOLD FOR
+       SELECT url,kind,context FROM import_tasks WHERE publication_id=$1 AND state='pending'
+       ORDER BY CASE WHEN kind='EA20' THEN 0 ELSE 1 END,length(context->>'areaId'),url`,
+      [pub],
+    )
+    const window = archive.offline ? 0 : 4 * fetcher.policy.concurrency
+    const queue: Task[] = []
+    let exhausted = false
+    let prefetchFailure: FetchError | undefined
+    const refill = async () => {
+      while (!exhausted && queue.length <= window) {
+        const rows = (await client.query(`FETCH ${BATCH} FROM ${cursor}`)).rows
+        if (rows.length < BATCH) exhausted = true
+        if (!rows.length) break
+        // Units with a frozen manifest row resume from it and need no prefetch.
+        const archived = new Set(
+          (
+            await client.query(
+              'SELECT url FROM source_documents WHERE publication_id=$1 AND url=ANY($2::text[])',
+              [pub, rows.map((row) => row.url)],
             )
-          } else if (!['Não instalada', 'Não Instalada'].includes(auxiliary.st))
-            throw new Error(
-              `Section has no final BU or official noninstallation: ${auxiliary.st} ${job.url}`,
-            )
-        }
-        await client.query('BEGIN')
-        try {
-          if (job.kind === 'EA20')
-            await normalizeUnified(client, pub, source, data as UnifiedResult, context)
-          else if (bulletin) await normalizeBulletin(client, pub, bulletin, context)
-          await client.query(
-            'UPDATE source_documents SET metadata=metadata || $2::jsonb WHERE id=$1',
-            [source.id, { normalized: true, officialStatus: (data as Auxiliary).st ?? null }],
-          )
-          await client.query(
-            'UPDATE import_tasks SET state=$3 WHERE publication_id=$1 AND url=$2',
-            [pub, job.url, job.kind === 'EA18' && !bulletin ? 'official_absence' : 'complete'],
-          )
-          await client.query(
-            'UPDATE import_runs SET completed_documents=completed_documents+1,updated_at=now() WHERE publication_id=$1',
-            [pub],
-          )
-          await client.query('COMMIT')
-        } catch (error) {
-          await client.query('ROLLBACK')
-          throw error
-        }
-        processed++
-        if (processed % 100 === 0) console.log(`Imported ${processed} units in this invocation`)
+          ).rows.map((row) => row.url as string),
+        )
+        for (const row of rows) queue.push({ ...row, archived: archived.has(row.url) })
       }
     }
+    const schedule = () => {
+      if (prefetchFailure || prefetching.signal.aborted) return
+      for (const task of queue.slice(0, window)) {
+        if (prefetches.has(task.url) || task.archived) continue
+        const promise = archive.prefetch(task.url, task.kind, prefetching.signal)
+        promise.catch((error) => {
+          if (error instanceof FetchError) prefetchFailure ??= error
+        })
+        prefetches.set(task.url, promise)
+      }
+    }
+    const catalog = new BulletinCatalog(client, pub)
+    const unit = async (task: Task) => {
+      const context = task.context
+      const { source, data } = await archive.json<UnifiedResult | Auxiliary>(task.url, task.kind)
+      let bulletin: Awaited<ReturnType<Archive['get']>> | undefined
+      if (task.kind === 'EA18') {
+        const auxiliary = data as Auxiliary
+        const selected = bulletinUrl(task.url, auxiliary)
+        if (selected) bulletin = await archive.get(selected, 'BU')
+        else if (!['Não instalada', 'Não Instalada'].includes(auxiliary.st))
+          throw new Error(
+            `Section has no final BU or official noninstallation: ${auxiliary.st} ${task.url}`,
+          )
+      }
+      await transaction(client, async () => {
+        if (task.kind === 'EA20')
+          await normalizeUnified(client, pub, source, data as UnifiedResult, context)
+        else if (bulletin) await normalizeBulletin(client, pub, bulletin, context, catalog)
+        await client.query(
+          'UPDATE source_documents SET metadata=metadata || $2::jsonb WHERE id=$1',
+          [source.id, { normalized: true, officialStatus: (data as Auxiliary).st ?? null }],
+        )
+        await client.query('UPDATE import_tasks SET state=$3 WHERE publication_id=$1 AND url=$2', [
+          pub,
+          task.url,
+          task.kind === 'EA18' && !bulletin ? 'official_absence' : 'complete',
+        ])
+        await client.query(
+          'UPDATE import_runs SET completed_documents=completed_documents+1,updated_at=now() WHERE publication_id=$1',
+          [pub],
+        )
+      })
+    }
+    phase = 'units'
+    const unitsStartedAt = performance.now()
+    // Rates and ETA cover the unit phase only, over a moving window.
+    samples.splice(0, samples.length, {
+      t: unitsStartedAt,
+      units: 0,
+      requests: fetcher.stats.requests,
+    })
+    for (;;) {
+      await refill()
+      const task = queue[0]
+      if (!task) break
+      if (options.signal?.aborted) return await pause('interrupted', null)
+      if (prefetchFailure) return await pause('source-unavailable', prefetchFailure.message)
+      if (options.stopAfter !== undefined && processed >= options.stopAfter)
+        return await pause('stop-after', null)
+      if (task.kind === 'EA18' && failures.some((failure) => failure.kind === 'EA20'))
+        // Bulletins resolve ballot numbers against EA20 candidacies, so those must all be present.
+        return await pause(
+          'unit-failures',
+          `EA20 failures must be resolved before section bulletins. ${summary(failures)}`,
+        )
+      schedule()
+      queue.shift()
+      try {
+        await prefetches.get(task.url)
+        await unit(task)
+        processed++
+      } catch (error) {
+        // A failed rollback means the connection is unusable; nothing else can be recorded.
+        await client.query('ROLLBACK').catch(() => {
+          throw error
+        })
+        if (options.signal?.aborted) return await pause('interrupted', null)
+        if (error instanceof FetchError) return await pause('source-unavailable', error.message)
+        if (!keepGoing || fatal(error)) throw error
+        const message = error instanceof Error ? error.message : String(error)
+        failures.push({ url: task.url, kind: task.kind, error: message })
+        log({ event: 'unit-failed', url: task.url, kind: task.kind, error: message })
+        if (failures.length >= MAX_FAILURES)
+          return await pause(
+            'unit-failures',
+            `Stopped at ${MAX_FAILURES} failures. ${summary(failures)}`,
+          )
+      } finally {
+        prefetches.delete(task.url)
+      }
+    }
+    const unitSeconds = (performance.now() - unitsStartedAt) / 1000
+    log({
+      event: 'units',
+      publicationId: pub,
+      units: processed,
+      failures: failures.length,
+      seconds: round(unitSeconds),
+      unitsPerSecond: unitSeconds > 0 ? round(processed / unitSeconds) : null,
+      network: fetcher.stats,
+    })
+    if (failures.length) return await pause('unit-failures', summary(failures))
     const coverage = {
       ...(await validatePublication(client, pub, options.scope)),
       selection:
@@ -433,11 +627,17 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
     if (options.publish !== false) await publishPublication(client, pub)
     return {
       publicationId: pub,
-      status: options.publish === false ? 'ready' : 'published',
+      status: options.publish === false ? ('ready' as const) : ('published' as const),
       coverage,
     }
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {})
+    // Interruptions and unavailable sources leave a resumable publication, never a failed one.
+    if (started && (options.signal?.aborted || error instanceof FetchError))
+      return await pause(
+        options.signal?.aborted ? 'interrupted' : 'source-unavailable',
+        options.signal?.aborted ? null : (error as Error).message,
+      )
     if (started)
       await client
         .query(
@@ -447,41 +647,90 @@ export async function importElection(pool: pg.Pool, options: ImportOptions) {
         .catch(() => {})
     throw error
   } finally {
+    clearInterval(progress)
+    options.signal?.removeEventListener('abort', stopPrefetching)
+    await settle()
+    if (cursor) await client.query(`CLOSE ${cursor}`).catch(() => {})
     await client.query('SELECT pg_advisory_unlock(202602)').catch(() => {})
     client.release()
   }
 }
-async function area(
-  client: pg.PoolClient,
-  pub: string,
-  id: string,
-  level: string,
-  name: string,
-  uf: string | null,
-  municipality: string | null,
-  zone: string | null,
-  section: string | null,
-  feature: string | null,
-  parent: string | null,
-  principal: string | null = null,
-) {
-  await client.query(
-    `INSERT INTO areas(publication_id,id,level,name,uf,municipality_code,zone_code,section_code,feature_id,parent_id,principal_area_id)
-  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(publication_id,id) DO UPDATE SET feature_id=excluded.feature_id`,
-    [pub, id, level, name, uf, municipality, zone, section, feature, parent, principal],
-  )
+function summary(failures: UnitFailure[]) {
+  const first = failures
+    .slice(0, 5)
+    .map((failure) => `${failure.url}: ${failure.error}`)
+    .join('; ')
+  return `${failures.length} unit(s) failed and remain pending; ${first}`
 }
-async function task(
+// Connection, resource and server failures stop the run instead of being recorded per unit.
+function fatal(error: unknown) {
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' && /^(08|53|57|58|XX)/.test(code)
+}
+function round(value: number) {
+  return Math.round(value * 100) / 100
+}
+async function transaction<T>(client: pg.PoolClient, work: () => Promise<T>) {
+  await client.query('BEGIN')
+  try {
+    const result = await work()
+    await client.query('COMMIT')
+    return result
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  }
+}
+async function upsertAreas(client: pg.PoolClient, pub: string, rows: AreaRow[]) {
+  // Same result as row-by-row upserts: the first row inserts, later duplicates update feature_id.
+  const unique = new Map<string, AreaRow>()
+  for (const row of rows) {
+    const first = unique.get(row[0])
+    if (first) first[7] = row[7]
+    else unique.set(row[0], [...row])
+  }
+  const all = [...unique.values()]
+  for (let i = 0; i < all.length; i += ROWS_PER_STATEMENT)
+    await client.query(
+      `INSERT INTO areas(publication_id,id,level,name,uf,municipality_code,zone_code,section_code,feature_id,parent_id,principal_area_id)
+  SELECT $1,* FROM unnest($2::text[],$3::text[],$4::text[],$5::text[],$6::text[],$7::text[],$8::text[],$9::text[],$10::text[],$11::text[])
+  ON CONFLICT(publication_id,id) DO UPDATE SET feature_id=excluded.feature_id`,
+      [pub, ...transpose(all.slice(i, i + ROWS_PER_STATEMENT), 10)],
+    )
+}
+async function insertContests(client: pg.PoolClient, pub: string, rows: unknown[][]) {
+  const unique = new Map<unknown, unknown[]>()
+  for (const row of rows) if (!unique.has(row[0])) unique.set(row[0], row)
+  const all = [...unique.values()]
+  for (let i = 0; i < all.length; i += ROWS_PER_STATEMENT)
+    await client.query(
+      `INSERT INTO contests(publication_id,id,election_id,office_code,office_name,scope_area_id,vote_type)
+  SELECT $1,* FROM unnest($2::text[],$3::text[],$4::text[],$5::text[],$6::text[],$7::text[]) ON CONFLICT DO NOTHING`,
+      [pub, ...transpose(all.slice(i, i + ROWS_PER_STATEMENT), 6)],
+    )
+}
+async function insertTasks(
   client: pg.PoolClient,
   pub: string,
-  url: string,
-  kind: string,
-  context: Partial<TaskContext>,
+  rows: [string, string, Partial<TaskContext>][],
 ) {
-  await client.query(
-    'INSERT INTO import_tasks(publication_id,url,kind,context) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',
-    [pub, url, kind, context],
-  )
+  // The first occurrence of a URL wins, as ON CONFLICT DO NOTHING does across statements.
+  const unique = new Map<string, unknown[]>()
+  for (const [url, kind, context] of rows)
+    if (!unique.has(url)) unique.set(url, [url, kind, JSON.stringify(context)])
+  const all = [...unique.values()]
+  for (let i = 0; i < all.length; i += ROWS_PER_STATEMENT)
+    await client.query(
+      `INSERT INTO import_tasks(publication_id,url,kind,context)
+  SELECT $1,url,kind,context::jsonb FROM unnest($2::text[],$3::text[],$4::text[]) AS t(url,kind,context)
+  ON CONFLICT DO NOTHING`,
+      [pub, ...transpose(all.slice(i, i + ROWS_PER_STATEMENT), 3)],
+    )
+}
+function transpose(rows: unknown[][], width: number) {
+  const columns: unknown[][] = Array.from({ length: width }, () => [])
+  for (const row of rows) row.forEach((value, index) => columns[index]!.push(value))
+  return columns
 }
 function selectMunicipalities<T extends { cd: string }>(
   items: T[],
@@ -498,6 +747,134 @@ function selectMunicipalities<T extends { cd: string }>(
 function unifiedUrl(election: string, office: string, uf: string, prefix: string) {
   return `${BASE}/ele2026/${election}/dados/${uf}/${prefix}-c${pad(office, 4)}-e${pad(election, 6)}-u.json`
 }
+
+// Measured on the archived pilot: mean auxiliary and BU sizes, rows written per domestic BU
+// (lower bound; large urban sections are expected near the upper one), on-disk bytes per row
+// with indexes, normalization cost and warm-connection TSE latency.
+const ESTIMATE = {
+  auxiliaryBytes: 524,
+  bulletinBytes: 12_750,
+  bulletinRows: [320, 600],
+  aggregateRowBytes: 425,
+  bulletinRowBytes: 320,
+  msPerRow: 0.0125,
+  msPerUnit: 5,
+  latencySeconds: 0.41,
+  blockBytes: 4096,
+}
+/** Expected remaining volume from the inventory and the archived contest-level EA20 files. */
+export async function estimateVolume(
+  client: pg.PoolClient,
+  pub: string,
+  directory: string,
+  policy: { rate: number; concurrency: number },
+) {
+  const tasks = (
+    await client.query(
+      `SELECT kind,count(*)::integer total,count(*) FILTER(WHERE state='pending')::integer pending
+       FROM import_tasks WHERE publication_id=$1 GROUP BY kind`,
+      [pub],
+    )
+  ).rows
+  const contests = (
+    await client.query(
+      `SELECT c.id,c.election_id,c.office_code,c.scope_area_id,count(t.url)::integer pending
+       FROM contests c JOIN import_tasks t ON t.publication_id=c.publication_id AND t.kind='EA20'
+       AND t.state='pending' AND t.context->>'contestId'=c.id
+       WHERE c.publication_id=$1 GROUP BY c.publication_id,c.id`,
+      [pub],
+    )
+  ).rows
+  // A contest's local EA20 files list the same candidacies as its archived full-contest file.
+  const known: { pending: number; bytes: number; rows: number }[] = []
+  let unknownTasks = 0
+  for (const contest of contests) {
+    const [uf, municipality] = String(contest.scope_area_id).split(':')
+    const mainUf = contest.office_code === '1' ? 'br' : uf!
+    const url = unifiedUrl(
+      contest.election_id,
+      contest.office_code,
+      mainUf,
+      contest.office_code === '25' ? `${mainUf}${municipality}` : mainUf,
+    )
+    try {
+      const reference = JSON.parse(
+        await readFile(join(directory, 'urls', `${hash(Buffer.from(url))}.json`), 'utf8'),
+      ) as { sha256: string }
+      const bytes = await readFile(join(directory, 'sha256', reference.sha256))
+      const data = JSON.parse(bytes.toString('utf8')) as UnifiedResult
+      const parties = data.carg[0]?.agr.flatMap((group) => group.par) ?? []
+      const candidates = parties
+        .flatMap((party) => party.cand ?? [])
+        .filter((c) => c.vap !== undefined)
+      known.push({
+        pending: contest.pending,
+        bytes: (await stat(join(directory, 'sha256', reference.sha256))).size,
+        rows: 1 + parties.length + candidates.length,
+      })
+    } catch {
+      unknownTasks += contest.pending
+    }
+  }
+  const knownTasks = known.reduce((n, k) => n + k.pending, 0)
+  const mean = (pick: (k: (typeof known)[number]) => number) =>
+    knownTasks ? known.reduce((n, k) => n + k.pending * pick(k), 0) / knownTasks : 0
+  const blocks = (bytes: number) => Math.ceil(bytes / ESTIMATE.blockBytes) * ESTIMATE.blockBytes
+  const ea20 = {
+    pending: knownTasks + unknownTasks,
+    bytes: known.reduce((n, k) => n + k.pending * k.bytes, 0) + unknownTasks * mean((k) => k.bytes),
+    allocated:
+      known.reduce((n, k) => n + k.pending * blocks(k.bytes), 0) +
+      unknownTasks * blocks(mean((k) => k.bytes)),
+    rows: known.reduce((n, k) => n + k.pending * k.rows, 0) + unknownTasks * mean((k) => k.rows),
+  }
+  const sections = tasks.find((t) => t.kind === 'EA18') ?? { total: 0, pending: 0 }
+  const withFiles = sections.pending
+  const requests = ea20.pending + 2 * withFiles
+  const bulletinRows = ESTIMATE.bulletinRows.map((perSection) => withFiles * perSection)
+  const rows = bulletinRows.map((n) => Math.round(ea20.rows + n))
+  const logicalBytes = ea20.bytes + withFiles * (ESTIMATE.auxiliaryBytes + ESTIMATE.bulletinBytes)
+  const rate = Math.min(policy.rate, policy.concurrency / ESTIMATE.latencySeconds)
+  const network = requests / rate / 3600
+  const normalization = rows.map(
+    (n) => (n * ESTIMATE.msPerRow + (ea20.pending + sections.pending) * ESTIMATE.msPerUnit) / 3.6e6,
+  )
+  const gb = (bytes: number) => round(bytes / 1e9)
+  return {
+    note: 'Estimate only: no EA20, EA18 or BU result file was downloaded; only the EA11/EA12/EA16 catalogs.',
+    tasks: Object.fromEntries(tasks.map((t) => [t.kind, { total: t.total, pending: t.pending }])),
+    requests,
+    archive: {
+      gigabytes: gb(logicalBytes),
+      // Every source and URL reference occupies whole filesystem blocks.
+      allocatedGigabytes: gb(
+        ea20.allocated +
+          withFiles * (blocks(ESTIMATE.auxiliaryBytes) + blocks(ESTIMATE.bulletinBytes)) +
+          requests * ESTIMATE.blockBytes,
+      ),
+    },
+    database: {
+      rows,
+      gigabytes: bulletinRows.map((n) =>
+        gb(ea20.rows * ESTIMATE.aggregateRowBytes + n * ESTIMATE.bulletinRowBytes),
+      ),
+    },
+    hours: {
+      network: round(network),
+      normalization: normalization.map(round),
+      // Downloads and normalization overlap, so the slower stage dominates.
+      total: normalization.map((n) => round(Math.max(n, network))),
+    },
+    assumptions: {
+      ratePerSecond: policy.rate,
+      concurrency: policy.concurrency,
+      effectiveRequestsPerSecond: round(rate),
+      ...ESTIMATE,
+      contestTasksWithoutArchivedMainFile: unknownTasks,
+    },
+  }
+}
+
 export async function validatePublication(client: pg.PoolClient, pub: string, scope: string) {
   const counts = (
     await client.query(
