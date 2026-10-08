@@ -59,6 +59,33 @@ try {
   assert.deepEqual(candidates.coverage.selection.ufs, ['ac', 'df', 'pe', 'zz'])
   assert.ok(Array.isArray(candidates.coverage.discrepancies))
   assert.equal('bu_files' in candidates.coverage, false)
+  // Catalog filters: a candidacy by its official ID, an area by its map feature ID.
+  const byOfficialId = await request(
+    `/contests/${contest}/candidates?officialId=${candidate.officialId}`,
+  )
+  assert.deepEqual(
+    byOfficialId.items.map((item: { id: string }) => item.id),
+    [candidate.id],
+  )
+  assert.equal(byOfficialId.pagination.total, 1)
+  assert.deepEqual(
+    (await request('/elections/BR-2026-1/areas?featureId=12')).items.map(
+      (a: { id: string }) => a.id,
+    ),
+    ['ac'],
+  )
+  const featureMunicipality = (
+    await pool.query(
+      "SELECT id,feature_id FROM areas WHERE publication_id=$1 AND level='municipality' AND feature_id<>'' ORDER BY id LIMIT 1",
+      [publicationId],
+    )
+  ).rows[0]
+  assert.deepEqual(
+    (
+      await request(`/elections/BR-2026-1/areas?featureId=${featureMunicipality.feature_id}`)
+    ).items.map((a: { id: string }) => a.id),
+    [featureMunicipality.id],
+  )
   for (const path of [
     '/elections/BR-2026-1/areas?limit=1',
     '/elections/BR-2026-1/contests',
@@ -378,6 +405,54 @@ try {
     'areaId=ac&level=section',
   ])
     assert.equal((await within(query, 400)).error.code, 'LEVEL_TOO_DEEP')
+  // Sorted distribution orders every area of the level before paging: descending values, missing
+  // values last, area ID breaking ties; totals and item contents match the area order.
+  type DistributionEntry = {
+    area: { id: string }
+    votes: number | null
+    support: { value: number | null }
+    contribution: { value: number | null }
+  }
+  const sortValue = {
+    votes: (item: DistributionEntry) => item.votes,
+    support: (item: DistributionEntry) => item.support.value,
+    contribution: (item: DistributionEntry) => item.contribution.value,
+  }
+  const sortedBy = async (scope: string, sort: keyof typeof sortValue) => {
+    const sorted = await within(`${scope}&sort=${sort}&limit=100`)
+    const byArea = await within(`${scope}&limit=100`)
+    assert.equal(sorted.pagination.total, byArea.pagination.total)
+    assert.equal(sorted.items.length, byArea.items.length)
+    const original = new Map(
+      byArea.items.map((item: DistributionEntry) => [item.area.id, item] as const),
+    )
+    const values = (sorted.items as DistributionEntry[]).map((item) => {
+      assert.deepEqual(item, original.get(item.area.id))
+      return [sortValue[sort](item), item.area.id] as const
+    })
+    for (let i = 1; i < values.length; i++) {
+      const [[a, aId], [b, bId]] = [values[i - 1]!, values[i]!]
+      assert.ok(
+        a === null ? b === null && aId < bId : b === null || a > b || (a === b && aId < bId),
+        `${scope} sort=${sort} at ${i}`,
+      )
+    }
+    return sorted
+  }
+  for (const sort of ['votes', 'support', 'contribution'] as const) {
+    const states = await sortedBy('areaId=br&level=state', sort)
+    assert.ok(states.items.every((item: DistributionEntry) => sortValue[sort](item) !== null))
+    const page = await within(`areaId=br&level=state&sort=${sort}&limit=5&offset=5`)
+    assert.deepEqual(page.items, states.items.slice(5, 10))
+  }
+  const acSorted = await sortedBy('areaId=ac&level=municipality', 'votes')
+  assert.equal(acSorted.items[0].state, 'available')
+  assert.equal(acSorted.items.at(-1).votes, null)
+  const sectionSorted = await sortedBy(`areaId=${municipality.id}&level=section`, 'support')
+  assert.equal(sectionSorted.items[0].sourceKind, 'BU')
+  assert.equal(sectionSorted.items.at(-1).support.value, null)
+  await sortedBy(`areaId=${municipality.id}&level=section`, 'contribution')
+  assert.equal((await within('sort=rank', 400)).error.code, 'INVALID_PARAMETERS')
   const mapPath = `/contests/${contest}/map?level=municipality&metric=leader`
   const mapResponse = await app.request(mapPath)
   const mapText = await mapResponse.text()

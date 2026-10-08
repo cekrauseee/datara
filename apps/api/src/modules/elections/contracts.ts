@@ -41,17 +41,23 @@ export const AreaQuery = PageQuery.extend({
   uf: letters.transform((v) => v.toLowerCase()).optional(),
   municipalityCode: z.string().regex(/^\d+$/).optional(),
   zoneCode: z.string().regex(/^\d+$/).optional(),
+  featureId: z
+    .string()
+    .regex(/^\d{1,7}$/)
+    .optional(),
   q: z.string().max(100).optional(),
 })
 export const CandidateQuery = PageQuery.extend({
   q: z.string().max(100).optional(),
   partyNumber: z.string().regex(/^\d+$/).optional(),
+  officialId: z.string().regex(/^\d+$/).optional(),
 })
 export const ResultQuery = PageQuery.extend({ areaId: Id.optional() })
 export const DistributionQuery = PageQuery.extend({
   candidateId: Id,
   areaId: Id.optional(),
   level: Level.default('municipality'),
+  sort: z.enum(['area', 'votes', 'support', 'contribution']).default('area'),
 })
 export const MapQuery = PublicationQuery.extend({
   areaId: Id.optional(),

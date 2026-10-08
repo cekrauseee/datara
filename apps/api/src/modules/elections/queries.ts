@@ -381,7 +381,7 @@ export async function getArea(ctx: Context, id: string, applicable = true) {
 }
 export async function areas(ctx: Context, query: z.output<typeof AreaQuery>) {
   if (query.parentId) await getArea(ctx, query.parentId, false)
-  const where = `publication_id=$1 AND ($2::text IS NULL OR level=$2) AND ($3::text IS NULL OR parent_id=$3) AND ($4::text IS NULL OR uf=$4) AND ($5::text IS NULL OR municipality_code=$5) AND ($6::text IS NULL OR zone_code=$6) AND ($7::text IS NULL OR position(lower($7) in lower(name))>0)`
+  const where = `publication_id=$1 AND ($2::text IS NULL OR level=$2) AND ($3::text IS NULL OR parent_id=$3) AND ($4::text IS NULL OR uf=$4) AND ($5::text IS NULL OR municipality_code=$5) AND ($6::text IS NULL OR zone_code=$6) AND ($7::text IS NULL OR position(lower($7) in lower(name))>0) AND ($8::text IS NULL OR feature_id=$8)`
   const args = [
     ctx.publicationId,
     query.level,
@@ -390,12 +390,13 @@ export async function areas(ctx: Context, query: z.output<typeof AreaQuery>) {
     query.municipalityCode,
     query.zoneCode,
     query.q,
+    query.featureId,
   ]
   const total = Number(
     (await ctx.client.query(`SELECT count(*) FROM areas WHERE ${where}`, args)).rows[0].count,
   )
   const rows = await ctx.client.query<AreaRow>(
-    `SELECT * FROM areas WHERE ${where} ORDER BY id LIMIT $8 OFFSET $9`,
+    `SELECT * FROM areas WHERE ${where} ORDER BY id LIMIT $9 OFFSET $10`,
     [...args, query.limit, query.offset],
   )
   return {
@@ -427,14 +428,14 @@ export async function candidates(
   query: z.output<typeof CandidateQuery>,
   present: Presentation,
 ) {
-  const where = `c.publication_id=$1 AND c.contest_id=$2 AND ($3::text IS NULL OR position(lower($3) in lower(c.display_name))>0 OR c.number=$3) AND ($4::text IS NULL OR c.party_number=$4)`
-  const args = [ctx.publicationId, ctx.contest.id, query.q, query.partyNumber]
+  const where = `c.publication_id=$1 AND c.contest_id=$2 AND ($3::text IS NULL OR position(lower($3) in lower(c.display_name))>0 OR c.number=$3) AND ($4::text IS NULL OR c.party_number=$4) AND ($5::text IS NULL OR c.official_id=$5)`
+  const args = [ctx.publicationId, ctx.contest.id, query.q, query.partyNumber, query.officialId]
   const total = Number(
     (await ctx.client.query(`SELECT count(*) FROM candidacies c WHERE ${where}`, args)).rows[0]
       .count,
   )
   const rows = await ctx.client.query<CandidateRow>(
-    `${candidateSelect} WHERE ${where} ORDER BY c.number,c.id LIMIT $5 OFFSET $6`,
+    `${candidateSelect} WHERE ${where} ORDER BY c.number,c.id LIMIT $6 OFFSET $7`,
     [...args, query.limit, query.offset],
   )
   return {
@@ -706,6 +707,20 @@ async function territoryTotal(ctx: Context, scope: AreaRow, level: string) {
       .count,
   )
 }
+type TerritorySort = {
+  key: z.output<typeof DistributionQuery>['sort']
+  // Source kind whose areas have a contribution (that of the selected area), or null for none.
+  contributionKind?: string | null
+}
+// Sort keys as distribution items compute them: the candidacy's votes (null for shared sections,
+// zero only when an omitted candidacy means zero), its share of the area's candidate-share basis,
+// and its votes where a contribution exists (same denominator for every area).
+const votesKey = `CASE WHEN d.principal_area_id IS NULL THEN coalesce(kc.votes,CASE WHEN kr.complete AND (kr.metadata->>'candidateOmissionMeansZero')::boolean THEN 0 END) END`
+const sortKeys = {
+  votes: votesKey,
+  support: `(${votesKey})::float8/NULLIF(CASE WHEN kr.source_kind='BU' THEN kr.nominal_votes ELSE ks.vote_sum END,0)`,
+  contribution: `CASE WHEN kr.source_kind=$9::text THEN ${votesKey} END`,
+}
 async function territoryRows(
   ctx: Context & { contest: ContestRow },
   scope: AreaRow,
@@ -713,14 +728,28 @@ async function territoryRows(
   limit: number,
   offset: number,
   candidateId?: string,
+  sort: TerritorySort = { key: 'area' },
 ) {
   const { sql, args } = descendants(ctx, scope, level)
+  // The page is chosen first: by area ID, or by a key over every area of the level (bounded by the
+  // level depth limit) with the area ID breaking ties and missing values last.
+  const page =
+    sort.key === 'area'
+      ? `page AS (SELECT *,NULL::float8 sort_key FROM descendants WHERE level=$4 ORDER BY id LIMIT $5 OFFSET $6)`
+      : `page AS (SELECT d.*,(${sortKeys[sort.key]})::float8 sort_key FROM descendants d LEFT JOIN area_results kr ON kr.publication_id=$1 AND kr.contest_id=$7 AND kr.area_id=d.id AND d.principal_area_id IS NULL LEFT JOIN candidate_results kc ON kc.publication_id=$1 AND kc.contest_id=$7 AND kc.area_id=kr.area_id AND kc.candidate_id=$8${sort.key === 'support' ? ' LEFT JOIN LATERAL (SELECT sum(votes) vote_sum FROM candidate_results WHERE publication_id=$1 AND contest_id=$7 AND area_id=kr.area_id) ks ON true' : ''} WHERE d.level=$4 ORDER BY sort_key DESC NULLS LAST,d.id LIMIT $5 OFFSET $6)`
   // Rankings and vote sums are computed area by area, only for the requested page; the lateral
   // form keeps that work linear even when the planner misestimates the recursive row count.
   return (
     await ctx.client.query(
-      `${sql}, page AS (SELECT * FROM descendants WHERE level=$4 ORDER BY id LIMIT $5 OFFSET $6) SELECT a.*,r.source_kind,r.complete,r.metadata,r.nominal_votes,r.turnout,r.eligible,s.vote_sum,s.leaders,s.first_votes,s.second_votes,v.votes::text candidate_votes FROM page a LEFT JOIN area_results r ON r.publication_id=a.publication_id AND r.contest_id=$7 AND r.area_id=coalesce(a.principal_area_id,a.id) LEFT JOIN LATERAL (SELECT sum(votes)::text vote_sum,array_agg(candidate_id ORDER BY candidate_id) FILTER(WHERE votes=max_votes) leaders,(array_agg(votes ORDER BY votes DESC))[1]::text first_votes,(array_agg(votes ORDER BY votes DESC))[2]::text second_votes FROM (SELECT candidate_id,votes,max(votes) OVER() max_votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$7 AND area_id=r.area_id) ranked) s ON true LEFT JOIN candidate_results v ON v.publication_id=a.publication_id AND v.contest_id=$7 AND v.area_id=r.area_id AND v.candidate_id=$8 ORDER BY a.id`,
-      [...args, limit, offset, ctx.contest.id, candidateId],
+      `${sql}, ${page} SELECT a.*,r.source_kind,r.complete,r.metadata,r.nominal_votes,r.turnout,r.eligible,s.vote_sum,s.leaders,s.first_votes,s.second_votes,v.votes::text candidate_votes FROM page a LEFT JOIN area_results r ON r.publication_id=a.publication_id AND r.contest_id=$7 AND r.area_id=coalesce(a.principal_area_id,a.id) LEFT JOIN LATERAL (SELECT sum(votes)::text vote_sum,array_agg(candidate_id ORDER BY candidate_id) FILTER(WHERE votes=max_votes) leaders,(array_agg(votes ORDER BY votes DESC))[1]::text first_votes,(array_agg(votes ORDER BY votes DESC))[2]::text second_votes FROM (SELECT candidate_id,votes,max(votes) OVER() max_votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$7 AND area_id=r.area_id) ranked) s ON true LEFT JOIN candidate_results v ON v.publication_id=a.publication_id AND v.contest_id=$7 AND v.area_id=r.area_id AND v.candidate_id=$8 ORDER BY a.sort_key DESC NULLS LAST,a.id`,
+      [
+        ...args,
+        limit,
+        offset,
+        ctx.contest.id,
+        candidateId,
+        ...(sort.key === 'contribution' ? [sort.contributionKind ?? null] : []),
+      ],
     )
   ).rows
 }
@@ -799,6 +828,10 @@ export async function distribution(
     query.limit,
     query.offset,
     query.candidateId,
+    {
+      key: query.sort,
+      contributionKind: parentVotes.votes ? (parentVotes.sourceKind ?? null) : null,
+    },
   )
   return {
     publicationId: ctx.publicationId,
