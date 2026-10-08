@@ -150,6 +150,28 @@ try {
     request(`/contests/${contest}/distribution?candidateId=${candidate.id}&${query}`, status)
   assert.equal((await within('areaId=br&level=state&limit=1')).pagination.total, 28)
   assert.equal((await within('areaId=ac&level=country')).pagination.total, 0)
+  // Rankings are computed for the requested page only and match the full listing.
+  const listed = await within('areaId=ac&level=municipality&limit=100')
+  const index = listed.items.findIndex((item: { state: string }) => item.state === 'available')
+  assert.ok(index >= 0, 'Pilot needs an AC municipality with results')
+  const paged = await within(`areaId=ac&level=municipality&limit=1&offset=${index}`)
+  assert.equal(paged.items[0].support.state, 'available')
+  assert.deepEqual(paged.items, listed.items.slice(index, index + 1))
+  // Levels more than two below the area are refused instead of scanning a whole state or country.
+  const municipality = listed.items[index].area
+  const sections = Number(
+    (
+      await pool.query(
+        "SELECT count(*) FROM areas WHERE publication_id=$1 AND level='section' AND uf='ac' AND municipality_code=$2",
+        [publicationId, municipality.municipalityCode],
+      )
+    ).rows[0].count,
+  )
+  assert.ok(sections > 0, 'Pilot needs sections in the AC municipality with results')
+  const sectionLevel = await within(`areaId=${municipality.id}&level=section&limit=1`)
+  assert.equal(sectionLevel.pagination.total, sections)
+  const tooDeep = await within('areaId=ac&level=section', 400)
+  assert.equal(tooDeep.error.code, 'LEVEL_TOO_DEEP')
   const mapResponse = await app.request(`/contests/${contest}/map?level=municipality&metric=leader`)
   const map = await mapResponse.json()
   assert.equal(mapResponse.status, 200)

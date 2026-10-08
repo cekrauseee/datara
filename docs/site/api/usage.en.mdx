@@ -32,7 +32,7 @@ See the generated [endpoint reference](/api/reference/elections) for parameters,
 
 Use `publicationId` from the edition response in related queries to keep map and detail on the same snapshot. The server pins one published dataset inside a read-only repeatable-read transaction per request. Missing explicit publications fail with `PUBLICATION_NOT_FOUND`; they never silently switch. Source IDs refer only to published datasets. Source responses omit archive paths and internal metadata. Source timestamps preserve their original text when no timezone can be established.
 
-Lists support `limit` (default 25, maximum 100) and `offset`, with deterministic ordering and total/hasMore. Candidate search accepts `q` and `partyNumber`. Distribution requires `candidateId` and accepts `areaId` and `level`. For example, replace the candidate ID with one returned by the candidates endpoint:
+Lists support `limit` (default 25, maximum 100) and `offset`, with deterministic ordering and total/hasMore. Candidate search accepts `q` and `partyNumber`. Distribution requires `candidateId` and accepts `areaId` and `level`; `level` may be at most two levels below the area (`areaId` or the contest scope), in the order country, region, state, municipality, zone, section. Sections therefore need a municipality or zone area, and national contests with the default `level=municipality` need a region or state `areaId`. Deeper levels return 400 `LEVEL_TOO_DEEP`; the map covers municipalities nationwide. For example, replace the candidate ID with one returned by the candidates endpoint:
 
 ```sh
 curl -fsS 'http://localhost:3000/contests/BR-2026-1:6257:1:br/candidates?limit=1'

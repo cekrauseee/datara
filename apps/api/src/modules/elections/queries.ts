@@ -570,22 +570,18 @@ async function territory(
   candidateId?: string,
 ) {
   // Only areas above the requested level can contain it, so the recursion stops expanding there.
-  const cte = `WITH RECURSIVE descendants AS (SELECT * FROM areas WHERE publication_id=$1 AND id=$3 UNION ALL SELECT a.* FROM areas a JOIN descendants d ON a.parent_id=d.id WHERE a.publication_id=$1 AND d.level=ANY($5::text[])), ranked AS (SELECT area_id,candidate_id,votes,max(votes) OVER(PARTITION BY area_id) max_votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$2 AND area_id IN (SELECT DISTINCT coalesce(principal_area_id,id) FROM descendants WHERE level=$4)), stats AS (SELECT area_id,sum(votes)::text vote_sum,array_agg(candidate_id ORDER BY candidate_id) FILTER(WHERE votes=max_votes) leaders,(array_agg(votes ORDER BY votes DESC))[1]::text first_votes,(array_agg(votes ORDER BY votes DESC))[2]::text second_votes FROM ranked GROUP BY area_id)`
-  const args = [
-    ctx.publicationId,
-    ctx.contest.id,
-    scope.id,
-    level,
-    levels.slice(0, levels.indexOf(level)),
-  ]
+  const descendants = `WITH RECURSIVE descendants AS (SELECT * FROM areas WHERE publication_id=$1 AND id=$2 UNION ALL SELECT a.* FROM areas a JOIN descendants d ON a.parent_id=d.id WHERE a.publication_id=$1 AND d.level=ANY($3::text[]))`
+  const args = [ctx.publicationId, scope.id, levels.slice(0, levels.indexOf(level)), level]
   const total = Number(
-    (await ctx.client.query(`${cte} SELECT count(*) FROM descendants WHERE level=$4`, args)).rows[0]
-      .count,
+    (await ctx.client.query(`${descendants} SELECT count(*) FROM descendants WHERE level=$4`, args))
+      .rows[0].count,
   )
+  // Rankings and vote sums are computed area by area, only for the requested page; the lateral
+  // form keeps that work linear even when the planner misestimates the recursive row count.
   const rows = (
     await ctx.client.query(
-      `${cte} SELECT a.*,r.source_kind,r.complete,r.metadata,r.nominal_votes,r.turnout,r.eligible,s.vote_sum,s.leaders,s.first_votes,s.second_votes,v.votes::text candidate_votes FROM descendants a LEFT JOIN area_results r ON r.publication_id=a.publication_id AND r.contest_id=$2 AND r.area_id=coalesce(a.principal_area_id,a.id) LEFT JOIN stats s ON s.area_id=r.area_id LEFT JOIN candidate_results v ON v.publication_id=a.publication_id AND v.contest_id=$2 AND v.area_id=r.area_id AND v.candidate_id=$6 WHERE a.level=$4 ORDER BY a.id LIMIT $7 OFFSET $8`,
-      [...args, candidateId, limit, offset],
+      `${descendants}, page AS (SELECT * FROM descendants WHERE level=$4 ORDER BY id LIMIT $5 OFFSET $6) SELECT a.*,r.source_kind,r.complete,r.metadata,r.nominal_votes,r.turnout,r.eligible,s.vote_sum,s.leaders,s.first_votes,s.second_votes,v.votes::text candidate_votes FROM page a LEFT JOIN area_results r ON r.publication_id=a.publication_id AND r.contest_id=$7 AND r.area_id=coalesce(a.principal_area_id,a.id) LEFT JOIN LATERAL (SELECT sum(votes)::text vote_sum,array_agg(candidate_id ORDER BY candidate_id) FILTER(WHERE votes=max_votes) leaders,(array_agg(votes ORDER BY votes DESC))[1]::text first_votes,(array_agg(votes ORDER BY votes DESC))[2]::text second_votes FROM (SELECT candidate_id,votes,max(votes) OVER() max_votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$7 AND area_id=r.area_id) ranked) s ON true LEFT JOIN candidate_results v ON v.publication_id=a.publication_id AND v.contest_id=$7 AND v.area_id=r.area_id AND v.candidate_id=$8 ORDER BY a.id`,
+      [...args, limit, offset, ctx.contest.id, candidateId],
     )
   ).rows
   return { rows, total }
@@ -645,6 +641,10 @@ export async function distribution(
 ) {
   await getCandidate(ctx, query.candidateId)
   const scope = await getArea(ctx, query.areaId ?? ctx.contest.scope_area_id)
+  // A level more than two below the area (e.g. every section of a state) is refused instead of
+  // enumerating hundreds of thousands of areas for each page.
+  if (levels.indexOf(query.level) - levels.indexOf(scope.level) > 2)
+    throw new ApiError(400, 'LEVEL_TOO_DEEP', 'Select a level at most two levels below the area')
   const parentVotes = await scopeVotes(ctx, scope, query.candidateId)
   const { rows, total } = await territory(
     ctx,
