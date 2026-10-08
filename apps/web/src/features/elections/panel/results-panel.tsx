@@ -17,16 +17,29 @@ import { Separator } from '@/components/ui/separator'
 import { areaLabel, type Area, type MapViewData } from '../../map/map-data'
 import { API_URL } from '../api-client'
 import type { AreaResult, Contest, Coverage } from '../api-types'
-import { OFFICE_CODES, type OfficeKey } from '../election-location'
+import { aggregateCoverage, isCombinationError, localClock } from '../depth'
+import { OFFICE_CODES, type ElectionPatch, type OfficeKey } from '../election-location'
 import { MAJORITARIAN_OFFICES, OFFICE_NAMES } from '../election-model'
-import { formatDateTime, formatInteger, formatPercent, sourceKindLabel, titleCase } from '../format'
+import {
+  basisLabel,
+  formatDateTime,
+  formatInteger,
+  formatPercent,
+  sourceKindLabel,
+  titleCase,
+} from '../format'
 import type { ElectionSnapshot } from '../use-election'
 import { useElectionMap } from '../use-election-data'
+import { navigateElection } from '../use-election-location'
 import { ContestAreaList, OfficeAreaList } from './area-list'
 import { CandidateList } from './candidate-list'
+import { DepthNavigation } from './depth-lists'
+import { depthView } from './depth-view'
 import { MobileSheet } from './mobile-sheet'
+import { NationalRows } from './national-rows'
 import { byName, contestScopeName, leaderOf, panelMode, scopeName, topCount } from './panel-model'
 import { PanelEmpty, PanelError, PanelNotices, PanelSkeleton } from './panel-states'
+import { isSectionResult, SectionNotes, SectionTotals } from './section-panel'
 import { TotalsBlock } from './totals'
 
 export type ResultsPanelProps = {
@@ -78,6 +91,22 @@ export function ResultsPanel({
     focusTarget.current = area.id
     onSelect(area)
   }
+  // Zone, section, exterior and region choices write the URL; the title takes focus afterwards.
+  const depthFocus = useRef(false)
+  const areaId = election.areaId
+  useEffect(() => {
+    if (!depthFocus.current) return
+    depthFocus.current = false
+    titleRef.current?.focus()
+  }, [areaId])
+  const patch = (next: ElectionPatch) => {
+    depthFocus.current = true
+    navigateElection(next)
+  }
+  const chooseFeature = (featureId: string) => {
+    const feature = data?.states.find((item) => item.properties.id === featureId)
+    if (feature) navigate(feature.properties)
+  }
 
   const office = election.active ? election.office : null
   if (!office)
@@ -91,12 +120,12 @@ export function ResultsPanel({
             onClear={() => onSelect(null)}
           />
         )}
-        {election.active && notices.length > 0 && (
+        {election.active && notices.length + election.warnings.length > 0 && (
           <div
             className="absolute top-20 right-5 left-5 text-xs/relaxed sm:left-auto sm:w-60"
             role="status"
           >
-            <PanelNotices messages={notices} />
+            <PanelNotices messages={[...election.warnings, ...notices]} />
           </div>
         )}
       </>
@@ -120,8 +149,13 @@ export function ResultsPanel({
     ? `${leaderRow.candidate.displayName}${leaderAbbreviation ? ` (${leaderAbbreviation})` : ''}`
     : ''
   const officeName = OFFICE_NAMES[office]
-  const areaName = selection ? selection.name : countryName
-  const title = selection ? `${selection.name} · ${areaLabel(selection)}` : countryName
+  const depth = depthView(election, selection)
+  const areaName = depth ? depth.name : selection ? selection.name : countryName
+  const title = depth
+    ? depth.title
+    : selection
+      ? `${selection.name} · ${areaLabel(selection)}`
+      : countryName
   const subtitle = contest
     ? `${officeName} · ${contestScopeName(data, contest, results.data?.area ?? null)}`
     : national
@@ -163,7 +197,13 @@ export function ResultsPanel({
 
   const states = data ? data.states.map((feature) => feature.properties).sort(byName) : []
   let body: React.ReactNode
-  if (error) body = <PanelError error={error} onRetry={retryAll} />
+  if (error && isCombinationError(error))
+    body = (
+      <PanelEmpty title="Combinação não disponível" description={error.message}>
+        <span data-election-error={error.code} />
+      </PanelEmpty>
+    )
+  else if (error) body = <PanelError error={error} onRetry={retryAll} />
   else if (election.session.status === 'empty')
     body = (
       <PanelEmpty
@@ -199,6 +239,23 @@ export function ResultsPanel({
         states={states}
         stale={stale}
         onSelect={navigate}
+        meshLists={!election.areaKind}
+        onPatch={patch}
+        national={
+          contest.officeCode === OFFICE_CODES.president &&
+          election.baseAreaId === 'br' &&
+          !election.state.zone ? (
+            <NationalRows contestId={contest.id} onSelect={(area) => patch({ area })} />
+          ) : null
+        }
+        below={
+          <DepthNavigation
+            election={election}
+            data={data}
+            onPatch={patch}
+            onFeature={chooseFeature}
+          />
+        }
       />
     )
   else body = <PanelSkeleton rows={contest ? topCount(contest) : 2} />
@@ -227,6 +284,11 @@ export function ResultsPanel({
           )}
         </div>
         <p className="text-muted-foreground">{subtitle}</p>
+        {depth?.scope && (
+          <p className="text-muted-foreground" data-depth-scope={depth.level}>
+            {depth.scope}
+          </p>
+        )}
       </div>
       <PanelNotices messages={allNotices} />
       {body}
@@ -263,6 +325,7 @@ export function ResultsPanel({
       }
       summary={
         <SheetSummary
+          levelName={depth?.name ?? null}
           status={status}
           national={national}
           officeName={officeName}
@@ -323,6 +386,23 @@ function GeographyCard({
 }
 
 function SheetSummary({
+  levelName,
+  ...props
+}: {
+  levelName: string | null
+} & Parameters<typeof SummaryContent>[0]) {
+  if (!levelName) return <SummaryContent {...props} />
+  return (
+    <>
+      <span className="max-w-[40%] shrink-0 truncate text-muted-foreground" data-sheet-level="">
+        {levelName} ·
+      </span>
+      <SummaryContent {...props} />
+    </>
+  )
+}
+
+function SummaryContent({
   status,
   national,
   officeName,
@@ -373,18 +453,27 @@ function CoverageLine({ result, coverage }: { result: AreaResult; coverage: Cove
         {formatInteger(totals.sectionsCounted)} de {formatInteger(totals.sectionsTotal)} seções
       </span>,
     )
-  if (provenance)
+  if (provenance) {
+    const states =
+      provenance.sourceKind === 'aggregate' ? aggregateCoverage(provenance.meaning) : null
     items.push(
-      <span key="source" title={provenance.meaning}>
-        {sourceKindLabel(provenance.sourceKind)}
+      <span key="source" title={provenance.meaning} data-source-kind={provenance.sourceKind}>
+        {provenance.sourceKind === 'BU'
+          ? `Boletim de urna (BU) · base: ${result.summary?.shareBasis === 'printedNominalVotes' || !result.summary ? 'votos nominais impressos' : basisLabel(result.summary.shareBasis)}`
+          : sourceKindLabel(provenance.sourceKind)}
+        {states && ` (${states})`}
       </span>,
     )
-  if (provenance?.generatedAt)
+  }
+  if (provenance?.generatedAt) {
+    // A BU timestamp has no offset: the ballot box's local clock, shown as written.
+    const clock = localClock(provenance.generatedAt)
     items.push(
       <span key="generated" className="tabular-nums">
-        {formatDateTime(provenance.generatedAt)}
+        {clock ? `${clock} (hora local da urna)` : formatDateTime(provenance.generatedAt)}
       </span>,
     )
+  }
   if (result.officialStatusLabel) items.push(<span key="status">{result.officialStatusLabel}</span>)
   provenance?.sourceIds.forEach((id, index) =>
     items.push(
@@ -436,6 +525,10 @@ function ContestBody({
   states,
   stale,
   onSelect,
+  meshLists,
+  onPatch,
+  national,
+  below,
 }: {
   result: AreaResult
   contest: Contest
@@ -446,7 +539,15 @@ function ContestBody({
   states: Area[]
   stale: boolean
   onSelect: (area: Area) => void
+  /** States of the country and municipalities of a state (off for `area`). */
+  meshLists: boolean
+  onPatch: (patch: ElectionPatch) => void
+  /** Regions and exterior rows of the national president panel. */
+  national: React.ReactNode
+  /** List of the level below the mesh (zones, sections, localities, states of a region). */
+  below: React.ReactNode
 }) {
+  const section = isSectionResult(result)
   const mode = panelMode(contest)
   const majoritarian = contest.voteType === 'majoritarian' && mode === 'summary'
   const municipalities =
@@ -463,6 +564,7 @@ function ContestBody({
       data-contest-body={result.area.id}
     >
       <CoverageLine result={result} coverage={coverage} />
+      {section && <SectionNotes result={result} onPatch={onPatch} />}
       {result.state === 'unavailable' ? (
         <PanelEmpty
           title={`Sem resultados para ${areaName} nesta publicação`}
@@ -478,10 +580,16 @@ function ContestBody({
             statusScope={(areaId) => scopeName(data, areaId, result)}
           />
           <Separator />
-          <TotalsBlock result={result} seats={contest.seats} />
+          {section ? (
+            <SectionTotals result={result} />
+          ) : (
+            <TotalsBlock result={result} seats={contest.seats} />
+          )}
         </>
       )}
-      {selection === null && states.length > 0 && (
+      {national}
+      {below}
+      {meshLists && selection === null && states.length > 0 && (
         <ContestAreaList
           heading="Estados"
           description={
