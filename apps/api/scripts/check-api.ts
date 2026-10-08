@@ -163,7 +163,8 @@ try {
   const paged = await within(`areaId=ac&level=municipality&limit=1&offset=${index}`)
   assert.equal(paged.items[0].support.state, 'available')
   assert.deepEqual(paged.items, listed.items.slice(index, index + 1))
-  // Levels more than two below the area are refused instead of scanning a whole state or country.
+  // Levels more than two navigation steps below the area are refused; regions are not a step, so
+  // the national default (every municipality) stays available.
   const municipality = listed.items[index].area
   const sections = Number(
     (
@@ -176,8 +177,23 @@ try {
   assert.ok(sections > 0, 'Pilot needs sections in the AC municipality with results')
   const sectionLevel = await within(`areaId=${municipality.id}&level=section&limit=1`)
   assert.equal(sectionLevel.pagination.total, sections)
-  const tooDeep = await within('areaId=ac&level=section', 400)
-  assert.equal(tooDeep.error.code, 'LEVEL_TOO_DEEP')
+  const municipalities = Number(
+    (
+      await pool.query(
+        "SELECT count(*) FROM areas WHERE publication_id=$1 AND level='municipality'",
+        [publicationId],
+      )
+    ).rows[0].count,
+  )
+  const national = await within('limit=1')
+  assert.equal(national.scopeAreaId, 'br')
+  assert.equal(national.pagination.total, municipalities)
+  for (const query of [
+    'areaId=br&level=zone',
+    'areaId=br&level=section',
+    'areaId=ac&level=section',
+  ])
+    assert.equal((await within(query, 400)).error.code, 'LEVEL_TOO_DEEP')
   const mapPath = `/contests/${contest}/map?level=municipality&metric=leader`
   const mapResponse = await app.request(mapPath)
   const mapText = await mapResponse.text()

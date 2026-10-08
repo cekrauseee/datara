@@ -561,6 +561,9 @@ export async function results(
 }
 // Canonical order from country to section; every parent sits at a higher level than its children.
 const levels: readonly string[] = Level.options
+// Navigation depth: regions only group states, so they share the country's depth.
+const steps = levels.filter((level) => level !== 'region')
+const depth = (level: string) => steps.indexOf(level === 'region' ? 'country' : level)
 async function territory(
   ctx: Context & { contest: ContestRow },
   scope: AreaRow,
@@ -641,9 +644,9 @@ export async function distribution(
 ) {
   await getCandidate(ctx, query.candidateId)
   const scope = await getArea(ctx, query.areaId ?? ctx.contest.scope_area_id)
-  // A level more than two below the area (e.g. every section of a state) is refused instead of
-  // enumerating hundreds of thousands of areas for each page.
-  if (levels.indexOf(query.level) - levels.indexOf(scope.level) > 2)
+  // A level more than two navigation steps below the area (e.g. every section of a state) is
+  // refused instead of enumerating hundreds of thousands of areas for each page.
+  if (depth(query.level) - depth(scope.level) > 2)
     throw new ApiError(400, 'LEVEL_TOO_DEEP', 'Select a level at most two levels below the area')
   const parentVotes = await scopeVotes(ctx, scope, query.candidateId)
   const { rows, total } = await territory(
