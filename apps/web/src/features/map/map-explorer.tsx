@@ -532,7 +532,12 @@ function CountryMap({
           <MapLegend
             layer={mapLayer}
             scopeLabel={(selected && state?.name) || country.name}
-            focusArea={election.results.data?.area ?? null}
+            focusAreas={[
+              ...(election.results.data ? [election.results.data.area] : []),
+              ...(state
+                ? [{ id: state.stateAbbr.toLowerCase(), level: 'state' as const, name: state.name }]
+                : []),
+            ]}
           />
         )}
 

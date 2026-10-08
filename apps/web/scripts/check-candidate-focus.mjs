@@ -170,4 +170,17 @@ assert.equal(
 )
 assert.equal(candidateTitle({ displayName: 'X', number: '101', party: null }, 'X'), 'X (101)')
 
+// Contribution map scope: siblings at the map grain, never wider than the contest.
+const { contributionMapScope } = await import('../src/features/elections/election-model.ts')
+assert.equal(contributionMapScope('br', 'br', 'municipality'), 'br')
+assert.equal(contributionMapScope('br', 'ac', 'municipality'), 'ac')
+assert.equal(contributionMapScope('br', 'ac:01066', 'municipality'), 'ac')
+assert.equal(contributionMapScope('br', 'ac:01066:0004:0077', 'municipality'), 'ac')
+assert.equal(contributionMapScope('br', 'ac', 'state'), 'br')
+assert.equal(contributionMapScope('br', 'ac:01066', 'state'), 'br')
+assert.equal(contributionMapScope('br', 'zz:29254', 'municipality'), 'exterior')
+assert.equal(contributionMapScope('br', 'region:north', 'state'), 'region:north')
+assert.equal(contributionMapScope('ac', 'ac:01066', 'state'), 'ac', 'state contest')
+assert.equal(contributionMapScope('ac', 'ac:01066:0004', 'municipality'), 'ac')
+
 console.log('Candidate focus checks passed')

@@ -294,6 +294,59 @@ export async function checkFocusValues() {
   return 'Focus values passed: card equals /results and /distribution in Porto Walter, zones, sort, pagination, state selection keeps the focus'
 }
 
+export async function checkFocusContributionMap() {
+  const record = recordRequests()
+  const contributionMaps = () =>
+    record.requests
+      .filter((url) => url.includes('/map?') && url.includes('metric=contribution'))
+      .map((url) => new URL(url).searchParams)
+  try {
+    go(`/br?collection=elections&office=president&state=12&candidate=${LULA}&metric=contribution`)
+    await until(() => card()?.dataset.candidateCard === LULA && settled(), 'Lula in Acre')
+    await until(() => legend()?.dataset.mapLegend === 'ready', 'Legend ready')
+    await until(
+      () => legendTitle() === 'Contribuição de Lula (13 · PT) para o Acre',
+      'Contribution legend for Acre',
+    )
+    const basis = legend().querySelector('[data-map-legend-basis]')?.textContent
+    assert(basis === 'Percentuais dos votos do candidato no escopo', `Basis line (${basis})`)
+    assert(
+      legend().querySelector('[data-map-legend-scope]')?.textContent ===
+        'Cada área sobre os votos de Lula no Acre',
+      'Scope line',
+    )
+    const map = await api(
+      `/contests/${PRESIDENT}/map?level=municipality&metric=contribution&areaId=ac&candidateId=${encodeURIComponent(LULA_ID)}`,
+    )
+    assert(map.items[0].state !== 'available', 'The first item is unavailable in the pilot')
+    // A municipality at municipal grain compares with its siblings: the map stays on Acre.
+    go(`${PORTO_WALTER}&candidate=${LULA}&metric=contribution`)
+    await until(() => card()?.dataset.candidateCard === LULA && settled(), 'Lula in Porto Walter')
+    await until(
+      () => legendTitle() === 'Contribuição de Lula (13 · PT) para o Acre',
+      'Porto Walter keeps the Acre scope',
+    )
+    assert(
+      contributionMaps().every((params) => params.get('areaId') === 'ac'),
+      'Contribution maps scoped to Acre',
+    )
+    navigateElection({ level: 'state' })
+    await until(
+      () => legendTitle() === 'Contribuição de Lula (13 · PT) para o Brasil',
+      'State grain scoped to Brazil',
+    )
+    assert(
+      contributionMaps().some(
+        (params) => params.get('areaId') === 'br' && params.get('level') === 'state',
+      ),
+      'State grain request scoped to Brazil',
+    )
+    return 'Contribution map passed: Acre legend with the contribution basis despite unavailable first items, municipality and state grain scoped to the parent'
+  } finally {
+    record.restore()
+  }
+}
+
 export async function checkFocusScopes() {
   go(`/br?collection=elections&office=governor&candidate=${MAILZA}`)
   await until(() => panel()?.querySelector('[data-national-view]'), 'National view')
