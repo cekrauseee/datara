@@ -1,6 +1,6 @@
 import { cn } from 'cn'
 import { MapPinIcon, MinusIcon, PlusIcon, ScanIcon } from 'lucide-react'
-import { useDeferredValue, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { Fragment, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from 'react'
 
 import {
   Breadcrumb,
@@ -24,9 +24,11 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 import {
   CollectionSelector,
+  depthCrumbs,
   hoverTarget,
   MapHoverDetail,
   MapLegend,
+  navigateElection,
   ResultsPanel,
   useElection,
   useMapLayer,
@@ -206,6 +208,39 @@ function CountryMap({
         ?.properties
     : null
 
+  // Breadcrumb: country, state and municipality from the mesh, then the electoral levels below
+  // (zone, section) or outside it (exterior, locality, region). Below `sm` only the last two show.
+  const electionArea = election.active ? election.state.area : null
+  const crumbs: { key: string; label: string; onClick: (() => void) | null }[] = [
+    {
+      key: 'country',
+      label: country.name,
+      onClick: electionArea
+        ? () => navigateElection({ area: null })
+        : selected
+          ? () => choose(null)
+          : null,
+    },
+  ]
+  if (state)
+    crumbs.push({
+      key: 'state',
+      label: state.name,
+      onClick: selected && selected.type !== 'state' ? () => choose(state) : null,
+    })
+  if (selected && selected.type !== 'state')
+    crumbs.push({
+      key: 'municipality',
+      label: selected.name,
+      onClick: election.state.zone ? () => navigateElection({ zone: null, section: null }) : null,
+    })
+  for (const crumb of depthCrumbs(election))
+    crumbs.push({
+      key: crumb.key,
+      label: crumb.label,
+      onClick: crumb.patch ? () => navigateElection(crumb.patch!) : null,
+    })
+
   const restoreSelection = useEffectEvent(applySelection)
   const canonicalSelection = useEffectEvent((area: Area) => onSelect(area, true))
   const locationArea = areas.find((area) => area.id === selectionId)
@@ -365,43 +400,26 @@ function CountryMap({
             className="pointer-events-auto rounded-md bg-background/90 px-2 py-1"
           >
             <BreadcrumbList>
-              <BreadcrumbItem>
-                {selected ? (
-                  <Button variant="ghost" size="lg" onClick={() => choose(null)}>
-                    {country.name}
-                  </Button>
-                ) : (
-                  <BreadcrumbPage className="inline-flex min-h-8 items-center border border-transparent px-2.5 font-medium">
-                    {country.name}
-                  </BreadcrumbPage>
-                )}
-              </BreadcrumbItem>
-              {state && (
-                <>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    {selected && selected.type !== 'state' ? (
-                      <Button variant="ghost" size="lg" onClick={() => choose(state)}>
-                        {state.name}
+              {crumbs.map((crumb, index) => (
+                <Fragment key={crumb.key}>
+                  {index > 0 && (
+                    <BreadcrumbSeparator
+                      className={cn(index < crumbs.length - 1 && 'max-sm:hidden')}
+                    />
+                  )}
+                  <BreadcrumbItem className={cn(index < crumbs.length - 2 && 'max-sm:hidden')}>
+                    {crumb.onClick && index < crumbs.length - 1 ? (
+                      <Button variant="ghost" size="lg" onClick={crumb.onClick}>
+                        {crumb.label}
                       </Button>
                     ) : (
                       <BreadcrumbPage className="inline-flex min-h-8 items-center border border-transparent px-2.5 font-medium">
-                        {state.name}
+                        {crumb.label}
                       </BreadcrumbPage>
                     )}
                   </BreadcrumbItem>
-                </>
-              )}
-              {selected && selected.type !== 'state' && (
-                <>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage className="inline-flex min-h-8 items-center border border-transparent px-2.5 font-medium">
-                      {selected.name}
-                    </BreadcrumbPage>
-                  </BreadcrumbItem>
-                </>
-              )}
+                </Fragment>
+              ))}
             </BreadcrumbList>
           </Breadcrumb>
         </div>
