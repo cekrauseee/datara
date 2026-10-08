@@ -215,14 +215,20 @@ export function contestDto(c: ContestRow) {
   }
 }
 function candidateDto(c: CandidateRow, scope: string, present: Presentation) {
+  const { partyDisplayName, ...presentation } = present(c)
   return {
     id: c.id,
     officialId: c.official_id,
     number: c.number,
     name: c.name,
-    ...present(c),
+    ...presentation,
     party: c.party_number
-      ? { number: c.party_number, abbreviation: c.abbreviation!, name: c.party_name! }
+      ? {
+          number: c.party_number,
+          abbreviation: c.abbreviation!,
+          name: c.party_name!,
+          displayName: partyDisplayName,
+        }
       : null,
     officialStatus: c.status,
     voteDestination: c.vote_destination,

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createApp } from '../src/app.js'
 import { readConfig } from '../src/config.js'
 import { createPool } from '../src/db/index.js'
 import { contrast, deltaE, oklchToHex } from '../src/modules/elections/color.js'
@@ -44,6 +45,7 @@ async function checkResolution() {
     const unconfigured = await loadPresentation(config, '/assets', dir)
     assert.equal(unconfigured(candidate).photoUrl, null)
     assert.equal(unconfigured(candidate).color, FALLBACK_COLORS[5])
+    assert.equal(unconfigured(candidate).partyDisplayName, null)
     assert.equal(unconfigured({ ...candidate, party_number: null }).color, NEUTRAL_COLOR)
     await writeFile(join(dir, candidatePhotoFile(id)), 'JPEG fixture')
     assert.equal(
@@ -65,7 +67,7 @@ async function checkResolution() {
     assert.equal(presentation.photoUrl, '/assets/photos/override.jpg')
     assert.equal(presentation.displayName, 'Override')
     assert.equal(presentation.color, '#123456')
-    assert.equal(presentation.partyName, 'Local party')
+    assert.equal(presentation.partyDisplayName, 'Local party')
     assert.equal(present({ ...candidate, id: `${id}0` }).color, '#dc2626')
     console.log(
       'Presentation precedence passed: photo override -> official -> null; color candidate -> party -> fallback -> neutral without party',
@@ -80,6 +82,54 @@ async function checkResolution() {
   assert.ok(deltaE('#4466e7', deriveShade('#4466e7', 1)) >= MIN_DISTANCE)
   assert.throws(() => deriveShade('#4466e7', 0), RangeError)
   console.log('deriveShade passed: stable and distinct from its base')
+}
+
+async function checkCandidateRoute(
+  pool: ReturnType<typeof createPool>,
+  databaseUrl: string,
+  rows: Candidacy[],
+) {
+  const partisan = rows.filter((row) => row.abbreviation)
+  const rival = (c: Candidacy) => (row: Candidacy) =>
+    row.contest_id === c.contest_id && row.party_number !== c.party_number
+  const a = partisan.find((c) => partisan.some(rival(c)))
+  const b = a && partisan.find(rival(a))
+  assert.ok(a && b, 'Expected a majoritarian contest with two parties')
+  const dir = await mkdtemp(join(tmpdir(), 'datara-presentation-'))
+  try {
+    const file = join(dir, 'presentation.json')
+    await writeFile(
+      file,
+      JSON.stringify({
+        parties: { [a.party_number!]: { displayName: 'Local party', color: '#123456' } },
+      }),
+    )
+    const app = await createApp(
+      pool,
+      readConfig({
+        DATABASE_URL: databaseUrl,
+        ELECTION_PRESENTATION_FILE: file,
+        PHOTO_DIRECTORY: dir,
+      }),
+    )
+    const response = await app.request(
+      `/contests/${encodeURIComponent(a.contest_id)}/candidates?limit=100`,
+    )
+    assert.equal(response.status, 200)
+    const body = (await response.json()) as {
+      items: { id: string; color: string; party: { displayName: string | null } | null }[]
+    }
+    const served = (row: Candidacy) => body.items.find((item) => item.id === row.id)
+    assert.equal(served(a)?.party?.displayName, 'Local party')
+    assert.equal(served(a)?.color, '#123456')
+    assert.equal(served(b)?.party?.displayName, null)
+    assert.equal(served(b)?.color, fallbackColor(b.party_number))
+    console.log(
+      `Candidate route passed: party.displayName and party/fallback colors served for ${a.contest_id}`,
+    )
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 }
 
 async function checkActivePublication() {
@@ -100,6 +150,7 @@ async function checkActivePublication() {
     )
     assert.ok(rows.length, 'No active publication with majoritarian contests; publish one first')
     rows.sort((a, b) => compare(a.contest_id, b.contest_id) || byNumber(a, b))
+    await checkCandidateRoute(pool, config.databaseUrl, rows)
     const contests = new Map<string, Candidacy[]>()
     for (const row of rows) {
       if (!contests.has(row.contest_id)) contests.set(row.contest_id, [])

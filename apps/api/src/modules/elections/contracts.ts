@@ -108,7 +108,14 @@ export const Candidate = z
     displayName: z.string(),
     color: z.string(),
     photoUrl: z.string().nullable(),
-    party: z.object({ number: z.string(), abbreviation: z.string(), name: z.string() }).nullable(),
+    party: z
+      .object({
+        number: z.string(),
+        abbreviation: z.string(),
+        name: z.string(),
+        displayName: z.string().nullable(),
+      })
+      .nullable(),
     officialStatus: z.string().nullable(),
     voteDestination: z.string().nullable(),
     officialSelectedFlag: z.boolean().nullable(),

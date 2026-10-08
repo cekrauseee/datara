@@ -23,7 +23,7 @@ description: Configure local names, colors, photos and durable API assets.
 }
 ```
 
-`note` records editorial provenance and is never served.
+A candidate `displayName` replaces `displayName` in responses. A party `displayName` appears as `party.displayName` on that party's candidacies, next to the official `party.name` and `party.abbreviation`, and is `null` when not configured. `note` records editorial provenance and is never served.
 
 Put local files in `apps/api/public/photos/`; they are served under `/assets/photos/`. Official local photos are acquired by `pnpm --filter @datara/api elections:photos`, optionally with `--contest ID --limit N`, as documented in [ingestion](/development/ingestion). Use the same `PHOTO_DIRECTORY` for acquisition and API startup; official photo provenance remains in the archive without mutating the voting publication. Presentation resolves an available JSON photo override, then the downloaded official file, then `null`. Restart the API after changing photos or overrides; the file inventory is read once at startup. Overrides accept JPG/JPEG/PNG/WebP filenames, not arbitrary paths. `ELECTION_PRESENTATION_FILE`, `PHOTO_DIRECTORY` (directory containing `photos/`; setup uses `.data/public`), and `ASSET_BASE_URL` can select durable configuration/assets without changing HTTP fields. A production artifact must include them or supply durable equivalents.
 
@@ -43,7 +43,7 @@ In a majoritarian contest, two candidacies cannot share a color or be closer tha
 pnpm --filter @datara/api check:presentation
 ```
 
-The check requires `DATABASE_URL` (read from `apps/api/.env` when present) and uses the same `ELECTION_PRESENTATION_FILE` as the API. It first tests photo and color precedence and `deriveShade`. It then reads the majoritarian candidacies of the active publication and fails when a candidacy of a party with an abbreviation has no configured color, when two candidacies of one contest collide, or when any resolves to `#64748b`. Candidacies without an abbreviation are exempt from the first two rules and use the fallback. For each collision it prints the entry ready to paste into `candidates`: paste, rerun, and repeat until it passes. The final output counts contests, candidacies, overrides and parties checked.
+The check requires `DATABASE_URL` (read from `apps/api/.env` when present) and uses the same `ELECTION_PRESENTATION_FILE` as the API. It first tests photo and color precedence and `deriveShade`; through the candidates route, with a temporary configuration, it confirms `party.displayName` and the served colors. It then reads the majoritarian candidacies of the active publication and fails when a candidacy of a party with an abbreviation has no configured color, when two candidacies of one contest collide, or when any resolves to `#64748b`. Candidacies without an abbreviation are exempt from the first two rules and use the fallback. For each collision it prints the entry ready to paste into `candidates`: paste, rerun, and repeat until it passes. The final output counts contests, candidacies, overrides and parties checked.
 
 ## Environment
 

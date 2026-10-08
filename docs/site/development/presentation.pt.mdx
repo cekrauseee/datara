@@ -23,7 +23,7 @@ description: Configure nomes, cores, fotos e assets duráveis da API.
 }
 ```
 
-`note` registra a procedência editorial e nunca é servido.
+O `displayName` de uma candidatura substitui `displayName` na resposta. O de um partido aparece em `party.displayName` das candidaturas desse partido, ao lado de `party.name` e `party.abbreviation` oficiais, e é `null` quando não configurado. `note` registra a procedência editorial e nunca é servido.
 
 Arquivos locais ficam em `apps/api/public/photos/`, servidos em `/assets/photos/`. Fotos oficiais são adquiridas com `pnpm --filter @datara/api elections:photos`, opcionalmente `--contest ID --limit N`, conforme [ingestão](/development/ingestion). Use o mesmo `PHOTO_DIRECTORY` na aquisição e no servidor. A procedência das fotos permanece no arquivo de origem, sem alterar a publicação de votos.
 
@@ -47,7 +47,7 @@ Numa disputa majoritária, duas candidaturas não podem ter a mesma cor nem core
 pnpm --filter @datara/api check:presentation
 ```
 
-O check exige `DATABASE_URL` (lido de `apps/api/.env` quando existe) e usa o mesmo `ELECTION_PRESENTATION_FILE` da API. Primeiro testa a precedência de fotos e cores e `deriveShade`. Depois lê as candidaturas majoritárias da publicação ativa e falha quando uma candidatura de partido com sigla não tem cor configurada, quando duas candidaturas da mesma disputa colidem ou quando alguma resolve para `#64748b`. Candidaturas sem sigla ficam fora das duas primeiras regras e usam a reserva. Para cada colisão, imprime a entrada pronta para colar em `candidates`: cole, rode de novo e repita até passar. A saída final conta disputas, candidaturas, overrides e partidos verificados.
+O check exige `DATABASE_URL` (lido de `apps/api/.env` quando existe) e usa o mesmo `ELECTION_PRESENTATION_FILE` da API. Primeiro testa a precedência de fotos e cores e `deriveShade`; pela rota de candidatos, com configuração temporária, confirma `party.displayName` e as cores servidas. Depois lê as candidaturas majoritárias da publicação ativa e falha quando uma candidatura de partido com sigla não tem cor configurada, quando duas candidaturas da mesma disputa colidem ou quando alguma resolve para `#64748b`. Candidaturas sem sigla ficam fora das duas primeiras regras e usam a reserva. Para cada colisão, imprime a entrada pronta para colar em `candidates`: cole, rode de novo e repita até passar. A saída final conta disputas, candidaturas, overrides e partidos verificados.
 
 ## Ambiente
 

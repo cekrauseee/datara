@@ -103,7 +103,7 @@ export async function loadPresentation(
       displayName: override?.displayName ?? candidate.display_name,
       color: configuredColor(config, candidate) ?? fallbackColor(candidate.party_number),
       photoUrl: photo ? `${assetBaseUrl}/${photo}` : null,
-      partyName: party?.displayName,
+      partyDisplayName: party?.displayName ?? null,
     }
   }
 }
