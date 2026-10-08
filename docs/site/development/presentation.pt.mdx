@@ -5,7 +5,7 @@ description: Configure nomes, cores, fotos e assets duráveis da API.
 
 ## Configuração local
 
-`apps/api/config/election-presentation.json` é validado uma vez na inicialização. As chaves de candidaturas são os IDs públicos completos; as de partidos são os números partidários. Reimportar não reescreve esse arquivo. Nomes oficiais e dados de partido são o padrão; fotos ausentes são `null` e a cor padrão é `#64748b`.
+`apps/api/config/election-presentation.json` é validado uma vez na inicialização. As chaves de candidaturas são os IDs públicos completos; as de partidos são os números partidários. Reimportar não reescreve esse arquivo. Nomes oficiais e dados de partido são o padrão e fotos ausentes são `null`; a cor segue a ordem descrita em [cores](#cores).
 
 ```json
 {
@@ -13,18 +13,41 @@ description: Configure nomes, cores, fotos e assets duráveis da API.
     "CANDIDATE_ID": {
       "displayName": "Nome local",
       "color": "#2563eb",
-      "photo": "photos/candidate.jpg"
+      "photo": "photos/candidate.jpg",
+      "note": "Motivo do override"
     }
   },
-  "parties": { "13": { "displayName": "Nome local do partido", "color": "#dc2626" } }
+  "parties": {
+    "13": { "displayName": "Nome local do partido", "color": "#dc2626", "note": "Procedência" }
+  }
 }
 ```
+
+`note` registra a procedência editorial e nunca é servido.
 
 Arquivos locais ficam em `apps/api/public/photos/`, servidos em `/assets/photos/`. Fotos oficiais são adquiridas com `pnpm --filter @datara/api elections:photos`, opcionalmente `--contest ID --limit N`, conforme [ingestão](/development/ingestion). Use o mesmo `PHOTO_DIRECTORY` na aquisição e no servidor. A procedência das fotos permanece no arquivo de origem, sem alterar a publicação de votos.
 
 A resolução usa primeiro um override JSON disponível, depois a foto oficial baixada e depois `null`. Reinicie a API após modificar fotos/overrides: o inventário é lido uma vez. Overrides aceitam nomes JPG/JPEG/PNG/WebP, não caminhos arbitrários.
 
 `ELECTION_PRESENTATION_FILE`, `PHOTO_DIRECTORY` (diretório que contém `photos/`; setup usa `.data/public`) e `ASSET_BASE_URL` selecionam configuração/assets duráveis sem alterar os campos HTTP. Um artefato de produção precisa incluí-los ou fornecer equivalentes duráveis.
+
+## Cores
+
+A cor de uma candidatura é, em ordem: `candidates[id].color`; `parties[número].color`; a paleta fixa de reserva no índice `número do partido % 8` (`#c25c5f`, `#b46d10`, `#868604`, `#2c965d`, `#009298`, `#2d86c8`, `#8071c8`, `#af609f`, OKLCH L 0,60 e C 0,13 com matizes de 20° a 335°); e `#64748b` só para candidatura sem partido. A reserva é determinística e cobre partidos ainda não configurados e disputas proporcionais; disputas majoritárias exigem cor configurada (ver [verificação](#verificação)).
+
+As cores dos 30 partidos do catálogo de 2026 partem do mapa partido → cor do [Seu Imposto](https://www.seuimposto.com/) (objeto `window.PARTIDOS` do script `dados.*.js` da página inicial, consultado em 2026-10-08, desenhado para fundo escuro), conciliado com a identidade visual dos partidos. A API serve uma única cor para os dois temas: o matiz do Seu Imposto é mantido, a luminosidade OKLCH fica entre 0,56 e 0,63 e o croma alvo é de pelo menos 0,11, reduzido só quando sai do gamut sRGB. Assim toda cor tem contraste de pelo menos 3:1 contra o fundo e o `--muted` dos temas claro e escuro (`#ffffff`, `#f5f5f5`, `#262626`, `#0a0a0a`); a reserva tem ao menos 3,4:1. Exceções: PSOL usa o roxo do logotipo (`#68008E`, matiz 318° para se afastar do Podemos em 308°), pois o amarelo não alcança 3:1 sobre branco e ficaria perto de Missão e PSB; UP usa um neutro escuro, da identidade preto e branco; DC, PSB e Missão ficam em 72°, 82° e 94°, e os vermelhos se distribuem de 10° (PCB) a 30° (PCO) com luminosidade e croma distintos. Cada partido tem `note` com sigla, cor original do Seu Imposto e componentes OKLCH ajustados.
+
+Os números 17, 19, 24, 26, 32, 48, 51, 60, 78 e 89 não são configurados: são linhas de partido sem sigla nem nome publicadas pelo TSE para o Conselho Distrital de Fernando de Noronha, disputa não partidária. Essas candidaturas usam a reserva.
+
+Numa disputa majoritária, duas candidaturas não podem ter a mesma cor nem cores a menos de ΔE 0,04 (distância em OKLab), como ocorre com dois candidatos do mesmo partido ao Senado ou com DC e PSB. As candidaturas são ordenadas por `number` (ordem de texto) e a de número maior cede: recebe em `candidates` um override explícito com `deriveShade(cor do partido, k)`. Essa função gira o matiz em 40° × ⌈k/2⌉, em sentido horário para k ímpar e anti-horário para k par, limita a luminosidade a 0,56–0,63 e eleva o croma a pelo menos 0,12 antes de ajustar ao gamut. Gira o matiz e não a luminosidade para não se confundir com as faixas de vantagem do mapa. O k inicial é a posição da candidatura entre as do mesmo partido (a segunda usa k=1) ou 1 entre partidos diferentes; vale o primeiro k cuja cor fique a pelo menos ΔE 0,04 de todas as outras candidaturas da disputa e tenha 3:1 nos quatro fundos. Os overrides são explícitos porque a apresentação de uma candidatura não conhece a disputa e porque o editor pode ajustá-los. IDs de candidatura são estáveis entre publicações; uma candidatura substituída recebe novo ID e o check a acusa.
+
+## Verificação
+
+```sh
+pnpm --filter @datara/api check:presentation
+```
+
+O check exige `DATABASE_URL` (lido de `apps/api/.env` quando existe) e usa o mesmo `ELECTION_PRESENTATION_FILE` da API. Primeiro testa a precedência de fotos e cores e `deriveShade`. Depois lê as candidaturas majoritárias da publicação ativa e falha quando uma candidatura de partido com sigla não tem cor configurada, quando duas candidaturas da mesma disputa colidem ou quando alguma resolve para `#64748b`. Candidaturas sem sigla ficam fora das duas primeiras regras e usam a reserva. Para cada colisão, imprime a entrada pronta para colar em `candidates`: cole, rode de novo e repita até passar. A saída final conta disputas, candidaturas, overrides e partidos verificados.
 
 ## Ambiente
 

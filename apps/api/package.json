@@ -14,7 +14,7 @@
     "check:bu": "tsx scripts/check-bu.ts",
     "check:ingestion": "tsx scripts/check-ingestion.ts",
     "check:api": "tsx scripts/check-api.ts",
-    "check:presentation": "tsx scripts/check-presentation.ts",
+    "check:presentation": "node --env-file-if-exists=.env --import tsx scripts/check-presentation.ts",
     "elections:photos": "node --env-file-if-exists=.env --import tsx scripts/election-photos.ts",
     "check:photos": "tsx scripts/check-photos.ts",
     "check:settings": "tsx scripts/check-settings.ts",
