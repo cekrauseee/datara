@@ -6,7 +6,7 @@ import { createApp } from '../src/app.js'
 import { readConfig } from '../src/config.js'
 import { createPool } from '../src/db/index.js'
 import { downloadPhotos } from '../src/modules/elections/ingestion/photos.js'
-import { atomicWrite, hash } from '../src/modules/elections/ingestion/source.js'
+import { hash } from '../src/modules/elections/ingestion/source.js'
 import { candidatePhotoFile } from '../src/modules/elections/presentation.js'
 
 if (!process.env.TEST_DATABASE_URL || !process.env.ELECTION_ARCHIVE_DIR)
@@ -14,9 +14,19 @@ if (!process.env.TEST_DATABASE_URL || !process.env.ELECTION_ARCHIVE_DIR)
     'TEST_DATABASE_URL and ELECTION_ARCHIVE_DIR are required; use a published pilot with two archived photo sources',
   )
 const pool = createPool(process.env.TEST_DATABASE_URL)
+const archiveDir = process.env.ELECTION_ARCHIVE_DIR
 const dir = await mkdtemp(join(tmpdir(), 'datara-official-photos-'))
-let manifestPath: string | undefined
-let savedManifest: Buffer | undefined
+// Replays read the shared archive but write their manifest only under the temporary directory.
+const manifestDirectory = join(dir, 'manifests')
+// The shared archive's manifest for a publication, as content hash or absence.
+async function sharedManifest(publicationId: string) {
+  try {
+    return hash(await readFile(join(archiveDir, 'photo-manifests', `${publicationId}.json`)))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
 try {
   const publicationId = (await pool.query('SELECT active_publication_id FROM editions')).rows[0]
     ?.active_publication_id
@@ -24,6 +34,7 @@ try {
     publicationId,
     'Load the real pilot and archive one presidential and one Acre deputy photo first',
   )
+  const sharedBefore = await sharedManifest(publicationId)
   const documents = (await pool.query('SELECT count(*)::integer n FROM source_documents')).rows[0].n
   const contests = ['BR-2026-1:6257:1:br', 'BR-2026-1:6259:6:ac']
   for (const contestId of contests) {
@@ -32,10 +43,12 @@ try {
       contestId,
       limit: 1,
       offline: true,
-      archiveDir: process.env.ELECTION_ARCHIVE_DIR,
+      archiveDir,
       photoDirectory: dir,
+      manifestDirectory,
     })
     assert.equal(result.downloaded, 1)
+    assert.equal(result.manifestPath, join(manifestDirectory, `${publicationId}.json`))
     assert.equal(result.failed, 0)
   }
   const presentationFile = join(dir, 'presentation.json')
@@ -89,8 +102,9 @@ try {
     contestId: contests[0],
     limit: 1,
     offline: true,
-    archiveDir: process.env.ELECTION_ARCHIVE_DIR,
+    archiveDir,
     photoDirectory: dir,
+    manifestDirectory,
   })
   assert.equal(preserved.preservedLocal, 1)
   assert.equal(
@@ -108,7 +122,7 @@ try {
     )
   ).rows[0].archive_path
   await mkdir(join(batchArchive, 'sha256'), { recursive: true })
-  await copyFile(join(process.env.ELECTION_ARCHIVE_DIR, ea11), join(batchArchive, ea11))
+  await copyFile(join(archiveDir, ea11), join(batchArchive, ea11))
   // Behavior by first-request order: missing, recovering after one 503, failing until fixed.
   const order = new Map<string, number>()
   const requests: string[] = []
@@ -168,11 +182,15 @@ try {
   const retried = await downloadPhotos(pool, batch)
   assert.deepEqual([retried.downloaded, retried.missing, retried.failed], [7, 1, 0])
   assert.deepEqual(requests.slice(before), [failedUrl])
+  assert.equal(
+    await sharedManifest(publicationId),
+    sharedBefore,
+    'Replays must not rewrite the shared archive photo manifest',
+  )
   console.log(
-    'Two real official JPEGs replayed offline -> candidate photoUrl -> local HTTP JPEG/hash; voting manifest and local edits preserved; scripted batch acquisition with bounded concurrency, retry, missing, failure and retry of failures',
+    'Two real official JPEGs replayed offline -> candidate photoUrl -> local HTTP JPEG/hash; voting manifest, shared photo manifest and local edits preserved; scripted batch acquisition with bounded concurrency, retry, missing, failure and retry of failures',
   )
 } finally {
   await pool.end()
-  if (manifestPath && savedManifest) await atomicWrite(manifestPath, savedManifest)
   await rm(dir, { recursive: true, force: true })
 }

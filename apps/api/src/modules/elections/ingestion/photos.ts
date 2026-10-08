@@ -24,6 +24,8 @@ export type PhotoOptions = {
   limit?: number
   archiveDir: string
   photoDirectory: string
+  /** Where the per-publication manifest is written; defaults to the archive's photo-manifests. */
+  manifestDirectory?: string
   offline?: boolean
   refresh?: boolean
   network?: NetworkOptions
@@ -73,13 +75,14 @@ export async function downloadPhotos(pool: pg.Pool, options: PhotoOptions) {
     throw new Error('Contest has no candidates in this publication')
   await mkdir(join(archive, 'sha256'), { recursive: true })
   await mkdir(join(archive, 'photo-urls'), { recursive: true })
-  await mkdir(join(archive, 'photo-manifests'), { recursive: true })
+  const manifests = resolve(options.manifestDirectory ?? join(archive, 'photo-manifests'))
+  await mkdir(manifests, { recursive: true })
   await mkdir(join(directory, 'photos'), { recursive: true })
   if (!options.offline)
     await removeStaleTemporaryFiles(archive).catch((error) =>
       console.error(`Temporary file cleanup failed: ${error}`),
     )
-  const manifestPath = join(archive, 'photo-manifests', `${pub}.json`)
+  const manifestPath = join(manifests, `${pub}.json`)
   const manifest = (await readJson<Record<string, PhotoRecord>>(manifestPath)) ?? {}
   const summary = {
     publicationId: pub,
