@@ -34,6 +34,19 @@ With an office, the results panel replaces the selection card and uses one skele
 
 A dash (—) is a value the source did not report, never zero. An area without a result in this publication shows the pilot scope; an API failure shows the error with "Tentar novamente" while the map, the search and the selection keep working. Below 640 px the panel is a collapsed bottom sheet with the leader and the share; its header expands it.
 
+### Candidate focus
+
+Clicking a candidate in the summary or the ranking opens the focus; clicking the pressed row again, or **Sair do foco**, closes it. The URL keeps the candidate by its official TSE identifier in `candidate` and the metric in `metric`: `votes` or `contribution`; support is the default and writes no parameter. The focus lives inside one contest: moving between state, municipality, zone and section keeps it (president anywhere, governor within the state), changing the office ends it and restores the default metric, and the national view of governor and senator explains that a state must be selected.
+
+The card at the top of the panel shows photo or initials, number and party, coalition and federation, running mate or substitutes, official status with its scope and the vote destination when it is not valid. Below it, with two decimals:
+
+- **Support** (apoio): the candidate's votes in the area over the area's basis (`shareBasis`, for example recorded nominal votes), equal to the row's share in `/results`. "Apoio em Porto Walter: 50,95% · 3.208 de 6.296 dos votos nominais registrados (EA20)".
+- **Contribution** (contribuição): votes in the area over the candidate's votes one level up (Brazil ← state ← municipality ← zone ← section; regions and the exterior ← Brazil). It exists only when both areas have a result from the same source (official totalization or the sum of states on one side and a ballot box report on the other are not compared). At the contest's area it reads "escopo da disputa (100%)"; below the state a second line gives the contribution in Brazil (or in the state). Positive values below 0.005% read "<0,01%".
+
+A dash comes with its reason: no result in the area, different bases, a zero basis or a section counted with its principal section. The **Votos · Apoio · Contribuição** toggle paints the map in the candidate's colour with five fixed bands (support <10, 10–25, 25–40, 40–55 and ≥55%; contribution <0.1, 0.1–0.5, 0.5–2, 2–10 and ≥10%; votes by decades from one thousand to one million); the legend names the candidate, the contribution's area and the basis of the percentages.
+
+The distribution list shows the level below the area (states with the exterior, municipalities, zones or sections) with votes, support, contribution and the marks "sem dados", "parcial" and "contada com a seção". **Ordenar por** votes, support, contribution or area code stays out of the URL; "Mostrar mais" loads the next page of 25. States and municipalities select the area and keep the focus. The collapsed bottom sheet shows name, number and support.
+
 ## URLs
 
 | Example                               | Selection                                   |
@@ -49,13 +62,15 @@ A dash (—) is a value the source did not report, never zero. An area without a
 
 With the elections collection, `collection=elections` and `office` accompany the geographic selection:
 
-| Example                                                   | Panel                                         |
-| --------------------------------------------------------- | --------------------------------------------- |
-| `/br?collection=elections&office=president`               | President in Brazil, states below             |
-| `/br?collection=elections&office=governor`                | Governor by state (national view)             |
-| `/br?collection=elections&office=senator&state=12`        | Senators of Acre, with the second-seat cutoff |
-| `/br?collection=elections&office=federal-deputy&state=12` | Federal deputies of Acre (ranking)            |
-| `/br?collection=elections&state=12`                       | Collection open without an office (geography) |
+| Example                                                                                                     | Panel                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `/br?collection=elections&office=president`                                                                 | President in Brazil, states below               |
+| `/br?collection=elections&office=governor`                                                                  | Governor by state (national view)               |
+| `/br?collection=elections&office=senator&state=12`                                                          | Senators of Acre, with the second-seat cutoff   |
+| `/br?collection=elections&office=federal-deputy&state=12`                                                   | Federal deputies of Acre (ranking)              |
+| `/br?collection=elections&state=12`                                                                         | Collection open without an office (geography)   |
+| `/br?collection=elections&office=president&candidate=280002542548`                                          | Focus on Lula, support map                      |
+| `/br?collection=elections&office=president&municipality=1200393&candidate=280002542548&metric=contribution` | Focus on Lula in Porto Walter, contribution map |
 
 Country paths are lowercase; query parameters are English. Codes are strings and retain leading zeros. Parsing checks numeric lengths: state 2, municipality/place 7, county 5, subdivision 10. Brazil resolves municipality before state; the US resolves place, subdivision, county, then state. A valid-looking but unknown ID produces a not-found message. Malformed values are ignored in favor of another valid level.
 

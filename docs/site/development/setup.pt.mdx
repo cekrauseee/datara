@@ -96,6 +96,15 @@ for (const check of Object.values(panel)) console.log(await check())
 
 Rode uma vez na largura de desktop e outra com emulação de dispositivo abaixo de 640 px, quando entram as asserções da folha inferior. Cobre seletores sem requisição, resumo de presidente e Senado (vantagem, corte da 2ª vaga, situação com escopo), ranking paginado com votos por partido, visão nacional de governador, área sem resultado, erro 503 e falha de rede com retry, resposta atrasada, `/us` sem painel e as variáveis `--panel-inset`. Os passos que dependem do Canvas só correm com a página visível.
 
+O check do foco em candidato usa a API em execução com a publicação piloto (`VITE_API_URL`); só registra as requisições e os preenchimentos do Canvas, sem alterar respostas. A regra pura de apoio e contribuição está em `pnpm --filter @datara/web election:check`:
+
+```js
+const focus = await import('/scripts/check-election-focus.mjs')
+for (const check of Object.values(focus)) console.log(await check())
+```
+
+Cobre ida e volta pela URL, `aria-pressed` na linha, tokens de métrica, saída, troca de cargo e histórico, uma só `publicationId`, cores e faixas do mapa de apoio, valores do cartão e da lista iguais a `/results` e `/distribution` em Porto Walter, ordenação e paginação, a nota da visão nacional e o foco no ranking de deputados. Rode na largura de desktop e abaixo de 640 px.
+
 ```js
 const benchmark = await import('/scripts/benchmark-map.mjs')
 await benchmark.benchmarkMap()
