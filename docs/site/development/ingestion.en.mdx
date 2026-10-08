@@ -113,7 +113,7 @@ National loading is intentionally a separate user command. It may download hundr
 
 ## Publication and integrity
 
-Migration `001-election` is applied once under a database transaction/advisory lock. An import gets a UUID and a preparing publication. PostgreSQL stores its source manifest, expected tasks, completion state, catalogs and normalized observations. Each unit's normalization and completion marker commit together; retries replace that unit rather than add vote deltas. Downloaded raw bytes are written atomically by SHA-256 before their manifest row is committed. Corrupt archive bytes fail verification.
+Migrations `001-election` and `002-areas-parent` are applied in order, once each, in one transaction under an advisory lock; `db:migrate` applies only the pending ones to an existing database. An import gets a UUID and a preparing publication. PostgreSQL stores its source manifest, expected tasks, completion state, catalogs and normalized observations. Each unit's normalization and completion marker commit together; retries replace that unit rather than add vote deltas. Downloaded raw bytes are written atomically by SHA-256 before their manifest row is committed. Corrupt archive bytes fail verification.
 
 Published datasets are immutable through the importer. New imports preserve old publications. Validation requires all expected units, both EA20/BU observations and no unexplained total-ballot differences in fully imported zones. Publication and the edition's active pointer update in one transaction. Failed or paused imports do not change the active dataset. Explicitly noninstalled sections require the official auxiliary status; missing files, unknown statuses and ambiguous totalized hashes fail rather than becoming zero votes.
 

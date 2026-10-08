@@ -9,6 +9,7 @@ import type {
   MapQuery,
   PageQuery,
 } from './contracts.js'
+import { Level } from './contracts.js'
 import { integer, measure, percentage } from './metrics.js'
 import type { Presentation } from './presentation.js'
 
@@ -558,6 +559,8 @@ export async function results(
     })),
   }
 }
+// Canonical order from country to section; every parent sits at a higher level than its children.
+const levels: readonly string[] = Level.options
 async function territory(
   ctx: Context & { contest: ContestRow },
   scope: AreaRow,
@@ -566,15 +569,22 @@ async function territory(
   offset: number,
   candidateId?: string,
 ) {
-  const cte = `WITH RECURSIVE descendants AS (SELECT * FROM areas WHERE publication_id=$1 AND id=$3 UNION ALL SELECT a.* FROM areas a JOIN descendants d ON a.parent_id=d.id WHERE a.publication_id=$1), ranked AS (SELECT area_id,candidate_id,votes,max(votes) OVER(PARTITION BY area_id) max_votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$2 AND area_id IN (SELECT DISTINCT coalesce(principal_area_id,id) FROM descendants WHERE level=$4)), stats AS (SELECT area_id,sum(votes)::text vote_sum,array_agg(candidate_id ORDER BY candidate_id) FILTER(WHERE votes=max_votes) leaders,(array_agg(votes ORDER BY votes DESC))[1]::text first_votes,(array_agg(votes ORDER BY votes DESC))[2]::text second_votes FROM ranked GROUP BY area_id)`
-  const args = [ctx.publicationId, ctx.contest.id, scope.id, level]
+  // Only areas above the requested level can contain it, so the recursion stops expanding there.
+  const cte = `WITH RECURSIVE descendants AS (SELECT * FROM areas WHERE publication_id=$1 AND id=$3 UNION ALL SELECT a.* FROM areas a JOIN descendants d ON a.parent_id=d.id WHERE a.publication_id=$1 AND d.level=ANY($5::text[])), ranked AS (SELECT area_id,candidate_id,votes,max(votes) OVER(PARTITION BY area_id) max_votes FROM candidate_results WHERE publication_id=$1 AND contest_id=$2 AND area_id IN (SELECT DISTINCT coalesce(principal_area_id,id) FROM descendants WHERE level=$4)), stats AS (SELECT area_id,sum(votes)::text vote_sum,array_agg(candidate_id ORDER BY candidate_id) FILTER(WHERE votes=max_votes) leaders,(array_agg(votes ORDER BY votes DESC))[1]::text first_votes,(array_agg(votes ORDER BY votes DESC))[2]::text second_votes FROM ranked GROUP BY area_id)`
+  const args = [
+    ctx.publicationId,
+    ctx.contest.id,
+    scope.id,
+    level,
+    levels.slice(0, levels.indexOf(level)),
+  ]
   const total = Number(
     (await ctx.client.query(`${cte} SELECT count(*) FROM descendants WHERE level=$4`, args)).rows[0]
       .count,
   )
   const rows = (
     await ctx.client.query(
-      `${cte} SELECT a.*,r.source_kind,r.complete,r.metadata,r.nominal_votes,r.turnout,r.eligible,s.vote_sum,s.leaders,s.first_votes,s.second_votes,v.votes::text candidate_votes FROM descendants a LEFT JOIN area_results r ON r.publication_id=a.publication_id AND r.contest_id=$2 AND r.area_id=coalesce(a.principal_area_id,a.id) LEFT JOIN stats s ON s.area_id=r.area_id LEFT JOIN candidate_results v ON v.publication_id=a.publication_id AND v.contest_id=$2 AND v.area_id=r.area_id AND v.candidate_id=$5 WHERE a.level=$4 ORDER BY a.id LIMIT $6 OFFSET $7`,
+      `${cte} SELECT a.*,r.source_kind,r.complete,r.metadata,r.nominal_votes,r.turnout,r.eligible,s.vote_sum,s.leaders,s.first_votes,s.second_votes,v.votes::text candidate_votes FROM descendants a LEFT JOIN area_results r ON r.publication_id=a.publication_id AND r.contest_id=$2 AND r.area_id=coalesce(a.principal_area_id,a.id) LEFT JOIN stats s ON s.area_id=r.area_id LEFT JOIN candidate_results v ON v.publication_id=a.publication_id AND v.contest_id=$2 AND v.area_id=r.area_id AND v.candidate_id=$6 WHERE a.level=$4 ORDER BY a.id LIMIT $7 OFFSET $8`,
       [...args, candidateId, limit, offset],
     )
   ).rows

@@ -35,6 +35,20 @@ const options: ImportOptions = {
 }
 try {
   await migrate(pool)
+  // A new database applies every migration once, in order; repeating migrate applies nothing.
+  const ledger = async () =>
+    (await pool.query('SELECT name FROM schema_migrations ORDER BY name')).rows.map((r) => r.name)
+  assert.deepEqual(await ledger(), ['001-election', '002-areas-parent'])
+  await migrate(pool)
+  assert.deepEqual(await ledger(), ['001-election', '002-areas-parent'])
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::integer AS n FROM pg_indexes WHERE schemaname=current_schema() AND indexname='areas_parent'",
+      )
+    ).rows[0].n,
+    1,
+  )
   assert.equal(
     (await pool.query('SELECT count(*)::integer AS n FROM publications')).rows[0].n,
     0,

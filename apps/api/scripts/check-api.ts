@@ -136,6 +136,20 @@ try {
   )
   assert.equal(distribution.items.length, 1)
   assert.equal(distribution.publicationId, publicationId)
+  // Territory expansion stops at the requested level without changing which areas are counted.
+  const acMunicipalities = Number(
+    (
+      await pool.query(
+        "SELECT count(*) FROM areas WHERE publication_id=$1 AND level='municipality' AND uf='ac'",
+        [publicationId],
+      )
+    ).rows[0].count,
+  )
+  assert.equal(distribution.pagination.total, acMunicipalities)
+  const within = (query: string, status?: number) =>
+    request(`/contests/${contest}/distribution?candidateId=${candidate.id}&${query}`, status)
+  assert.equal((await within('areaId=br&level=state&limit=1')).pagination.total, 28)
+  assert.equal((await within('areaId=ac&level=country')).pagination.total, 0)
   const mapResponse = await app.request(`/contests/${contest}/map?level=municipality&metric=leader`)
   const map = await mapResponse.json()
   assert.equal(mapResponse.status, 200)
