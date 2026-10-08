@@ -19,6 +19,6 @@
   "Official URL, hash and collection/generation times": "URL oficial, hash e datas de coleta e geração",
   "Invalid parameters or incompatible resource scope": "Parâmetros inválidos ou território incompatível",
   "Resource or requested publication not found": "Recurso ou publicação solicitada não encontrado",
-  "Database unavailable": "Banco de dados indisponível",
+  "Database unavailable or query time limit exceeded": "Banco de dados indisponível ou tempo limite da consulta excedido",
   "Unexpected server error": "Erro inesperado do servidor"
 }

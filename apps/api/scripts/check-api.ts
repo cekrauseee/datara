@@ -4,6 +4,7 @@ import { gunzipSync } from 'node:zlib'
 import { createApp } from '../src/app.js'
 import { readConfig } from '../src/config.js'
 import { createPool, migrate } from '../src/db/index.js'
+import { classifyError } from '../src/http/errors.js'
 import { importElection } from '../src/modules/elections/ingestion/import.js'
 import { measure } from '../src/modules/elections/metrics.js'
 
@@ -223,6 +224,24 @@ try {
   assert.ok(schema.components.schemas.AreaResult)
   assert.equal(measure(0, 0, 'test').state, 'undefined')
   assert.equal(measure(null, 1, 'test').state, 'unavailable')
+  // A statement timeout is a query limit, not an unavailable database.
+  const classified = (error: unknown) => {
+    const { status, code } = classifyError(error)
+    return [status, code]
+  }
+  assert.deepEqual(classified(Object.assign(new Error('canceled'), { code: '57014' })), [
+    503,
+    'QUERY_TIMEOUT',
+  ])
+  assert.deepEqual(classified(Object.assign(new Error('lost'), { code: '08006' })), [
+    503,
+    'DATABASE_UNAVAILABLE',
+  ])
+  assert.deepEqual(classified(new Error('timeout exceeded when trying to connect')), [
+    503,
+    'DATABASE_UNAVAILABLE',
+  ])
+  assert.deepEqual(classified(new Error('boom')), [500, 'INTERNAL_ERROR'])
 
   // Synthetic tie/zero edge values stay within this disposable schema and are restored.
   const originalVotes = (

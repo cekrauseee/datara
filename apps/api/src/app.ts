@@ -5,7 +5,7 @@ import { cors } from 'hono/cors'
 import { randomUUID } from 'node:crypto'
 import type pg from 'pg'
 import type { Config } from './config.js'
-import { ApiError, type HttpEnvironment } from './http/errors.js'
+import { ApiError, classifyError, type HttpEnvironment } from './http/errors.js'
 import { loadPresentation } from './modules/elections/presentation.js'
 import { electionRoutes } from './modules/elections/routes.js'
 
@@ -77,27 +77,14 @@ export async function createApp(pool: pg.Pool, config: Config) {
     ),
   )
   app.onError((error, c) => {
-    if (error instanceof ApiError)
-      return c.json(
-        { error: { code: error.code, message: error.message, requestId: c.get('requestId') } },
-        error.status,
-      )
-    const code = 'code' in error ? String(error.code) : undefined
-    const databaseError =
-      code &&
-      (/^(08|53|57)/.test(code) ||
-        ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND'].includes(code))
-    console.error({ requestId: c.get('requestId'), code, message: error.message })
-    return c.json(
-      {
-        error: {
-          code: databaseError ? 'DATABASE_UNAVAILABLE' : 'INTERNAL_ERROR',
-          message: databaseError ? 'Database is unavailable' : 'Unexpected server error',
-          requestId: c.get('requestId'),
-        },
-      },
-      databaseError ? 503 : 500,
-    )
+    const { status, code, message } = classifyError(error)
+    if (!(error instanceof ApiError))
+      console.error({
+        requestId: c.get('requestId'),
+        code: 'code' in error ? String(error.code) : undefined,
+        message: error.message,
+      })
+    return c.json({ error: { code, message, requestId: c.get('requestId') } }, status)
   })
   return app
 }

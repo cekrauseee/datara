@@ -291,7 +291,7 @@ export const errors = {
     content: { 'application/json': { schema: ErrorSchema } },
   },
   503: {
-    description: 'Database unavailable',
+    description: 'Database unavailable or query time limit exceeded',
     content: { 'application/json': { schema: ErrorSchema } },
   },
   500: {

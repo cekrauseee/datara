@@ -6,7 +6,14 @@ const migrations = ['001-election', '002-areas-parent'] as const
 
 export function createPool(connectionString = process.env.DATABASE_URL) {
   if (!connectionString) throw new Error('DATABASE_URL is required')
-  return new pg.Pool({ connectionString, max: 10 })
+  // Fail fast when the database is unreachable instead of waiting for the operating system's
+  // TCP timeout; idle connections are closed after 30 s.
+  return new pg.Pool({
+    connectionString,
+    max: 10,
+    connectionTimeoutMillis: 5_000,
+    idleTimeoutMillis: 30_000,
+  })
 }
 
 export async function migrate(pool: pg.Pool) {
