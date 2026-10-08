@@ -69,10 +69,24 @@ const archives: string[] = []
     outcome('Totalizada', [file('ee55', 'Totalizado', ['o-busa.dat', 'busa'])]).bulletinUrl,
     `${directory}/ee55/o-busa.dat`,
   )
-  for (const st of ['Não instalada', 'Não Instalada', 'Não apurada', 'Anulada', 'Recebida'])
-    assert.deepEqual(outcome(st, [file('ff66', 'Totalizado', ['o-bu.dat', 'bu'])]), {
-      officialStatus: st,
-    })
+  for (const st of ['Não instalada', 'Não Instalada', 'Não apurada', 'Anulada']) {
+    assert.deepEqual(
+      outcome(st, [
+        file('ff66', 'Excluído', ['o-bu.dat', 'bu']),
+        file('aa77', 'Totalizado', ['o-rdv.dat', 'rdv'], ['o.jez', 'log']),
+      ]),
+      { officialStatus: st },
+    )
+    assert.throws(
+      () => outcome(st, [file('ff66', 'Totalizado', ['o-bu.dat', 'bu'])]),
+      /contradicts a totalized BU/,
+    )
+  }
+  // Files received but not totalized are a transient state, never an absence.
+  assert.throws(
+    () => outcome('Recebida', [file('ff66', 'Recebido', ['o-bu.dat', 'bu'])]),
+    /not totalized/,
+  )
   assert.deepEqual(sectionOutcome(aux, { f: 'o', st: 'Não instalada' }), {
     officialStatus: 'Não instalada',
   })
@@ -519,7 +533,7 @@ try {
           {
             f: 'o',
             st: 'Anulada',
-            hashes: [{ hash: 'abc123', st: 'Totalizado', arq: [{ nm: 'o-bu.dat', tp: 'bu' }] }],
+            hashes: [{ hash: 'abc123', st: 'Excluído', arq: [{ nm: 'o-bu.dat', tp: 'bu' }] }],
           },
         ],
         [notInstalled, { f: 'o', st: 'Não instalada', hashes: [] }],

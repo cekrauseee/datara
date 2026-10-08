@@ -150,12 +150,12 @@ export class Archive {
 
 const SECTION_STATUSES = new Map([
   ['totalizada', 'bulletin'],
-  // Official situations without a totalized bulletin: no installation, no count, annulment, or
-  // files received but not totalized. Their votes are absent from this source, never zero.
+  // Final official situations without a totalized bulletin: no installation, no count or
+  // annulment. Their votes are absent from this source, never zero. "Recebida" (files received,
+  // not totalized) is transient and fails like any status that is not final.
   ['não instalada', 'official'],
   ['não apurada', 'official'],
   ['anulada', 'official'],
-  ['recebida', 'official'],
 ])
 const HASH_STATUSES = new Set(['recebido', 'rejeitado', 'excluído', 'totalizado'])
 const status = (value: unknown) =>
@@ -163,20 +163,29 @@ const status = (value: unknown) =>
 /**
  * Interprets an EA18 section auxiliary file. Section states follow the TSE EA18 domain
  * (Recebida, Não instalada, Não apurada, Anulada, Totalizada) and hash states (Recebido,
- * Rejeitado, Excluído, Totalizado); any other value fails instead of guessing.
+ * Rejeitado, Excluído, Totalizado). Only final states are accepted; a section that is merely
+ * received, a status without bulletin next to a totalized one, and unknown values fail.
  */
 export function sectionOutcome(
   auxUrl: string,
   auxiliary: Auxiliary,
 ): { officialStatus: string; bulletinUrl?: string } {
   const kind = SECTION_STATUSES.get(status(auxiliary.st))
+  if (status(auxiliary.st) === 'recebida')
+    throw new Error(`EA18 section is received but not totalized: ${auxUrl}`)
   if (!kind)
     throw new Error(`Unknown EA18 section status ${JSON.stringify(auxiliary.st)}: ${auxUrl}`)
   for (const item of auxiliary.hashes ?? [])
     if (!HASH_STATUSES.has(status(item.st)))
       throw new Error(`Unknown EA18 hash status ${JSON.stringify(item.st)}: ${auxUrl}`)
-  if (kind === 'official') return { officialStatus: auxiliary.st }
   const bulletin = bulletinUrl(auxUrl, auxiliary)
+  if (kind === 'official') {
+    if (bulletin)
+      throw new Error(
+        `EA18 status ${JSON.stringify(auxiliary.st)} contradicts a totalized BU: ${auxUrl}`,
+      )
+    return { officialStatus: auxiliary.st }
+  }
   if (!bulletin) throw new Error(`Totalized section has no totalized BU: ${auxUrl}`)
   return { officialStatus: auxiliary.st, bulletinUrl: bulletin }
 }
