@@ -449,12 +449,12 @@ async function voteSummary(
   const tied = first?.ids.length > 1
   const margin =
     first && (tied || second) ? (tied ? 0 : integer(first.votes)! - integer(second.votes)!) : null
+  // Counts of the first three candidacies in rank order, ties repeated.
+  const ordered: number[] = groups.flatMap((g) => g.ids.map(() => integer(g.votes)!)).slice(0, 3)
   let cutoff: number | null = null
-  if (ctx.contest.office_code === '5' && ctx.contest.seats === 2) {
-    const ordered = groups.flatMap((g) => g.ids.map(() => integer(g.votes)!))
-    if (ordered.length >= 3) cutoff = ordered[1] - ordered[2]
-  }
-  return {
+  if (ctx.contest.office_code === '5' && ctx.contest.seats === 2 && ordered.length >= 3)
+    cutoff = ordered[1]! - ordered[2]!
+  const summary = {
     leaders: first?.ids ?? [],
     tie: !!tied,
     candidateVoteDenominator: denominator,
@@ -466,6 +466,7 @@ async function voteSummary(
         ? { votes: cutoff, percentagePoints: percentage(cutoff, denominator), basis: basis(r) }
         : null,
   }
+  return { summary, ordered }
 }
 export async function results(
   ctx: Context & { contest: ContestRow },
@@ -496,7 +497,7 @@ export async function results(
       parties: [],
       unresolvedVotables: [],
     }
-  const summary = await voteSummary(ctx, r, areaIds)
+  const { summary, ordered } = await voteSummary(ctx, r, areaIds)
   const voting = `WITH voting AS (SELECT candidate_id,sum(votes)::text votes,CASE WHEN count(*)=1 THEN max(official_percentage) END official_percentage,CASE WHEN count(DISTINCT vote_destination)=1 THEN max(vote_destination) END destination FROM candidate_results WHERE publication_id=$1 AND contest_id=$2 AND area_id=ANY($3::text[]) GROUP BY candidate_id)`
   const total = Number(
     (
@@ -528,15 +529,23 @@ export async function results(
           )
         ).rows
       : []
+  // Each unresolved votable is a possible competitor holding exactly its own printed votes (its
+  // number has no candidacy here, or several); it never adds to a ranked candidacy. A ranked value
+  // stays exact while no such votable reaches the candidacy count it depends on.
   if (unresolved.length) {
-    summary.leaders = []
-    summary.tie = false
-    summary.margin = {
+    const most = Math.max(...unresolved.map((v) => integer(v.votes)!))
+    const reached = (rank: number) => ordered[rank] === undefined || most >= ordered[rank]!
+    const indeterminate = {
       votes: null,
       percentagePoints: null,
       basis: 'unresolvedPrintedCandidateVotes',
     }
-    summary.seatCutoffMargin = null
+    if (reached(0)) {
+      summary.leaders = []
+      summary.tie = false
+    }
+    if (reached(1)) summary.margin = indeterminate
+    if (summary.seatCutoffMargin && reached(2)) summary.seatCutoffMargin = indeterminate
   }
   return {
     ...base,

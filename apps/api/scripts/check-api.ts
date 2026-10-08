@@ -121,6 +121,69 @@ try {
     Number(ranked[1].votes) - Number(ranked[2].votes),
   )
   assert.equal(senator.candidates[0].candidate.id, ranked[0].candidate_id)
+  // A votable without a candidacy only hides the values it could change: the official pilot has
+  // one such votable in three DF section results, each too small to alter the ranking.
+  const section = 'df:97012:0002:0471'
+  const governor = 'BR-2026-1:6259:3:df'
+  const senatorDf = 'BR-2026-1:6259:5:df'
+  const sectionSummary = async (contestId: string, areaId: string) => {
+    const body = await request(`/contests/${contestId}/results?areaId=${areaId}&limit=1`)
+    return { ...body.summary, unresolved: body.unresolvedVotables }
+  }
+  const governorSection = await sectionSummary(governor, section)
+  assert.deepEqual(governorSection.unresolved, [
+    { number: '55', voteType: '1', partyNumber: '55', votes: 1 },
+  ])
+  assert.deepEqual(governorSection.leaders, [`${governor}:70002553055`])
+  assert.equal(governorSection.tie, false)
+  assert.equal(governorSection.margin.votes, 12)
+  assert.equal(governorSection.margin.basis, 'printedNominalVotes')
+  const senateSection = await sectionSummary(senatorDf, 'df:97012:0002:0478')
+  assert.equal(senateSection.unresolved[0].number, '555')
+  assert.equal(senateSection.margin.votes, 4)
+  assert.equal(senateSection.seatCutoffMargin.votes, 2)
+  const deputySection = await sectionSummary('BR-2026-1:6259:6:df', section)
+  assert.equal(deputySection.unresolved[0].number, '4577')
+  assert.equal(deputySection.margin.votes, 16)
+  // Synthetic unresolved votables (removed afterwards) reaching the leader, the runner-up or the
+  // third candidacy (governor 101/89, Senate 172/168/166).
+  const synthetic = async (contestId: string, areaId: string, votes: number) => {
+    await pool.query(
+      "INSERT INTO votable_results(publication_id,contest_id,area_id,number,vote_type,party_number,votes) VALUES($1,$2,$3,'999','1',NULL,$4) ON CONFLICT(publication_id,contest_id,area_id,number,vote_type) DO UPDATE SET votes=excluded.votes",
+      [publicationId, contestId, areaId, votes],
+    )
+    return sectionSummary(contestId, areaId)
+  }
+  const unresolvedBasis = 'unresolvedPrintedCandidateVotes'
+  try {
+    const reachesLeader = await synthetic(governor, section, 101)
+    assert.deepEqual([reachesLeader.leaders, reachesLeader.tie], [[], false])
+    assert.deepEqual(reachesLeader.margin, {
+      votes: null,
+      percentagePoints: null,
+      basis: unresolvedBasis,
+    })
+    const reachesRunnerUp = await synthetic(governor, section, 100)
+    assert.deepEqual(reachesRunnerUp.leaders, governorSection.leaders)
+    assert.equal(reachesRunnerUp.margin.votes, null)
+    assert.equal(reachesRunnerUp.margin.basis, unresolvedBasis)
+    const below = await synthetic(governor, section, 88)
+    assert.equal(below.margin.votes, 12)
+    assert.equal(below.margin.percentagePoints, governorSection.margin.percentagePoints)
+    const reachesThird = await synthetic(senatorDf, 'df:97012:0002:0478', 167)
+    assert.equal(reachesThird.leaders.length, 1)
+    assert.equal(reachesThird.margin.votes, 4)
+    assert.deepEqual(reachesThird.seatCutoffMargin, {
+      votes: null,
+      percentagePoints: null,
+      basis: unresolvedBasis,
+    })
+  } finally {
+    await pool.query(
+      "DELETE FROM votable_results WHERE publication_id=$1 AND number='999' AND vote_type='1'",
+      [publicationId],
+    )
+  }
   const outside = await request(`/contests/${senate.contest_id}/results?areaId=br`, 400)
   assert.equal(outside.error.code, 'INCOMPATIBLE_AREA')
   const mismatch = await request(
