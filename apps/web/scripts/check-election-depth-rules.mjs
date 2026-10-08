@@ -99,16 +99,27 @@ assert.equal(
   '1 votável sem candidatura verificada: nº 55 (1 voto)',
 )
 assert.equal(unresolvedNote([]), null)
-assert.equal(undetermined({ summary: null }), false)
+// The undetermined note needs an unresolved votable; without one, empty leaders are not blamed on it.
+const votable = [{ number: '55', voteType: '1', partyNumber: '55', votes: 1 }]
+assert.equal(undetermined({ summary: null, unresolvedVotables: votable }), false)
 assert.equal(
   undetermined({
     summary: { leaders: [], margin: { votes: 3, basis: 'printedNominalVotes' } },
+    unresolvedVotables: votable,
   }),
   true,
 )
 assert.equal(
   undetermined({
+    summary: { leaders: [], margin: { votes: null, basis: 'printedNominalVotes' } },
+    unresolvedVotables: [],
+  }),
+  false,
+)
+assert.equal(
+  undetermined({
     summary: { leaders: ['x'], margin: { votes: null, basis: 'unresolvedPrintedCandidateVotes' } },
+    unresolvedVotables: votable,
   }),
   true,
 )

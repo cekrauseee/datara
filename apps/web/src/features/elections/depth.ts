@@ -155,10 +155,13 @@ export function unresolvedNote(votables: AreaResult['unresolvedVotables']): stri
   return `${votables.length} ${votables.length === 1 ? 'votável' : 'votáveis'} sem candidatura verificada: ${list}`
 }
 
-/** The leader cannot be determined when unresolved printed votes could change the order. */
-export function undetermined(result: Pick<AreaResult, 'summary'>): boolean {
+/**
+ * The leader cannot be determined when unresolved printed votes could change the order: only
+ * with at least one unresolved votable.
+ */
+export function undetermined(result: Pick<AreaResult, 'summary' | 'unresolvedVotables'>): boolean {
   const summary = result.summary
-  if (!summary) return false
+  if (!summary || result.unresolvedVotables.length === 0) return false
   return (
     summary.leaders.length === 0 ||
     (summary.margin.votes === null && summary.margin.basis === 'unresolvedPrintedCandidateVotes')
