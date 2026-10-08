@@ -19,7 +19,7 @@ export type DepthView = {
 }
 
 /** Name of the `area` parameter's area: from the loaded result, the fixed names otherwise. */
-export function areaName(election: ElectionSnapshot): string | null {
+export function depthAreaName(election: ElectionSnapshot): string | null {
   const id = election.state.area
   if (!id || !election.areaKind) return null
   if (election.areaKind === 'exterior') return 'Exterior'
@@ -41,7 +41,7 @@ export function depthView(election: ElectionSnapshot, selection: Area | null): D
   const kind = election.areaKind
   const parent =
     kind === 'locality'
-      ? `${areaName(election) ?? election.state.area}, Exterior`
+      ? `${depthAreaName(election) ?? election.state.area}, Exterior`
       : selection
         ? `${selection.name}, ${selection.stateAbbr}`
         : null
@@ -62,11 +62,11 @@ export function depthView(election: ElectionSnapshot, selection: Area | null): D
   if (kind === 'exterior')
     return { title: 'Exterior', name: 'Exterior', scope: 'Seções no exterior', level: 'exterior' }
   if (kind === 'locality') {
-    const name = areaName(election) ?? election.state.area ?? ''
+    const name = depthAreaName(election) ?? election.state.area ?? ''
     return { title: `${name} · Localidade no exterior`, name, scope: 'Exterior', level: 'locality' }
   }
   if (kind === 'region') {
-    const name = areaName(election) ?? ''
+    const name = depthAreaName(election) ?? ''
     return { title: `${name} · Região`, name, scope: 'Soma das UFs da região', level: 'region' }
   }
   return null
@@ -84,13 +84,13 @@ export function depthCrumbs(election: ElectionSnapshot): DepthCrumb[] {
   const crumbs: DepthCrumb[] = []
   const kind = election.areaKind
   if (kind === 'region')
-    crumbs.push({ key: 'region', label: areaName(election) ?? '', patch: null })
+    crumbs.push({ key: 'region', label: depthAreaName(election) ?? '', patch: null })
   if (kind === 'exterior' || kind === 'locality')
     crumbs.push({ key: 'exterior', label: 'Exterior', patch: { area: 'exterior' } })
   if (kind === 'locality')
     crumbs.push({
       key: 'locality',
-      label: areaName(election) ?? election.state.area ?? '',
+      label: depthAreaName(election) ?? election.state.area ?? '',
       patch: { area: election.state.area, zone: null, section: null },
     })
   const { zone, section } = election.state

@@ -130,7 +130,7 @@ export type ContestMapRequest = {
   level: MapLevel
   metric: MapMetric
   candidateId?: string
-  /** Only for `contribution`, whose values depend on the selected scope. */
+  /** Only for `contribution`: the scope from `contributionMapScope`. */
   areaId?: string
 }
 export type OfficeMapRequest = {
@@ -140,6 +140,20 @@ export type OfficeMapRequest = {
   metric: OfficeMapMetric
 }
 export type MapRequest = ContestMapRequest | OfficeMapRequest
+
+/**
+ * Scope of a contribution map: the closest area enclosing the selection whose children are drawn
+ * at the map grain, so a municipality (or a zone or section) is compared with its siblings in the
+ * state instead of filling one polygon at 100 %. Never wider than the contest's scope.
+ */
+export function contributionMapScope(contestScopeId: string, areaId: string, level: MapLevel) {
+  let scope: string
+  if (areaId === 'br' || areaId.startsWith('region:')) scope = areaId
+  else if (level === 'state') scope = 'br'
+  else if (areaId === 'exterior' || areaId.startsWith('zz:')) scope = 'exterior'
+  else scope = areaId.split(':')[0]
+  return contestCovers(contestScopeId, scope) ? scope : contestScopeId
+}
 
 const OFFICE_MAP_METRICS: ReadonlySet<MapMetric> = new Set(['leader', 'margin', 'turnout'])
 
@@ -173,7 +187,9 @@ export function deriveMapRequest(input: {
       level,
       metric,
       ...(withCandidate ? { candidateId: input.candidateId! } : {}),
-      ...(metric === 'contribution' ? { areaId: input.areaId } : {}),
+      ...(metric === 'contribution'
+        ? { areaId: contributionMapScope(contest.scopeAreaId, input.areaId, level) }
+        : {}),
     }
   }
   if (!input.national) return null

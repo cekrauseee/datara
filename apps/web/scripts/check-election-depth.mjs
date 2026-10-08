@@ -441,6 +441,101 @@ export async function checkSharedSection() {
   return 'Shared section passed: aggregated marker, "Votos contados junto com a Seção 0471", URL and breadcrumb on 0472, link writes section=0471, unresolved votable note'
 }
 
+// Candidate focus in a section whose first `/results` page omits the candidate (the national
+// load's deputies): the card reads the further pages before concluding, never "Sem resultado".
+const SECTION_ID = 'ac:01066:0004:0077'
+const ZEMA = '280002539826'
+const GRASSI = '280002548139'
+
+export async function checkFocusOffPage() {
+  const restore = serve()
+  try {
+    const base = await fixture('results-president-ac')
+    const rowOf = (officialId) =>
+      base.candidates.find((row) => row.candidate.officialId === officialId)
+    // Twenty filler candidates push Zema (sixth in Acre) to the second page.
+    const filler = Array.from({ length: 20 }, (_, index) => {
+      const officialId = String(990000000000 + index)
+      return {
+        ...structuredClone(rowOf(ZEMA)),
+        candidate: {
+          ...rowOf(ZEMA).candidate,
+          id: `${PRESIDENT}:${officialId}`,
+          officialId,
+          displayName: `CANDIDATO ${index + 1}`,
+          number: String(70 + index),
+        },
+        votes: 1000 - index,
+      }
+    })
+    const rows = [...base.candidates.slice(0, 5), ...filler, ...base.candidates.slice(5)]
+    let omitted = null
+    override = async (url) => {
+      const { pathname, searchParams: query } = new URL(url)
+      if (pathname.endsWith('/candidates')) {
+        const row = rowOf(query.get('officialId'))
+        return json({
+          publicationId: PUBLICATION,
+          coverage: base.coverage,
+          items: row ? [row.candidate] : [],
+          pagination: { limit: 25, offset: 0, total: row ? 1 : 0, hasMore: false },
+        })
+      }
+      if (!pathname.endsWith('/results') || query.get('areaId') !== SECTION_ID) return null
+      const listed = rows.filter((row) => row.candidate.officialId !== omitted)
+      const limit = Number(query.get('limit') ?? 25)
+      const offset = Number(query.get('offset') ?? 0)
+      return json({
+        ...(await resultFor(PRESIDENT, SECTION_ID)),
+        candidates: listed.slice(offset, offset + limit),
+        pagination: {
+          limit,
+          offset,
+          total: listed.length,
+          hasMore: offset + limit < listed.length,
+        },
+      })
+    }
+    const support = () => panel()?.querySelector('[data-focus-support]')
+    const card = () => panel()?.querySelector('[data-focus-measures]')?.textContent ?? ''
+
+    go(`${SECTION_URL}&candidate=${ZEMA}`)
+    await until(settled(SECTION_ID), 'Section 0077 panel')
+    await expandSheet()
+    await until(() => support()?.dataset.focusSupport, 'Support from the second page')
+    const zema = rowOf(ZEMA)
+    assert(
+      Math.abs(Number(support().dataset.focusSupport) - zema.share.value) < 1e-9,
+      `Support equals the second page row (${support().dataset.focusSupport})`,
+    )
+    assert(support().dataset.votes === String(zema.votes), 'Votes from the second page row')
+    assert(
+      requests.some(
+        (url) =>
+          kind(url) === 'results' &&
+          url.includes(encodeURIComponent(SECTION_ID)) &&
+          url.includes('limit=100') &&
+          url.includes('offset=25'),
+      ),
+      'The second page was requested (limit=100, offset=25)',
+    )
+    assert(!card().includes('Sem resultado'), `No "Sem resultado" in the card (${card()})`)
+
+    clear()
+    omitted = GRASSI
+    go(`${SECTION_URL}&candidate=${GRASSI}`)
+    await until(settled(SECTION_ID), 'Section 0077 panel for Grassi')
+    await expandSheet()
+    const absent = 'Nenhum voto registrado para a candidatura na Seção 0077 nesta publicação.'
+    await until(() => card().includes(absent), 'Absent candidate reason')
+    assert(support().dataset.focusSupport === '', 'Absent support is a dash, not zero')
+    assert(!card().includes('Sem resultado na Seção'), `No "Sem resultado" (${card()})`)
+  } finally {
+    restore()
+  }
+  return 'Focus off the first page passed: support and votes from the second /results page (limit=100, offset=25), absent candidate shown as "—" with "Nenhum voto registrado…", never "Sem resultado"'
+}
+
 export async function checkInvalidCodes() {
   const restore = serve()
   try {

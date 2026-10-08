@@ -34,6 +34,19 @@ Com um cargo, o painel de resultados substitui o cartão da seleção e usa o me
 
 Um traço (—) é dado não informado pela fonte, nunca zero. Uma área sem resultado nesta publicação mostra o recorte do piloto; a falha da API mostra o erro com "Tentar novamente" sem derrubar o mapa, a busca e a seleção. Abaixo de 640 px o painel é uma folha inferior recolhida com o mais votado e o percentual; o cabeçalho da folha a expande.
 
+### Foco em candidato
+
+Clicar numa candidatura do resumo ou do ranking abre o foco; clicar de novo na linha pressionada, ou em **Sair do foco**, fecha. A URL guarda a candidatura pelo identificador oficial do TSE em `candidate` e a métrica em `metric`: `votes` (votos) ou `contribution` (contribuição); apoio é o padrão e não escreve parâmetro. O foco vale dentro de uma disputa: navegar entre estado, município, zona e seção o mantém (presidente em qualquer área, governador dentro da UF), trocar de cargo o encerra e volta à métrica padrão, e a visão nacional de governador e senador lembra que é preciso selecionar uma UF.
+
+O cartão no topo do painel mostra foto ou iniciais, número e partido, coligação e federação, vice ou suplentes, situação oficial com escopo e destino do voto quando não é válido. Abaixo, com duas casas decimais:
+
+- **Apoio**: votos da candidatura na área sobre a base da área (`shareBasis`, por exemplo votos nominais registrados), igual ao percentual da linha em `/results`. "Apoio em Porto Walter: 50,95% · 3.208 de 6.296 dos votos nominais registrados (EA20)".
+- **Contribuição**: votos na área sobre os votos da candidatura no nível acima (Brasil ← UF ← município ← zona ← seção; regiões e exterior ← Brasil). Só existe quando as duas áreas têm resultado da mesma fonte (totalização ou soma de UFs de um lado, boletim de urna do outro não se comparam). Na área da disputa vale "escopo da disputa (100%)"; abaixo da UF, uma segunda linha dá a contribuição no Brasil (ou na UF). Valores positivos abaixo de 0,005% aparecem como "<0,01%".
+
+Um traço vem com o motivo: área sem resultado, bases diferentes, base zero, seção contada junto com a principal ou seção cujo resultado, lido em todas as páginas, não registra votos da candidatura. A alternância **Votos · Apoio · Contribuição** pinta o mapa na cor da candidatura com cinco faixas fixas (apoio <10, 10–25, 25–40, 40–55 e ≥55%; contribuição <0,1, 0,1–0,5, 0,5–2, 2–10 e ≥10%; votos por décadas de mil a um milhão); a legenda nomeia a candidatura, a área da contribuição e a base dos percentuais. O mapa de contribuição compara a área selecionada com as vizinhas: com o grão municipal, um município, zona ou seção usa o total da UF; com o grão estadual, o total do Brasil (nunca além da disputa). O cartão continua a medir em relação ao nível imediatamente acima.
+
+A lista de distribuição mostra o nível abaixo da área (estados com o exterior, municípios, zonas ou seções), com votos, apoio, contribuição e as marcas "sem dados", "parcial" e "contada com a seção". **Ordenar por** votos, apoio, contribuição ou código da área fica fora da URL; "Mostrar mais" carrega a próxima página de 25. Estados e municípios selecionam a área mantendo o foco. Na folha inferior recolhida aparecem nome, número e apoio.
+
 ## Zonas, seções e exterior
 
 Abaixo do município, o painel lista as **zonas eleitorais**; abaixo da zona, as **seções**. As listas seguem a ordem da API em páginas de 100 com "Carregar mais"; não há busca por zona ou seção. Escolher uma linha carrega só o resultado daquela área. O mapa continua enquadrado no município, com a mesma camada e legenda; o breadcrumb ganha "Zona 0004" e "Seção 0077", e cada ancestral volta ao seu nível.
@@ -69,13 +82,15 @@ Exterior e regiões só têm resultados para **Presidente**. O painel nacional d
 
 Com a coleção de eleições, `collection=elections` e `office` acompanham a seleção geográfica:
 
-| Exemplo                                                   | Painel                                  |
-| --------------------------------------------------------- | --------------------------------------- |
-| `/br?collection=elections&office=president`               | Presidente no Brasil, estados abaixo    |
-| `/br?collection=elections&office=governor`                | Governador por UF (visão nacional)      |
-| `/br?collection=elections&office=senator&state=12`        | Senadores do Acre, com corte da 2ª vaga |
-| `/br?collection=elections&office=federal-deputy&state=12` | Deputados federais do Acre (ranking)    |
-| `/br?collection=elections&state=12`                       | Coleção aberta sem cargo (geografia)    |
+| Exemplo                                                                                         | Painel                                                               |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `/br?collection=elections&office=president`                                                     | Presidente no Brasil, estados abaixo                                 |
+| `/br?collection=elections&office=governor`                                                      | Governador por UF (visão nacional)                                   |
+| `/br?collection=elections&office=senator&state=12`                                              | Senadores do Acre, com corte da 2ª vaga                              |
+| `/br?collection=elections&office=federal-deputy&state=12`                                       | Deputados federais do Acre (ranking)                                 |
+| `/br?collection=elections&state=12`                                                             | Coleção aberta sem cargo (geografia)                                 |
+| `/br?collection=elections&office=president&candidate=280002542548`                              | Foco em Lula, mapa de apoio                                          |
+| `/br?collection=elections&office=president&state=12&candidate=280002542548&metric=contribution` | Contribuição de cada município do Acre para os votos de Lula no Acre |
 
 Os caminhos de país são minúsculos e os parâmetros são em inglês. Códigos são strings e preservam zeros iniciais. A análise valida comprimentos numéricos: estado 2, município/lugar 7, county 5, subdivisão 10. No Brasil, resolve município antes do estado; nos EUA, lugar, subdivisão, county e estado. Um ID bem formado desconhecido mostra mensagem de não encontrado. Valores malformados são ignorados em favor de outro nível válido.
 

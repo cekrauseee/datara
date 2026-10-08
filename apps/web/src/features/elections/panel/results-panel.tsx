@@ -1,6 +1,6 @@
 import { cn } from 'cn'
 import { XIcon } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,9 +16,10 @@ import { Separator } from '@/components/ui/separator'
 
 import { areaLabel, type Area, type MapViewData } from '../../map/map-data'
 import { API_URL } from '../api-client'
-import type { AreaResult, Contest, Coverage } from '../api-types'
+import type { AreaResult, Candidate, Contest, Coverage } from '../api-types'
+import { formatFocusPercent, inArea, LEVEL_BELOW } from '../candidate-focus'
 import { aggregateCoverage, isCombinationError, localClock } from '../depth'
-import { OFFICE_CODES, type ElectionPatch, type OfficeKey } from '../election-location'
+import { OFFICE_CODES, type ElectionPatch, type Metric, type OfficeKey } from '../election-location'
 import { MAJORITARIAN_OFFICES, OFFICE_NAMES } from '../election-model'
 import {
   basisLabel,
@@ -28,10 +29,13 @@ import {
   sourceKindLabel,
   titleCase,
 } from '../format'
+import { useCandidateFocus, type CandidateFocus } from '../use-candidate-focus'
 import type { ElectionSnapshot } from '../use-election'
 import { useElectionMap } from '../use-election-data'
 import { navigateElection } from '../use-election-location'
 import { ContestAreaList, OfficeAreaList } from './area-list'
+import { CandidateCard, exitFocus } from './candidate-card'
+import { CandidateDistribution } from './candidate-distribution'
 import { CandidateList } from './candidate-list'
 import { DepthNavigation } from './depth-lists'
 import { depthView } from './depth-view'
@@ -77,6 +81,12 @@ export function ResultsPanel({
   onSelect,
 }: ResultsPanelProps) {
   const map = useElectionMap(election.mapRequest)
+  // The focus waits for the zone and section resolution, as the panel's own `/results` does.
+  const focus = useCandidateFocus(
+    election.contest,
+    election.candidate,
+    election.resultsRequest?.areaId ?? null,
+  )
   const titleId = useId()
   const titleRef = useRef<HTMLHeadingElement>(null)
   const focusTarget = useRef<string | null>(null)
@@ -183,19 +193,21 @@ export function ResultsPanel({
 
   const statusText = error
     ? ''
-    : election.loading || loadingResults
-      ? `Carregando resultados de ${areaName}…`
-      : national
-        ? `${officeName} por UF: selecione um estado para ver a disputa.`
-        : results.data?.state === 'unavailable'
-          ? `Sem resultados para ${areaName} nesta publicação.`
-          : results.data && mode === 'summary'
-            ? leaderRow
-              ? `Resultados de ${officeName} em ${areaName}: ${titleCase(leaderRow.candidate.displayName)} com ${formatPercent(leaderRow.share.value)}.`
-              : `Resultados de ${officeName} em ${areaName}.`
-            : results.data
-              ? `Resultados de ${officeName} em ${areaName}: ${formatInteger(results.data.pagination.total)} candidatos.`
-              : ''
+    : focus?.here && focus.support
+      ? `Foco em ${titleCase(focus.candidate.displayName)}: apoio ${formatFocusPercent(focus.support.value)} ${inArea(focus.here.area)}.`
+      : election.loading || loadingResults
+        ? `Carregando resultados de ${areaName}…`
+        : national
+          ? `${officeName} por UF: selecione um estado para ver a disputa.`
+          : results.data?.state === 'unavailable'
+            ? `Sem resultados para ${areaName} nesta publicação.`
+            : results.data && mode === 'summary'
+              ? leaderRow
+                ? `Resultados de ${officeName} em ${areaName}: ${titleCase(leaderRow.candidate.displayName)} com ${formatPercent(leaderRow.share.value)}.`
+                : `Resultados de ${officeName} em ${areaName}.`
+              : results.data
+                ? `Resultados de ${officeName} em ${areaName}: ${formatInteger(results.data.pagination.total)} candidatos.`
+                : ''
 
   const attributes = {
     'data-election-status': status,
@@ -269,6 +281,9 @@ export function ResultsPanel({
             onFeature={chooseFeature}
           />
         }
+        focus={focus}
+        metric={election.state.metric}
+        onFocus={(candidate) => toggleFocus(candidate, election.candidateId)}
       />
     )
   else body = <PanelSkeleton rows={contest ? topCount(contest) : 2} />
@@ -345,6 +360,7 @@ export function ResultsPanel({
           result={results.data}
           mode={mode}
           leader={leaderRow}
+          focus={focus}
         />
       }
     >
@@ -422,6 +438,7 @@ function SummaryContent({
   result,
   mode,
   leader,
+  focus,
 }: {
   status: 'error' | 'loading' | 'ready'
   national: boolean
@@ -429,7 +446,24 @@ function SummaryContent({
   result: AreaResult | null
   mode: 'summary' | 'ranking' | null
   leader: AreaResult['candidates'][number] | null
+  focus: CandidateFocus | null
 }) {
+  if (focus && status !== 'error')
+    return (
+      <>
+        <span
+          aria-hidden="true"
+          className="size-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: focus.candidate.color }}
+        />
+        <span className="truncate font-medium">
+          {titleCase(focus.candidate.displayName)} · nº {focus.candidate.number}
+        </span>
+        <span className="shrink-0 tabular-nums" data-sheet-focus-support="">
+          {focus.support ? `Apoio ${formatFocusPercent(focus.support.value)}` : '…'}
+        </span>
+      </>
+    )
   if (status === 'error')
     return <span className="truncate font-medium">Resultados indisponíveis</span>
   if (national) return <span className="truncate font-medium">{officeName} por UF</span>
@@ -543,6 +577,9 @@ function ContestBody({
   onPatch,
   national,
   below,
+  focus,
+  metric,
+  onFocus,
 }: {
   result: AreaResult
   contest: Contest
@@ -562,9 +599,26 @@ function ContestBody({
   national: React.ReactNode
   /** List of the level below the mesh (zones, sections, localities, states of a region). */
   below: React.ReactNode
+  focus: CandidateFocus | null
+  metric: Metric
+  onFocus: (candidate: Candidate) => void
 }) {
   const section = isSectionResult(result)
   const mode = panelMode(contest)
+  const statusScope = (areaId: string) => scopeName(data, areaId, scopeAreas)
+  const focusLevel = focus ? (LEVEL_BELOW[result.area.level] ?? null) : null
+  const meshAreas = useMemo(
+    () =>
+      new Map(
+        data
+          ? [...data.states, ...data.regions].map((feature) => [
+              feature.properties.id,
+              feature.properties,
+            ])
+          : [],
+      ),
+    [data],
+  )
   const majoritarian = contest.voteType === 'majoritarian' && mode === 'summary'
   const municipalities =
     selection?.type === 'state' && data
@@ -579,6 +633,24 @@ function ContestBody({
       aria-busy={stale || undefined}
       data-contest-body={result.area.id}
     >
+      {focus && (
+        <>
+          <CandidateCard focus={focus} metric={metric} statusScope={statusScope} />
+          {focusLevel && (
+            <CandidateDistribution
+              key={`${focus.candidate.id}:${result.area.id}`}
+              contestId={contest.id}
+              candidateId={focus.candidate.id}
+              areaId={result.area.id}
+              level={focusLevel}
+              placeLabel={inArea(result.area)}
+              meshAreas={meshAreas}
+              onSelect={onSelect}
+            />
+          )}
+          <Separator />
+        </>
+      )}
       <CoverageLine result={result} coverage={coverage} />
       {section && <SectionNotes result={result} onPatch={onPatch} />}
       {result.state === 'unavailable' ? (
@@ -593,7 +665,9 @@ function ContestBody({
             result={result}
             contest={contest}
             mode={mode}
-            statusScope={(areaId) => scopeName(data, areaId, scopeAreas)}
+            statusScope={statusScope}
+            focusedId={focus?.candidate.id ?? null}
+            onFocus={onFocus}
           />
           <Separator />
           {section ? (
@@ -605,7 +679,7 @@ function ContestBody({
       )}
       {national}
       {below}
-      {meshLists && selection === null && states.length > 0 && (
+      {meshLists && !focus && selection === null && states.length > 0 && (
         <ContestAreaList
           heading="Estados"
           description={
@@ -620,7 +694,7 @@ function ContestBody({
           onSelect={onSelect}
         />
       )}
-      {selection?.type === 'state' && municipalities.length > 0 && (
+      {!focus && selection?.type === 'state' && municipalities.length > 0 && (
         <ContestAreaList
           heading="Municípios"
           description={
@@ -658,6 +732,10 @@ function NationalView({
         <Badge variant="outline">{coverage?.scope === 'national' ? 'Nacional' : 'Piloto'}</Badge>
         <span>Selecione um estado para ver a disputa.</span>
       </p>
+      <p className="text-muted-foreground" data-focus-national-note="">
+        O foco em candidato vale dentro de uma disputa. Selecione uma UF para focar um candidato a{' '}
+        {OFFICE_NAMES[office].toLocaleLowerCase('pt-BR')}.
+      </p>
       <OfficeAreaList
         heading="Estados"
         description={
@@ -675,4 +753,14 @@ function NationalView({
       />
     </div>
   )
+}
+
+/**
+ * Row click: enters the focus with the default metric (support, no `metric` token), switches the
+ * candidate keeping the metric, or leaves the focus when the row is the focused candidate.
+ */
+function toggleFocus(candidate: Candidate, focusedId: string | null) {
+  if (candidate.id === focusedId) exitFocus()
+  else if (focusedId) navigateElection({ candidate: candidate.officialId })
+  else navigateElection({ candidate: candidate.officialId, metric: 'share' })
 }

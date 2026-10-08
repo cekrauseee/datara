@@ -11,6 +11,18 @@ export {
 } from './api-client'
 export type { ApiParams } from './api-client'
 export type * from './api-types'
+export {
+  LEVEL_BELOW,
+  areaName,
+  areaVotes,
+  candidateTitle,
+  contributionOf,
+  formatFocusPercent,
+  inArea,
+  supportOf,
+  toArea,
+} from './candidate-focus'
+export type { AreaVotes, FocusMeasure } from './candidate-focus'
 export { CollectionSelector, OFFICE_SHORT_NAMES } from './collection-selector'
 export {
   AREA_OFFICE_NOTICE,
@@ -108,9 +120,12 @@ export { MapHoverDetail, hoverTarget } from './map-hover-detail'
 export type { HoverTarget } from './map-hover-detail'
 export { MapLegend } from './map-legend'
 export { AreaList, ContestAreaList, OfficeAreaList } from './panel/area-list'
+export { CandidateCard, exitFocus } from './panel/candidate-card'
+export { CandidateDistribution } from './panel/candidate-distribution'
 export { DepthNavigation } from './panel/depth-lists'
-export { areaName, depthCrumbs, depthView } from './panel/depth-view'
+export { depthAreaName, depthCrumbs, depthView } from './panel/depth-view'
 export type { DepthCrumb, DepthView } from './panel/depth-view'
+export { MetricToggle } from './panel/metric-toggle'
 export { NationalRows } from './panel/national-rows'
 export {
   byName,
@@ -131,6 +146,8 @@ export { useApiQuery } from './use-api-query'
 export type { ApiQuery } from './use-api-query'
 export { AREA_PAGE, useAreaPage, useDepth, usePrincipalCode } from './use-area-list'
 export type { DepthResolution } from './use-area-list'
+export { useCandidateFocus } from './use-candidate-focus'
+export type { CandidateFocus } from './use-candidate-focus'
 export { useElection } from './use-election'
 export type { ElectionSnapshot } from './use-election'
 export {

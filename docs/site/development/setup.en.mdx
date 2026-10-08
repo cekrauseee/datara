@@ -105,7 +105,16 @@ const depth = await import('/scripts/check-election-depth.mjs')
 for (const check of Object.values(depth)) console.log(await check())
 ```
 
-It covers the section URL round trip, the breadcrumb and the lists, the band "Votos contados junto com a Seção 0471" and its link, `zone=9999` and `section=9999` with notices, the "Regiões e exterior" rows, `area=exterior`, `area=zz:29262` and `area=region:north`, clearing when the municipality changes or a state is chosen, `area` with another office, a `LEVEL_TOO_DEEP` without retry and one `publicationId` on every request. The pure rules (region labels, printed totals, zones under a locality) run in `pnpm --filter @datara/web election:check`.
+It covers the section URL round trip, the breadcrumb and the lists, the band "Votos contados junto com a Seção 0471" and its link, `zone=9999` and `section=9999` with notices, the "Regiões e exterior" rows, `area=exterior`, `area=zz:29262` and `area=region:north`, clearing when the municipality changes or a state is chosen, `area` with another office, a `LEVEL_TOO_DEEP` without retry, the candidate focus in a section whose first `/results` page omits the candidate (read from the next page, or a dash with its reason) and one `publicationId` on every request. The pure rules (region labels, printed totals, zones under a locality) run in `pnpm --filter @datara/web election:check`.
+
+The candidate focus check uses the running API with the pilot publication (`VITE_API_URL`); it only records requests and Canvas fills and never changes a response. The pure support and contribution rule runs in `pnpm --filter @datara/web election:check`:
+
+```js
+const focus = await import('/scripts/check-election-focus.mjs')
+for (const check of Object.values(focus)) console.log(await check())
+```
+
+It covers the URL round trip, `aria-pressed` on the row, metric tokens, leaving the focus, office change and history, a single `publicationId`, colours and bands of the support map, card and list values equal to `/results` and `/distribution` in Porto Walter, sorting and pagination, the national view note and the focus in the deputies ranking. Run it at desktop width and below 640 px.
 
 For performance measurements:
 
