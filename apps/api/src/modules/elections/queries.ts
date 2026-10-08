@@ -991,7 +991,7 @@ export async function electionMap(
   return {
     publicationId: ctx.publicationId,
     coverage: ctx.coverage,
-    electionId: contests[0]!.election_id,
+    tseElectionId: contests[0]!.election_id,
     officeCode: query.officeCode,
     level: query.level,
     metric: query.metric,

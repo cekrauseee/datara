@@ -375,7 +375,11 @@ export const MapResponse = z.object({
 export const ElectionMapResponse = z.object({
   publicationId: z.uuid(),
   coverage: Coverage,
-  electionId: Id,
+  tseElectionId: z
+    .string()
+    .describe(
+      'TSE election code shared by the contests (contests[].electionId), not the edition ID',
+    ),
   officeCode: z.string(),
   level: MapLevel,
   metric: ElectionMapMetric,

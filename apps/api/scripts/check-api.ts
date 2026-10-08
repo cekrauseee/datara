@@ -525,6 +525,14 @@ try {
   // One office across its state contests: one item per state, each with its own contest.
   const officeMap = await request('/elections/BR-2026-1/map?officeCode=5&level=state')
   assert.equal(officeMap.contests.length, 27)
+  // The TSE election code of the contests, distinct from the edition in the path.
+  assert.equal(officeMap.tseElectionId, officeMap.contests[0].electionId)
+  assert.ok(
+    officeMap.contests.every(
+      (c: { electionId: string }) => c.electionId === officeMap.tseElectionId,
+    ),
+  )
+  assert.equal('electionId' in officeMap, false)
   assert.equal(officeMap.items.length, 27)
   assert.equal(new Set(officeMap.items.map((item: MapEntry) => item.contestId)).size, 27)
   for (const item of officeMap.items as MapEntry[])
