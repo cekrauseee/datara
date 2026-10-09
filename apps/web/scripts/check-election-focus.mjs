@@ -4,6 +4,7 @@
 // for (const check of Object.values(m)) console.log(await check())
 // `fetch` is wrapped to record API requests (one publicationId) and the canvas `fill` to record
 // the layer colours; neither changes a response.
+import { cachedKeys } from '../src/features/elections/api-cache.ts'
 import { API_URL } from '../src/features/elections/api-client.ts'
 import { navigateElection } from '../src/features/elections/use-election-location.ts'
 
@@ -296,8 +297,8 @@ export async function checkFocusValues() {
 
 export async function checkFocusContributionMap() {
   const record = recordRequests()
-  const contributionMaps = () =>
-    record.requests
+  const contributionMaps = (urls = record.requests) =>
+    urls
       .filter((url) => url.includes('/map?') && url.includes('metric=contribution'))
       .map((url) => new URL(url).searchParams)
   try {
@@ -335,8 +336,9 @@ export async function checkFocusContributionMap() {
       () => legendTitle() === 'Contribuição de Lula (13 · PT) para o Brasil',
       'State grain scoped to Brazil',
     )
+    // An earlier check may have cached the national state map, so the cache keys count too.
     assert(
-      contributionMaps().some(
+      contributionMaps([...record.requests, ...cachedKeys()]).some(
         (params) => params.get('areaId') === 'br' && params.get('level') === 'state',
       ),
       'State grain request scoped to Brazil',

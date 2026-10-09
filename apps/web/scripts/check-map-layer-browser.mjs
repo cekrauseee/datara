@@ -516,17 +516,21 @@ export async function checkMapLayerPage() {
     await until(() => legendTotal() === 5571, 'Municipal legend again', 20_000)
 
     // Tooltip at national zoom: the state fill of the companion map.
+    // The canvas ignores hover while it rebuilds the municipal layer after the grain toggle, so
+    // the pointer keeps moving over the centre, as a real pointer would, until the tooltip shows.
     const canvas = activeRoot().querySelector('canvas')
     const rect = canvas.getBoundingClientRect()
-    canvas.dispatchEvent(
-      new MouseEvent('mousemove', {
-        clientX: rect.left + rect.width / 2,
-        clientY: rect.top + rect.height / 2,
-        bubbles: true,
-      }),
-    )
     await until(
-      () => document.querySelector('[role="tooltip"] [data-map-hover-leader]'),
+      () => {
+        canvas.dispatchEvent(
+          new MouseEvent('mousemove', {
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + rect.height / 2,
+            bubbles: true,
+          }),
+        )
+        return document.querySelector('[role="tooltip"] [data-map-hover-leader]')
+      },
       'Tooltip with leader',
       5000,
     )
