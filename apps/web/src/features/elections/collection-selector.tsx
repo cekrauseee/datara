@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
-import { isOffice, OFFICES, type OfficeKey } from './election-location'
+import { isOffice, type OfficeKey } from './election-location'
 import { EDITION, OFFICE_NAMES } from './election-model'
 import type { ElectionSnapshot } from './use-election'
 import { navigateElection } from './use-election-location'
@@ -25,6 +25,20 @@ export const OFFICE_SHORT_NAMES: Record<OfficeKey, string> = {
   'district-deputy': 'Dep. distrital',
   council: 'Conselho',
 }
+
+/**
+ * Offices shown, disabled, while `/contests` loads: the set most areas contest (a district deputy
+ * replaces the state deputy in the Federal District, with a label of the same width). Listing
+ * all seven would shrink the control once contests arrive, wrapping and unwrapping the header
+ * and resizing the map canvas.
+ */
+const EXPECTED_OFFICES: readonly OfficeKey[] = [
+  'president',
+  'governor',
+  'senator',
+  'federal-deputy',
+  'state-deputy',
+]
 
 const COLLECTION_ITEMS = (year: number, round: number) => [
   { value: 'geography', label: 'Geografia' },
@@ -67,7 +81,9 @@ export function CollectionSelector({
     ? office && !available.includes(office)
       ? [...available, office]
       : available
-    : [...OFFICES]
+    : office && !EXPECTED_OFFICES.includes(office)
+      ? [...EXPECTED_OFFICES, office]
+      : [...EXPECTED_OFFICES]
   const nationalOffices = new Set(
     offices.filter((entry) => entry.national).map((entry) => entry.office),
   )
