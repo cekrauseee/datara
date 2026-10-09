@@ -1,6 +1,6 @@
 ---
 title: Explore the map
-description: Search, select and navigate geographic boundaries.
+description: Search, select and navigate geographic boundaries and election results.
 ---
 
 ## Exploration
@@ -24,15 +24,26 @@ Zoom is limited to 1–100. Selection animation lasts 260 ms and is interruptibl
 
 ## Collections and results
 
-In Brazil, the **Collection** selector in the header switches between **Geografia**, the plain map, and **Eleições 2026 · 1º turno**. Choosing the collection opens the office group and selects the presidency. The offices listed depend on the selected area: district deputy only in the Federal District, council only in Fernando de Noronha. Pressing the selected office again clears the office and keeps the collection open; an office that the new area does not contest is removed from the URL with a notice.
+In Brazil, the **Collection** selector in the header switches between **Geografia**, the plain map, and **Eleições 2026 · 1º turno**. Choosing the collection opens the office group and selects the presidency. From 640 px the offices form a segmented group; below, a select. While contests load, the offices are shown disabled. The offices listed depend on the selected area: district deputy only in the Federal District, council only in Fernando de Noronha; in the national view, governor, senator and deputies are marked "por UF". Pressing the selected office again clears the office and keeps the collection open; an office that the new area does not contest is removed from the URL with a notice. Without an office, the map and the selection card are the geographic ones. Outside Brazil there is no collection.
 
-With an office, the results panel replaces the selection card and uses one skeleton for country, state and municipality: title and office, coverage and provenance line (Piloto or Nacional, counted sections, source kind, generation time, official totalization status and a link to the source), candidates, totals and the navigation list to the level below.
+With an office, the results panel replaces the selection card and uses one skeleton for country, state, municipality, zone, section, exterior and region: title and office, coverage and provenance line (Piloto or Nacional, counted sections, source kind, generation time, official totalization status and a link to the source), candidates, totals and the navigation list to the level below.
 
 - **Summary** (president, governor, senator): the seats plus the next candidate, with photo or initials, number and party, votes, share and its basis, "Mais votado aqui" (never "elected"), official status with its scope ("2º turno · Brasil", "Eleito · Acre"), vote destination when it is not valid, margin in percentage points and votes, the cutoff of the second Senate seat and the share of the other candidates. "Ver todos" expands the list.
 - **Ranking** (deputies and the Noronha council): paginated list with position, official status and, for proportional offices, votes by party (nominal, party-list and sum). Seats are never inferred from the ranking; the official status comes from the TSE.
-- **National view** of governor and senator: the 27 states with the most voted candidate and the margin from the office map; select a state to see the contest. For deputies, names only.
+- **National view** of governor and senator: the 27 states with the most voted candidate and the margin from the office map; select a state to see the contest. For deputies, state names only.
+- **Totals**: electorate, turnout, abstention, valid, nominal, party-list, blank, null and no-candidate votes.
 
-A dash (—) is a value the source did not report, never zero. An area without a result in this publication shows the pilot scope; an API failure shows the error with "Tentar novamente" while the map, the search and the selection keep working. Below 640 px the panel is a collapsed bottom sheet with the leader and the share; its header expands it.
+A dash (—) is a value the source did not report, never zero, and comes with its reason. An area without a result in this publication shows the pilot scope; an API failure shows the error with "Tentar novamente" while the map, the search and the selection keep working. While a new result loads, the previous one of the same contest stays visible and dimmed.
+
+### Map and legend
+
+With a majoritarian office, the map paints each municipality (the default grain, also at national zoom) or each state in the colour of the most voted candidate. Intensity grows with the margin in four fixed bands: below 5, 5 to 15, 15 to 30 and from 30 percentage points. A tie uses a neutral tone ("Empate"); an area without a result keeps the base colour ("Sem dados"); an incomplete totalization is attenuated ("Parcial"). In the national view of governor and senator the map joins the 27 contests and the legend groups by party. Deputies and the council have no leader map: the map appears in candidate focus or with `metric=turnout`.
+
+The legend sits in the bottom right corner: metric title, the **Estados · Municípios** toggle, one row per candidate or party with its four bands and their counts, the tie, partial and no-data counts, and the coverage ("Piloto · 3 de 5.571 com dado · 5.753 resultados ausentes · 186 no exterior sem geometria" in the pilot). It can be collapsed; below 640 px it starts collapsed into the **Legenda** button. Bands are fixed, not quantiles: an area's colour depends only on its own value.
+
+Hover and selection highlights are outlines only, so they never change the colours. The tooltip shows the area, the most voted candidate and party, the margin, the votes and, when they apply, "Parcial", "Empate" or "Sem dados nesta publicação". At national zoom a click selects the state even with municipal paint, and the tooltip uses the state's result; municipalities respond from 2.5× or, at municipal grain, as soon as a state is selected.
+
+The `margin` (margin in a neutral tone, same bands) and `turnout` (below 60, 60–70, 70–75, 75–80 and from 80%) metrics exist only through the URL; candidate metrics live in the focus.
 
 ### Candidate focus
 
@@ -41,11 +52,17 @@ Clicking a candidate in the summary or the ranking opens the focus; clicking the
 The card at the top of the panel shows photo or initials, number and party, coalition and federation, running mate or substitutes, official status with its scope and the vote destination when it is not valid. Below it, with two decimals:
 
 - **Support** (apoio): the candidate's votes in the area over the area's basis (`shareBasis`, for example recorded nominal votes), equal to the row's share in `/results`. "Apoio em Porto Walter: 50,95% · 3.208 de 6.296 dos votos nominais registrados (EA20)".
-- **Contribution** (contribuição): votes in the area over the candidate's votes one level up (Brazil ← state ← municipality ← zone ← section; regions and the exterior ← Brazil). It exists only when both areas have a result from the same source (official totalization or the sum of states on one side and a ballot box report on the other are not compared). At the contest's area it reads "escopo da disputa (100%)"; below the state a second line gives the contribution in Brazil (or in the state). Positive values below 0.005% read "<0,01%".
+- **Contribution** (contribuição): votes in the area over the candidate's votes one level up (Brazil ← state ← municipality ← zone ← section; regions and the exterior ← Brazil). It exists only when both areas have a result from the same source (official totalization or the sum of states on one side and a ballot box report on the other are not compared). At the contest's area it reads "escopo da disputa (100%)"; below the state a second line gives the contribution in Brazil (or in the state). Positive values below 0.005% read `<0,01%`.
 
-A dash comes with its reason: no result in the area, different bases, a zero basis, a section counted with its principal section, or a section whose result lists no votes for the candidate after all its pages were read. The **Votos · Apoio · Contribuição** toggle paints the map in the candidate's colour with five fixed bands (support <10, 10–25, 25–40, 40–55 and ≥55%; contribution <0.1, 0.1–0.5, 0.5–2, 2–10 and ≥10%; votes by decades from one thousand to one million); the legend names the candidate, the contribution's area and the basis of the percentages. The contribution map compares the selected area with its siblings: at municipal grain a municipality, zone or section uses the state's total; at state grain, Brazil's (never beyond the contest). The card still measures against the level immediately above.
+A dash comes with its reason: no result in the area, different bases, a zero basis, a section counted with its principal section, or a section whose result lists no votes for the candidate after all its pages were read. The **Votos · Apoio · Contribuição** toggle paints the map in the candidate's colour with five fixed bands (support below 10, 10–25, 25–40, 40–55 and from 55%; contribution below 0.1, 0.1–0.5, 0.5–2, 2–10 and from 10%; votes by decades from one thousand to one million); the legend names the candidate, the contribution's area and the basis of the percentages. The contribution map compares the selected area with its siblings: at municipal grain a municipality, zone or section uses the state's total; at state grain, Brazil's (never beyond the contest). The card still measures against the level immediately above.
 
-The distribution list shows the level below the area (states with the exterior, municipalities, zones or sections) with votes, support, contribution and the marks "sem dados", "parcial" and "contada com a seção". **Ordenar por** votes, support, contribution or area code stays out of the URL; "Mostrar mais" loads the next page of 25. States and municipalities select the area and keep the focus. The collapsed bottom sheet shows name, number and support.
+The distribution list shows the level below the area (states with the exterior, municipalities, zones or sections) with votes, support, contribution and the marks "sem dados", "parcial" and "contada com a seção". **Ordenar por** votes, support, contribution or area code stays out of the URL; "Mostrar mais" loads the next page of 25. States and municipalities select the area and keep the focus; zones and sections also appear in the navigation list. The collapsed bottom sheet shows name, number and support.
+
+### Mobile and keyboard
+
+Below 640 px the panel is a bottom sheet. Collapsed, it shows the most voted candidate and the share, or the focused candidate's name, number and support; below the municipality, the level comes first ("Seção 0472 · …"). The sheet header expands it to 60 % of the height with its own scrolling. The zoom controls, the legend and the footer move above the sheet. There are no drag gestures.
+
+Selectors, offices, candidate rows, lists, grain and metric toggles and "Tentar novamente" are buttons reachable with Tab. In segmented groups (offices, grain, metric) the arrow keys move between options and Enter or Space chooses. Candidate rows expose the focus with `aria-pressed`. Choosing an area from a list moves keyboard focus to the panel title; the new result is announced in a status region, also while the sheet is collapsed.
 
 ## Zones, sections and exterior
 
@@ -65,7 +82,7 @@ The exterior and the regions only have results for **president**. The national p
 | `/br?collection=elections&office=president&area=zz:29262`                                        | Abu Dhabi                    |
 | `/br?collection=elections&office=president&area=region:north`                                    | North region (sum of states) |
 
-`zone` requires `municipality` (or a locality `area=zz:…`) and `section` requires `zone`; both have four digits. An unknown zone or section is removed from the URL with a notice ("Zona 9999 não encontrada neste município."); an unknown section keeps the zone. `area` replaces the geographic selection and is removed when a state or municipality is chosen. With another office or none, `area` is ignored with the notice "Exterior e regiões só têm resultados para presidente."; an unknown area returns to Brazil with a notice. A combination the API rejects shows "Combinação não disponível" without a retry.
+A combination the API rejects shows "Combinação não disponível" without a retry.
 
 ## URLs
 
@@ -80,21 +97,40 @@ The exterior and the regions only have results for **president**. The national p
 | `/us?state=36&place=3651000`          | New York city                               |
 | `/us?state=36&subdivision=3606150617` | A subdivision identified by its source code |
 
-With the elections collection, `collection=elections` and `office` accompany the geographic selection:
-
-| Example                                                                                         | Panel                                                          |
-| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `/br?collection=elections&office=president`                                                     | President in Brazil, states below                              |
-| `/br?collection=elections&office=governor`                                                      | Governor by state (national view)                              |
-| `/br?collection=elections&office=senator&state=12`                                              | Senators of Acre, with the second-seat cutoff                  |
-| `/br?collection=elections&office=federal-deputy&state=12`                                       | Federal deputies of Acre (ranking)                             |
-| `/br?collection=elections&state=12`                                                             | Collection open without an office (geography)                  |
-| `/br?collection=elections&office=president&candidate=280002542548`                              | Focus on Lula, support map                                     |
-| `/br?collection=elections&office=president&state=12&candidate=280002542548&metric=contribution` | Contribution of each Acre municipality to Lula's votes in Acre |
-
 Country paths are lowercase; query parameters are English. Codes are strings and retain leading zeros. Parsing checks numeric lengths: state 2, municipality/place 7, county 5, subdivision 10. Brazil resolves municipality before state; the US resolves place, subdivision, county, then state. A valid-looking but unknown ID produces a not-found message. Malformed values are ignored in favor of another valid level.
 
 Selection writes canonical parameters from the chosen area's state. It removes obsolete selection parameters, including earlier Portuguese names, while preserving unrelated query parameters and the fragment. Browser back/forward restores URL selections. The root and unknown country paths normalize to Brazil; there is no separate 404 page. Vite's base URL is used for navigation and asset paths.
+
+### Election parameters
+
+They apply only on `/br` and add to `state` and `municipality`. Without `collection=elections` the others are ignored and `/br` is the geographic map. Invalid values are ignored; the explorer only writes values that differ from the default.
+
+| Parameter     | Values                                                                                                                | Rule                                                                                                                                                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `collection`  | `elections`                                                                                                           | Absent: geography. Choosing Geografia removes the other election parameters except `publication` and `round`.                                                                                                                     |
+| `office`      | `president`, `governor`, `senator`, `federal-deputy`, `state-deputy`, `district-deputy`, `council`                    | Absent: collection open without an office. An office the area does not contest is removed with a notice. Changing the office removes `candidate`.                                                                                 |
+| `level`       | `state`                                                                                                               | Map grain. Absent: municipalities, also in the national view.                                                                                                                                                                     |
+| `metric`      | `leader`, `margin`, `turnout`, `votes`, `share`, `contribution`                                                       | Default `leader` without a candidate and `share` with one. `votes`, `share` and `contribution` require `candidate`; without it they fall back to `leader`.                                                                        |
+| `candidate`   | official TSE identifier (digits)                                                                                      | Candidate of the contest derived from office and area. Unknown: notice and focus ignored. Removed when the office or the contest's area changes (the state for governor, the municipality for the council).                       |
+| `zone`        | four digits                                                                                                           | Requires `municipality` or a locality `area=zz:…`. Unknown: removed with a notice. Changing the municipality removes `zone` and `section`.                                                                                        |
+| `section`     | four digits                                                                                                           | Requires `zone`. Unknown: removed with a notice, keeping the zone. Changing the zone removes the section.                                                                                                                         |
+| `area`        | `exterior`, `zz:<code>`, `region:north`, `region:northeast`, `region:centralwest`, `region:southeast`, `region:south` | Area without geometry, president only; with another office or none it is ignored with a notice. Replaces and removes `state` and `municipality`; choosing a state or municipality removes it. Unknown: notice and back to Brazil. |
+| `publication` | UUID                                                                                                                  | Read only, never written; preserved by navigation. Unknown: notice and the active publication.                                                                                                                                    |
+| `round`       | `2`                                                                                                                   | Reserved. Absent means the first round, and links without `round` keep that meaning. Today `round=2` announces that no edition is published.                                                                                      |
+
+Every request of a session uses the same publication, pinned at the first query; a new publication appears after a reload. Going to `/us` removes every election parameter; geographic navigation preserves the others; back and forward restore everything.
+
+| Example                                                                                         | Panel                                                          |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `/br?collection=elections&office=president`                                                     | President in Brazil, municipal map, states below               |
+| `/br?collection=elections&office=president&level=state`                                         | President in Brazil, map by state                              |
+| `/br?collection=elections&office=governor`                                                      | Governor by state (national view)                              |
+| `/br?collection=elections&office=senator&state=12`                                              | Senators of Acre, with the second-seat cutoff                  |
+| `/br?collection=elections&office=federal-deputy&state=12`                                       | Federal deputies of Acre (ranking)                             |
+| `/br?collection=elections&office=federal-deputy&state=12&metric=turnout`                        | Same ranking, turnout map                                      |
+| `/br?collection=elections&state=12`                                                             | Collection open without an office (geography)                  |
+| `/br?collection=elections&office=president&candidate=280002542548`                              | Focus on Lula, support map                                     |
+| `/br?collection=elections&office=president&state=12&candidate=280002542548&metric=contribution` | Contribution of each Acre municipality to Lula's votes in Acre |
 
 ## Geographic levels
 
@@ -104,4 +140,4 @@ At national zoom, state boundaries are shown. Municipal/county boundaries begin 
 
 ## Loading and errors
 
-A country silhouette skeleton remains until the first Canvas drawing is ready. Controls are disabled while the map is unavailable. Download/preparation failures expose retry actions; local detail and search failures are reported separately. Detail loading never means that an area has no geography. The footer attributes the current data source and edition.
+A country silhouette skeleton remains until the first Canvas drawing is ready. Controls are disabled while the map is unavailable. Download/preparation failures expose retry actions; local detail and search failures are reported separately. Detail loading never means that an area has no geography. The footer attributes the current data source and edition. In the elections collection an unavailable API affects only the panel and the legend, each with its error and "Tentar novamente"; the map, the search and the selection keep working.

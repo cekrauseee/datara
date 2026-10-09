@@ -51,4 +51,4 @@ O check exige `DATABASE_URL` (lido de `apps/api/.env` quando existe) e usa o mes
 
 ## Ambiente
 
-`DATABASE_URL` é obrigatório; `PORT` tem padrão 3000, `CORS_ORIGIN` padrão `http://localhost:5173` e `ASSET_BASE_URL` padrão `/assets`. A configuração é validada antes de ouvir requisições. A origem CORS precisa ser completa, sem barra final ou caminho. A integração eleitoral no frontend ainda não existe.
+`DATABASE_URL` é obrigatório; `PORT` tem padrão 3000, `CORS_ORIGIN` padrão `http://localhost:5173` e `ASSET_BASE_URL` padrão `/assets`. A configuração é validada antes de ouvir requisições. A origem CORS precisa ser completa, sem barra final ou caminho. O explorador web resolve `photoUrl` relativa contra a origem da API (`VITE_API_URL`) e mostra as iniciais quando a candidatura não tem foto.

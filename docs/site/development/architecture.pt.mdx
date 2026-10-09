@@ -1,29 +1,57 @@
 ---
 title: Arquitetura e desempenho
-description: Como o mapa geográfico e a API eleitoral independente se organizam.
+description: Como o mapa geográfico, a coleção eleitoral e a API se organizam.
 ---
 
 ## Responsabilidades
 
-A web é uma aplicação React cliente. `app.tsx` controla seleção de país/área e registra páginas de países já visitados. Cada página permanece montada e é ocultada quando inativa, preservando câmera e busca sem reconstruir geometria.
+`apps/web/src/main.tsx` monta React em Strict Mode e `app/app.tsx` renderiza `MapExplorer`. Vite usa o React Compiler, Tailwind CSS v4 e o alias `@/`. Os componentes de interface são shadcn/Base UI locais em `components/ui`; tokens semânticos e a tipografia Geist ficam em `src/index.css`. Cada país visitado mantém sua página montada e oculta quando inativa, preservando câmera e busca sem reconstruir geometria.
 
-| Arquivo ou grupo                           | Responsabilidade                                               |
-| ------------------------------------------ | -------------------------------------------------------------- |
-| `app.tsx`, `country-map.tsx`               | Estado do produto e páginas retidas                            |
-| `map-location.ts`                          | País, parâmetros canônicos, histórico e restauração            |
-| `map-search.tsx`, `map-selection.tsx`      | Busca e apresentação da seleção                                |
-| `use-map-data.ts`                          | Carregamento, erro, tentativa novamente e resultados obsoletos |
-| `map-countries.ts`                         | Países, assets e atribuição                                    |
-| `map-data.ts`                              | Tipos geográficos, decodificação, nomes e busca                |
-| `map-cache.ts`, `map-requests.ts`          | Requisições em memória; remove falhas do cache                 |
-| `map-worker-api.ts`, `map-worker-types.ts` | Mensagens, pendências, cancelamento e ciclo do worker          |
-| `map-worker.ts`                            | Download, decodificação, malhas e projeção fora da UI          |
-| `map-projection.ts`                        | Cache projetado e criação gradual de `Path2D`                  |
-| `map-canvas.ts`                            | Desenho, hit testing, pan/zoom, câmera, resize e cleanup       |
-| `map-geometry.ts`                          | Projeção, limites, zoom e posicionamento de tooltip            |
-| `map-skeleton.tsx`, `map-tooltip.tsx`      | Silhueta de carregamento e cartão de hover                     |
+O mapa geográfico fica em `apps/web/src/features/map/`:
 
-A API Hono não participa do fluxo atual do mapa. Seu módulo eleitoral independente lê publicações PostgreSQL através de rotas OpenAPI validadas, SQL parametrizado, métricas e apresentação local. Scripts de ingestão controlam aquisição, normalização, migrações e publicação atômica; handlers não baixam dados do TSE nem leem BUs brutos. Respostas são comprimidas, leituras fixadas numa publicação explícita podem ficar em cache por uma hora, consultas de território expandem só os níveis acima do pedido pelo índice `areas_parent`, e distribuição e mapa recusam recortes além dos limites de profundidade e de áreas em vez de percorrê-los. Veja [API](/api/usage) e [ingestão](/development/ingestion). A web não usa biblioteca de roteamento cliente, autenticação ou renderização no servidor.
+| Arquivo                                    | Responsabilidade                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `map-explorer.tsx`                         | Páginas de país, cabeçalho, busca, breadcrumb, controles, painel, legenda e mensagens |
+| `use-map-location.ts`, `map-location.ts`   | Histórico, navegação de país e parsing/serialização puros da URL geográfica           |
+| `use-map-data.ts`                          | Carregamento, erro, tentativa novamente e resultados obsoletos                        |
+| `map-countries.ts`                         | Países, assets e atribuição                                                           |
+| `map-data.ts`                              | Tipos geográficos, decodificação TopoJSON, nomes e busca                              |
+| `map-cache.ts`, `map-requests.ts`          | Requisições em memória deduplicadas; falhas saem do cache                             |
+| `map-worker-api.ts`, `map-worker-types.ts` | Mensagens tipadas, pendências, cancelamento e ciclo do worker                         |
+| `map-worker.ts`                            | Download, decodificação, malhas e projeção fora da thread da UI                       |
+| `map-projection.ts`                        | Cache projetado e criação gradual de `Path2D` dentro do orçamento por frame           |
+| `map-canvas.ts`                            | Desenho, camada de dados, hit testing, pan/zoom, câmera, resize e cleanup             |
+| `map-layer.ts`                             | Modelo da camada de dados, grupos `Path2D` por classe e estado, regra de hit testing  |
+| `map-geometry.ts`                          | Projeção, limites, zoom e posicionamento da dica                                      |
+| `map-skeleton.tsx`, `map-tooltip.tsx`      | Silhueta de carregamento e cartão de hover                                            |
+
+A coleção eleitoral fica em `apps/web/src/features/elections/`, exportada por `index.ts`:
+
+| Arquivo                                                                                   | Responsabilidade                                                                                     |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `election-location.ts`, `use-election-location.ts`                                        | Vocabulário eleitoral da URL, leitura, escrita, regras de limpeza e `navigateElection`               |
+| `api-client.ts`                                                                           | `VITE_API_URL`, requisições com tempo limite de 20 s, erros `{code, message, requestId}`, `photoURL` |
+| `api-types.generated.ts`, `api-types.ts`                                                  | Tipos gerados do OpenAPI da API e nomes usados pela web                                              |
+| `api-cache.ts`, `use-api-query.ts`                                                        | Cache em memória pela URL completa e slot de requisição com guarda de obsolescência e retry          |
+| `election-session.ts`                                                                     | Edição e publicação fixadas por sessão; nova fixação quando a publicação some                        |
+| `use-election-data.ts`                                                                    | Hooks por rota: disputas, áreas, mapa, resultados, candidaturas e distribuição                       |
+| `election-model.ts`                                                                       | Cargos, derivação da disputa pela área, cargos disponíveis e pedido de mapa                          |
+| `use-election.ts`                                                                         | Estado eleitoral composto: sessão, disputa, área eleitoral, zona/seção/área e avisos                 |
+| `depth.ts`, `use-area-list.ts`                                                            | Regras de zonas, seções, exterior e regiões; resolução por código e listas paginadas                 |
+| `candidate-focus.ts`, `use-candidate-focus.ts`                                            | Regras de apoio e contribuição e consultas do foco em candidato                                      |
+| `map-classes.ts`, `use-map-layer.ts`                                                      | Classificação em faixas fixas, contagens da legenda e camada entregue ao Canvas                      |
+| `map-legend.tsx`, `map-hover-detail.tsx`, `map-format.ts`                                 | Legenda, detalhe da dica e rótulos de métrica                                                        |
+| `format.ts`, `use-media-query.ts`                                                         | Números, percentuais e datas em pt-BR; consulta de largura                                           |
+| `collection-selector.tsx`                                                                 | Seletores de coleção e cargo                                                                         |
+| `panel/results-panel.tsx`, `panel/mobile-sheet.tsx`                                       | Painel por nível em coluna ou folha inferior; cartão da geografia                                    |
+| `panel/panel-model.ts`, `panel/panel-states.tsx`                                          | Modo resumo ou ranking, nomes de escopo, líderes; carregamento, vazio, erro e avisos                 |
+| `panel/candidate-list.tsx`, `panel/candidate-row.tsx`                                     | Resumo e ranking paginado com linhas que abrem o foco                                                |
+| `panel/totals.tsx`, `panel/party-totals.tsx`                                              | Totais da área e votos por partido                                                                   |
+| `panel/area-list.tsx`, `panel/national-rows.tsx`                                          | Estados e municípios da malha; linhas de regiões e exterior                                          |
+| `panel/depth-lists.tsx`, `panel/depth-view.ts`, `panel/section-panel.tsx`                 | Listas de zonas, seções e localidades, títulos e breadcrumb, notas e totais impressos da seção       |
+| `panel/candidate-card.tsx`, `panel/metric-toggle.tsx`, `panel/candidate-distribution.tsx` | Cartão do foco, métrica do mapa e lista de distribuição                                              |
+
+A API Hono é independente do mapa geográfico: sem coleção, `/br` e `/us` não fazem requisições à API. Seu módulo eleitoral lê publicações PostgreSQL através de rotas OpenAPI validadas, SQL parametrizado, métricas e apresentação local. Scripts de ingestão controlam aquisição, normalização, migrações e publicação atômica; handlers não baixam dados do TSE nem leem BUs brutos. Respostas são comprimidas, leituras fixadas numa publicação explícita podem ficar em cache por uma hora, consultas de território expandem só os níveis acima do pedido pelo índice `areas_parent`, e distribuição e mapa recusam recortes além dos limites de profundidade e de áreas em vez de percorrê-los. Veja [API](/api/usage) e [ingestão](/development/ingestion). A web não usa biblioteca de roteamento cliente, autenticação ou renderização no servidor.
 
 A documentação é uma aplicação Next separada: páginas localizadas e índice de busca são gerados durante a build. Proxy negocia `Accept-Language` em entradas sem idioma. Não há ligação runtime ao banco/API para ler a documentação.
 
@@ -36,6 +64,14 @@ A documentação é uma aplicação Next separada: páginas localizadas e índic
 5. Detalhes dos EUA são baixados por estado e projetados sob demanda. Selecionar um lugar pode solicitar primeiro essa feature, sem esperar todas as formas locais.
 6. Callbacks atualizam seleção, hover, prontidão e zoom concluído. A navegação grava a seleção na URL.
 
+Com a coleção eleitoral:
+
+1. `useElection` lê os parâmetros eleitorais e resolve a sessão uma vez: `/elections?country=BR&year=2026&round=1` dá a edição e a publicação ativa, que passa a ir em todas as requisições como `publicationId`. Se essa publicação deixar de existir (404), a sessão é refixada uma vez e o cache é limpo.
+2. `/contests` é carregado uma vez por sessão. A disputa é derivada do cargo e da área eleitoral atual, obtida pelo `featureId` da malha (ou por `area`, zona e seção), escolhendo o escopo que contém a área.
+3. Cada consulta é um slot com chave igual à URL completa. Uma chave nova descarta a resposta atrasada da anterior; o cache em memória compartilha promessas e remove falhas, e "Tentar novamente" remove a entrada e repete.
+4. `useMapLayer` pede `/map` da disputa (ou o mapa por cargo na visão nacional), classifica os itens em classes de cor e envia a camada ao Canvas por `setLayer`. Com o grão municipal na visão nacional, o mapa por estado vem junto para a dica.
+5. O painel pede `/results` da área, `/areas` para zonas, seções e localidades e, no foco, `/results` da área, do nível acima e do escopo da disputa, além de `/distribution` do nível abaixo.
+
 ## Responsividade
 
 - Rede, parsing, topologia, malhas e projeção em lote ficam no worker; caminhos cruzam a fronteira em vez de grandes arrays de coordenadas.
@@ -45,6 +81,7 @@ A documentação é uma aplicação Next separada: páginas localizadas e índic
 - Desenho e hover usam `requestAnimationFrame`. Zoom evita atualizar React em todo frame; progresso é limitado para evitar frames negativos.
 - Seleção verifica bounds e `isPointInPath` sob demanda, sem reconstruir listas clicáveis a cada frame.
 - Contornos estaduais unem os mesmos arcos dos níveis inferiores. Preenchimentos opacos permanecem estáveis no zoom; limites compartilhados são desenhados separadamente.
+- A camada de dados funde um `Path2D` por classe de cor e estado: um frame nacional com 5.571 municípios pintados faz algumas centenas de `fill()`, não um por município. Os grupos são montados dentro do mesmo orçamento de 3 ms por frame e trocados de uma vez; enquanto um novo mapa carrega, a camada anterior continua pintada.
 - Formas fora da tela são omitidas quando possível, nomes não são pintados e pixel ratio é limitado a 2.
 
 Caches e páginas retidas trocam memória por retorno rápido. Detalhes acumulam conforme estados são explorados. Não há promessa de memória constante ou frame rate fixo em todos os aparelhos.
