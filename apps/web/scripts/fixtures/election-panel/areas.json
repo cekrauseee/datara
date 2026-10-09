@@ -1,0 +1,242 @@
+{
+  "12": {
+    "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+    "coverage": {
+      "scope": "pilot",
+      "complete": false,
+      "expected": 268,
+      "completed": 268,
+      "officialAbsences": 0,
+      "results": 293,
+      "buResults": 32,
+      "buFiles": 7,
+      "aggregates": 261,
+      "reconciliation": "total ballots in fully imported zones",
+      "reconciledZoneResults": 1,
+      "unreconciledZoneResults": null,
+      "discrepancies": [],
+      "officialSectionStatuses": null,
+      "sectionsWithoutAuxiliaryFile": null,
+      "selection": {
+        "ufs": ["ac", "df", "pe", "zz"],
+        "municipalitiesPerUf": 1,
+        "primarySectionsPerUf": 2
+      }
+    },
+    "items": [
+      {
+        "id": "ac",
+        "level": "state",
+        "name": "ACRE",
+        "uf": "ac",
+        "municipalityCode": null,
+        "zoneCode": null,
+        "sectionCode": null,
+        "featureId": "12",
+        "parentId": "region:north",
+        "principalAreaId": null
+      }
+    ],
+    "pagination": { "limit": 25, "offset": 0, "total": 1, "hasMore": false }
+  },
+  "26": {
+    "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+    "coverage": {
+      "scope": "pilot",
+      "complete": false,
+      "expected": 268,
+      "completed": 268,
+      "officialAbsences": 0,
+      "results": 293,
+      "buResults": 32,
+      "buFiles": 7,
+      "aggregates": 261,
+      "reconciliation": "total ballots in fully imported zones",
+      "reconciledZoneResults": 1,
+      "unreconciledZoneResults": null,
+      "discrepancies": [],
+      "officialSectionStatuses": null,
+      "sectionsWithoutAuxiliaryFile": null,
+      "selection": {
+        "ufs": ["ac", "df", "pe", "zz"],
+        "municipalitiesPerUf": 1,
+        "primarySectionsPerUf": 2
+      }
+    },
+    "items": [
+      {
+        "id": "pe",
+        "level": "state",
+        "name": "PERNAMBUCO",
+        "uf": "pe",
+        "municipalityCode": null,
+        "zoneCode": null,
+        "sectionCode": null,
+        "featureId": "26",
+        "parentId": "region:northeast",
+        "principalAreaId": null
+      }
+    ],
+    "pagination": { "limit": 25, "offset": 0, "total": 1, "hasMore": false }
+  },
+  "53": {
+    "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+    "coverage": {
+      "scope": "pilot",
+      "complete": false,
+      "expected": 268,
+      "completed": 268,
+      "officialAbsences": 0,
+      "results": 293,
+      "buResults": 32,
+      "buFiles": 7,
+      "aggregates": 261,
+      "reconciliation": "total ballots in fully imported zones",
+      "reconciledZoneResults": 1,
+      "unreconciledZoneResults": null,
+      "discrepancies": [],
+      "officialSectionStatuses": null,
+      "sectionsWithoutAuxiliaryFile": null,
+      "selection": {
+        "ufs": ["ac", "df", "pe", "zz"],
+        "municipalitiesPerUf": 1,
+        "primarySectionsPerUf": 2
+      }
+    },
+    "items": [
+      {
+        "id": "df",
+        "level": "state",
+        "name": "DISTRITO FEDERAL",
+        "uf": "df",
+        "municipalityCode": null,
+        "zoneCode": null,
+        "sectionCode": null,
+        "featureId": "53",
+        "parentId": "region:centralwest",
+        "principalAreaId": null
+      }
+    ],
+    "pagination": { "limit": 25, "offset": 0, "total": 1, "hasMore": false }
+  },
+  "1200393": {
+    "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+    "coverage": {
+      "scope": "pilot",
+      "complete": false,
+      "expected": 268,
+      "completed": 268,
+      "officialAbsences": 0,
+      "results": 293,
+      "buResults": 32,
+      "buFiles": 7,
+      "aggregates": 261,
+      "reconciliation": "total ballots in fully imported zones",
+      "reconciledZoneResults": 1,
+      "unreconciledZoneResults": null,
+      "discrepancies": [],
+      "officialSectionStatuses": null,
+      "sectionsWithoutAuxiliaryFile": null,
+      "selection": {
+        "ufs": ["ac", "df", "pe", "zz"],
+        "municipalitiesPerUf": 1,
+        "primarySectionsPerUf": 2
+      }
+    },
+    "items": [
+      {
+        "id": "ac:01066",
+        "level": "municipality",
+        "name": "PORTO WALTER",
+        "uf": "ac",
+        "municipalityCode": "01066",
+        "zoneCode": null,
+        "sectionCode": null,
+        "featureId": "1200393",
+        "parentId": "ac",
+        "principalAreaId": null
+      }
+    ],
+    "pagination": { "limit": 25, "offset": 0, "total": 1, "hasMore": false }
+  },
+  "1200401": {
+    "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+    "coverage": {
+      "scope": "pilot",
+      "complete": false,
+      "expected": 268,
+      "completed": 268,
+      "officialAbsences": 0,
+      "results": 293,
+      "buResults": 32,
+      "buFiles": 7,
+      "aggregates": 261,
+      "reconciliation": "total ballots in fully imported zones",
+      "reconciledZoneResults": 1,
+      "unreconciledZoneResults": null,
+      "discrepancies": [],
+      "officialSectionStatuses": null,
+      "sectionsWithoutAuxiliaryFile": null,
+      "selection": {
+        "ufs": ["ac", "df", "pe", "zz"],
+        "municipalitiesPerUf": 1,
+        "primarySectionsPerUf": 2
+      }
+    },
+    "items": [
+      {
+        "id": "ac:01392",
+        "level": "municipality",
+        "name": "RIO BRANCO",
+        "uf": "ac",
+        "municipalityCode": "01392",
+        "zoneCode": null,
+        "sectionCode": null,
+        "featureId": "1200401",
+        "parentId": "ac",
+        "principalAreaId": null
+      }
+    ],
+    "pagination": { "limit": 25, "offset": 0, "total": 1, "hasMore": false }
+  },
+  "2605459": {
+    "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+    "coverage": {
+      "scope": "pilot",
+      "complete": false,
+      "expected": 268,
+      "completed": 268,
+      "officialAbsences": 0,
+      "results": 293,
+      "buResults": 32,
+      "buFiles": 7,
+      "aggregates": 261,
+      "reconciliation": "total ballots in fully imported zones",
+      "reconciledZoneResults": 1,
+      "unreconciledZoneResults": null,
+      "discrepancies": [],
+      "officialSectionStatuses": null,
+      "sectionsWithoutAuxiliaryFile": null,
+      "selection": {
+        "ufs": ["ac", "df", "pe", "zz"],
+        "municipalitiesPerUf": 1,
+        "primarySectionsPerUf": 2
+      }
+    },
+    "items": [
+      {
+        "id": "pe:30015",
+        "level": "municipality",
+        "name": "FERNANDO DE NORONHA",
+        "uf": "pe",
+        "municipalityCode": "30015",
+        "zoneCode": null,
+        "sectionCode": null,
+        "featureId": "2605459",
+        "parentId": "pe",
+        "principalAreaId": null
+      }
+    ],
+    "pagination": { "limit": 25, "offset": 0, "total": 1, "hasMore": false }
+  }
+}

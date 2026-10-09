@@ -44,7 +44,7 @@ Root development uses the native Turborepo TUI in a capable interactive terminal
 
 `pnpm run setup` prepares ignored `apps/api/.env`, the project-managed native PostgreSQL cluster, migrations, the limited official pilot and two photos. `pnpm dev` reloads this configuration, ensures the managed database is running, and launches web/API through Turbo. Dev explicitly passes API configuration through Turbo’s strict environment filtering. Vite uses strict port 5173; API `PORT` defaults to 3000. Occupied IPv4 or IPv6 localhost ports fail clearly.
 
-`@datara/api` uses Hono and PostgreSQL. `DATABASE_URL` is required and is saved by setup; `PORT` defaults to 3000. The web geography explorer remains independent of the API. The backend imports and serves the official Brazilian 2026 first round with local published snapshots; it does not fetch sources during user requests.
+`@datara/api` uses Hono and PostgreSQL. `DATABASE_URL` is required and is saved by setup; `PORT` defaults to 3000. The geographic map does not depend on the API; only the elections collection queries it. The backend imports and serves the official Brazilian 2026 first round with local published snapshots; it does not fetch sources during user requests.
 
 See [database setup and ingestion](/development/ingestion) for native PostgreSQL or optional Compose, migration, pilot/national population and replay. See [API contracts and verification](/api/usage) for routes, OpenAPI, exact HTTP examples, metric bases, local presentation and isolated database checks.
 
@@ -58,6 +58,8 @@ curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
 curl -fsS 'http://localhost:3000/openapi.json'
 ```
 
+The web reads the API at `VITE_API_URL` (default `http://localhost:3000`). `pnpm dev` derives it from `PORT` in `apps/api/.env` and Turbo passes it to Vite. To run only the web against an API on another port, use `VITE_API_URL=http://localhost:3001 pnpm --filter @datara/web dev`. The API must accept the web origin in `CORS_ORIGIN` (default `http://localhost:5173`). An invalid `VITE_API_URL` shows as an `INVALID_API_URL` error in the panel; without the API, the map, the search and the selection keep working.
+
 The root route still returns `{"message":"datara"}`. Root local commands and API runtime/ingestion commands read the saved `apps/api/.env` with Node’s native environment-file support. Existing shell variables retain precedence. Test commands still require an explicitly selected `TEST_DATABASE_URL`. Build copies migrations to `dist/db`; production must also retain validated local presentation configuration and photo assets.
 
 ## Web verification
@@ -67,11 +69,35 @@ pnpm --filter @datara/web build
 pnpm --filter @datara/web lint
 pnpm --filter @datara/web typecheck
 pnpm --filter @datara/web map:check
+pnpm --filter @datara/web election:check
+pnpm --filter @datara/web api:types:check
 ```
 
-Build includes TypeScript checking. Geographic checks use Node assertions and checked-in assets; they do not download sources. The current build can emit a nonfatal warning for a JavaScript chunk over Vite's 500 kB threshold. A successful build does not imply browser flows have been tested.
+Build includes TypeScript checking. The current build can emit a nonfatal warning for a JavaScript chunk over Vite's 500 kB threshold. A successful build does not imply browser flows have been tested. The Node checks need no API, database or downloads:
 
-Browser checks are explicit development tools, served by Vite and run in the browser console. Start the web dev server, open it and run the relevant checks:
+| Command           | Scripts                                                                                      | Covers                                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `map:check`       | `check-map.mjs`, `check-us-map.mjs`, `check-map-location.mjs`, `check-map-layer.mjs`         | Brazilian and US geographic assets, the geographic URL, layer classification (fixed bands, classes, legend counts)              |
+| `election:check`  | `check-election-location.mjs`, `check-election-depth-rules.mjs`, `check-candidate-focus.mjs` | election URL and clearing rules; zone, section, exterior and region rules; support, contribution and the contribution map scope |
+| `api:types:check` | `check-api-types.mjs`                                                                        | generated types equal to the API's current OpenAPI document                                                                     |
+
+`pnpm --filter @datara/web api:types` regenerates `src/features/elections/api-types.generated.ts` from the API route registry (no database); run it after changing the API contract and commit the result.
+
+### Browser checks
+
+Browser checks are explicit development tools, served by Vite and run in the console of the open page. Use a visible tab: on a hidden page the browser throttles `requestAnimationFrame` and the steps that wait for the Canvas time out. They change the current view/history and create temporary canvases; they are not production routes or Node CLI tests. Each function throws at the first failed assertion and returns a summary.
+
+| Script                        | Data                                             | Widths                   |
+| ----------------------------- | ------------------------------------------------ | ------------------------ |
+| `check-map-navigation.mjs`    | local assets                                     | desktop                  |
+| `check-map-browser.mjs`       | local assets                                     | desktop                  |
+| `check-map-layer-browser.mjs` | synthetic fixture; API for the page check        | desktop                  |
+| `check-election-state.mjs`    | API with the pilot publication                   | desktop                  |
+| `check-election-panel.mjs`    | fixtures under `scripts/fixtures/election-panel` | desktop and below 640 px |
+| `check-election-depth.mjs`    | the same fixtures and synthetic responses        | desktop and below 640 px |
+| `check-election-focus.mjs`    | API with the pilot publication                   | desktop and below 640 px |
+
+The checks that use the API expect the pilot publication (AC/DF/PE/ZZ) at `VITE_API_URL` and assert its values; the fixture checks replace `fetch` for the `VITE_API_URL` origin and need no API.
 
 ```js
 const navigation = await import('/scripts/check-map-navigation.mjs')
@@ -87,22 +113,46 @@ await canvas.checkMap('US')
 canvas.checkTooltip()
 ```
 
-These checks change the current view/history and create temporary canvases. Cache tests intentionally request nonexistent US state `99` and expect rejection. They cover request reuse/retry, selection/history, initial animation with cold/warm scenes, detail fade-in, country state preservation, controls, resize and cleanup. They are not production routes or Node CLI tests.
+Cache tests intentionally request nonexistent US state `99` and expect rejection. Together they cover request reuse/retry, selection/history, initial animation with cold/warm scenes, detail fade-in, country state preservation, controls, resize and cleanup.
+
+```js
+const layer = await import('/scripts/check-map-layer-browser.mjs')
+await layer.checkMapLayer()
+layer.checkMapLayerContrast()
+await layer.checkMapLayerPage()
+```
+
+`checkMapLayer` paints a synthetic fixture of 5,571 municipalities on a hidden Canvas: groups merged by class and state, partial veils, borders, outline-only highlight, the hit-testing rule by zoom, state grain, removal and cleanup. `checkMapLayerContrast` measures band lightness in both themes. `checkMapLayerPage` serves the fixture in place of `/map` on the real page: legend counts, the grain toggle and `level=state`, the tooltip at national zoom, a single `publicationId`, and no legend on `/us` or without an office.
+
+The election checks export only check functions; run them all with:
+
+```js
+for (const name of ['state', 'panel', 'depth', 'focus']) {
+  const checks = await import(`/scripts/check-election-${name}.mjs`)
+  for (const check of Object.values(checks)) console.log(await check())
+}
+```
+
+- **State** (`check-election-state.mjs`): derived contest and area, the leader reading, clearing by office, municipality and country with history, `/us` and `/br?state=35` without API requests, a single `publicationId`, an unknown publication and `round=2` announced, a late response discarded, the API down with retry while the map and the selection keep working, shared cache and evicted failures.
+- **Panel** (`check-election-panel.mjs`): the selectors without requests, the president and Senate summaries (margin, second-seat cutoff, status with scope), the paginated ranking with party totals, the national governor view, an area without results, a 503 and a network failure with retry, a delayed response, an office cleared with a notice, `/us` without a panel and the `--panel-inset` variables. Below 640 px the bottom-sheet assertions apply. The steps that depend on the Canvas only run while the page is visible.
+- **Zones, sections, exterior and regions** (`check-election-depth.mjs`): the section URL round trip, the breadcrumb and the lists, the band "Votos contados junto com a Seção 0471" and its link, `zone=9999` and `section=9999` with notices, the "Regiões e exterior" rows, `area=exterior`, `area=zz:29262` and `area=region:north`, clearing when the municipality changes or a state is chosen, `area` with another office, the municipal scope at a zone, a `LEVEL_TOO_DEEP` without retry, the candidate focus in a section whose first `/results` page omits the candidate (read from the next page, or a dash with its reason) and one `publicationId` on every request.
+- **Candidate focus** (`check-election-focus.mjs`): only records requests and Canvas fills and never changes a response. The URL round trip, `aria-pressed` on the row, metric tokens, leaving the focus, office change and history, a single `publicationId`, colours and bands of the support map, the contribution map's scope and basis at both grains, card and list values equal to `/results` and `/distribution` in Porto Walter, sorting and pagination, the national view note and the focus in the deputies ranking.
 
 For performance measurements:
 
 ```js
 const benchmark = await import('/scripts/benchmark-map.mjs')
 await benchmark.benchmarkMap()
+await benchmark.benchmarkMap('BR national pan layer')
 ```
 
-It compares cold/warm Massachusetts selection, a diagnostic run without Canvas paint, and São Paulo selection. It records RAF intervals, long tasks, long animation frames and Canvas-call CPU time where browser APIs support them. Use Chromium for the full measurements. Reload before a cold run; retain identical viewport, device pixel ratio and CPU throttling for comparisons. Do not run benchmarks while unrelated builds or heavy tooling compete for resources.
+It compares cold/warm Massachusetts selection, a diagnostic run without Canvas paint, São Paulo without and with the synthetic municipal layer, and a national pan with the layer. The argument selects one case by its exact label or several by substring; windows in which the browser throttled appear as `throttled`, not as slow frames. It records RAF intervals, long tasks, long animation frames and Canvas-call CPU time where browser APIs support them. Use Chromium for the full measurements. Reload before a cold run; retain identical viewport, device pixel ratio and CPU throttling for comparisons. Do not run benchmarks while unrelated builds or heavy tooling compete for resources.
 
 For visual checks, include dark/light themes, mobile width, long hover labels, direct selection URLs, country switching, reduced motion, slow/failed detail downloads and retry. Avoid making unrelated UI changes while validating performance.
 
 ## Build and hosting
 
-`@datara/web` builds static files into `apps/web/dist`; `public/maps` is copied into the output, and the worker is emitted as a separate asset. Preview locally with `pnpm --filter @datara/web preview`. Configure static hosting to return `index.html` for application paths such as `/br` and `/us`, while serving actual assets normally. Otherwise deep-link reloads will 404.
+`@datara/web` builds static files into `apps/web/dist`; `public/maps` is copied into the output, and the worker is emitted as a separate asset. `VITE_API_URL` is read at build time: for another environment, set the API's absolute origin before `build`, and set the API's `CORS_ORIGIN` to the web origin. Preview locally with `pnpm --filter @datara/web preview`. Configure static hosting to return `index.html` for application paths such as `/br` and `/us`, while serving actual assets normally. Otherwise deep-link reloads will 404.
 
 The app uses `import.meta.env.BASE_URL` for runtime navigation/assets. When serving under a subpath, configure Vite's base and verify both the worker and map URLs. Browser-check examples assume a root-mounted development server. CSP, if configured by the host, must allow the same-origin worker and map requests. No deployment target, production CI workflow or secret provisioning is configured in this repository.
 
@@ -118,6 +168,7 @@ The app uses `import.meta.env.BASE_URL` for runtime navigation/assets. When serv
 | Geography appears angular at high zoom | Source simplification; not necessarily a rendering defect                                                           |
 | Stutter during cold selections         | Profile worker messages, path creation and frame intervals; do not infer rasterization cost from vector count alone |
 | API cannot start                       | Check DATABASE_URL, local PostgreSQL availability, configuration paths and PORT (default 3000)                      |
+| Panel shows a network error            | Running API, the web `VITE_API_URL` and the API `CORS_ORIGIN`                                                       |
 
 ## Contribution boundaries
 

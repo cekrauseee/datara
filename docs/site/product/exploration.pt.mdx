@@ -1,6 +1,6 @@
 ---
 title: Explore o mapa
-description: Pesquise, selecione e navegue por limites geográficos.
+description: Pesquise, selecione e navegue por limites geográficos e resultados eleitorais.
 ---
 
 ## Exploração
@@ -22,6 +22,68 @@ Arraste para mover; use roda do mouse, pinça no trackpad ou botões para amplia
 
 O zoom vai de 1 a 100. A animação de seleção dura 260 ms e pode ser interrompida. A preferência por movimento reduzido desativa animação da câmera e pulsação do skeleton. Uma URL com seleção mostra primeiro o país e depois aproxima a área; voltar a um país retido preserva sua câmera.
 
+## Coleções e resultados
+
+No Brasil, o seletor **Coleção** do cabeçalho alterna entre **Geografia**, o mapa puro, e **Eleições 2026 · 1º turno**. Escolher a coleção abre o grupo de cargos e seleciona Presidente. A partir de 640 px os cargos formam um grupo segmentado; abaixo, um seletor. Enquanto as disputas carregam, os cargos aparecem desativados. Os cargos listados dependem da área selecionada: Deputado distrital só no Distrito Federal, Conselho só em Fernando de Noronha; na visão nacional, governador, senador e deputados vêm marcados "por UF". Clicar no cargo pressionado desmarca o cargo e mantém a coleção aberta; um cargo sem disputa na nova área é removido da URL com um aviso. Sem cargo, o mapa e o cartão da seleção são os da geografia. Fora do Brasil não há coleção.
+
+Com um cargo, o painel de resultados substitui o cartão da seleção e usa o mesmo esqueleto para país, estado, município, zona, seção, exterior e região: título e cargo, linha de cobertura e procedência (Piloto ou Nacional, seções apuradas, tipo da fonte, data de geração, situação oficial da totalização e link para a fonte), candidaturas, totais e a lista de navegação para o nível abaixo.
+
+- **Resumo** (presidente, governador, senador): as vagas mais a candidatura seguinte, com foto ou iniciais, número e partido, votos, percentual e sua base, "Mais votado aqui" (nunca "eleito"), situação oficial com o escopo ("2º turno · Brasil", "Eleito · Acre"), destino do voto quando não é válido, vantagem em pontos percentuais e votos, corte da segunda vaga no Senado e a soma dos demais candidatos. "Ver todos" expande a lista.
+- **Ranking** (deputados e Conselho de Noronha): lista paginada com posição, situação oficial e, nos cargos proporcionais, os votos por partido (nominais, legenda e soma). As vagas não são inferidas pelo ranking; a situação oficial vem do TSE.
+- **Visão nacional** de governador e senador: os 27 estados com o mais votado e a vantagem do mapa por cargo; selecione um estado para ver a disputa. Para deputados, só os nomes dos estados.
+- **Totais**: eleitorado, comparecimento, abstenção, válidos, nominais, legenda, brancos, nulos e votos sem candidato.
+
+Um traço (—) é dado não informado pela fonte, nunca zero, e vem com o motivo. Uma área sem resultado nesta publicação mostra o recorte do piloto; a falha da API mostra o erro com "Tentar novamente" sem derrubar o mapa, a busca e a seleção. Enquanto um novo resultado carrega, o anterior da mesma disputa continua visível e esmaecido.
+
+### Mapa e legenda
+
+Com um cargo majoritário, o mapa pinta cada município (grão padrão, também no zoom nacional) ou cada estado com a cor da candidatura mais votada. A intensidade cresce com a vantagem em quatro faixas fixas: abaixo de 5, de 5 a 15, de 15 a 30 e a partir de 30 pontos percentuais. Empate usa um tom neutro ("Empate"); área sem resultado fica com a cor de base ("Sem dados"); totalização incompleta aparece atenuada ("Parcial"). Na visão nacional de governador e senador o mapa junta as 27 disputas e a legenda agrupa por partido. Deputados e Conselho não têm mapa de mais votado: o mapa aparece no foco em candidato ou com `metric=turnout`.
+
+A legenda fica no canto inferior direito: título da métrica, alternância **Estados · Municípios**, uma linha por candidatura ou partido com as quatro faixas e suas contagens, as contagens de empate, parcial e sem dados, e a cobertura ("Piloto · 3 de 5.571 com dado · 5.753 resultados ausentes · 186 no exterior sem geometria" no piloto). Ela pode ser recolhida; abaixo de 640 px começa recolhida no botão **Legenda**. As faixas são fixas, não quantis: a cor de uma área depende só do seu próprio valor.
+
+O destaque de passagem do ponteiro e da seleção é só um contorno, para não alterar as cores. A dica mostra a área, a candidatura mais votada e o partido, a vantagem, os votos e, quando houver, "Parcial", "Empate" ou "Sem dados nesta publicação". No zoom nacional o clique seleciona o estado mesmo com a pintura municipal, e a dica usa o resultado do estado; os municípios respondem a partir de 2,5× ou, com o grão municipal, assim que um estado está selecionado.
+
+As métricas `margin` (vantagem num tom neutro, mesmas faixas) e `turnout` (comparecimento: abaixo de 60, 60–70, 70–75, 75–80 e a partir de 80%) só existem pela URL; as métricas da candidatura estão no foco.
+
+### Foco em candidato
+
+Clicar numa candidatura do resumo ou do ranking abre o foco; clicar de novo na linha pressionada, ou em **Sair do foco**, fecha. A URL guarda a candidatura pelo identificador oficial do TSE em `candidate` e a métrica em `metric`: `votes` (votos) ou `contribution` (contribuição); apoio é o padrão e não escreve parâmetro. O foco vale dentro de uma disputa: navegar entre estado, município, zona e seção o mantém (presidente em qualquer área, governador dentro da UF), trocar de cargo o encerra e volta à métrica padrão, e a visão nacional de governador e senador lembra que é preciso selecionar uma UF.
+
+O cartão no topo do painel mostra foto ou iniciais, número e partido, coligação e federação, vice ou suplentes, situação oficial com escopo e destino do voto quando não é válido. Abaixo, com duas casas decimais:
+
+- **Apoio**: votos da candidatura na área sobre a base da área (`shareBasis`, por exemplo votos nominais registrados), igual ao percentual da linha em `/results`. "Apoio em Porto Walter: 50,95% · 3.208 de 6.296 dos votos nominais registrados (EA20)".
+- **Contribuição**: votos na área sobre os votos da candidatura no nível acima (Brasil ← UF ← município ← zona ← seção; regiões e exterior ← Brasil). Só existe quando as duas áreas têm resultado da mesma fonte (totalização ou soma de UFs de um lado, boletim de urna do outro não se comparam). Na área da disputa vale "escopo da disputa (100%)"; abaixo da UF, uma segunda linha dá a contribuição no Brasil (ou na UF). Valores positivos abaixo de 0,005% aparecem como `<0,01%`.
+
+Um traço vem com o motivo: área sem resultado, bases diferentes, base zero, seção contada junto com a principal ou seção cujo resultado, lido em todas as páginas, não registra votos da candidatura. A alternância **Votos · Apoio · Contribuição** pinta o mapa na cor da candidatura com cinco faixas fixas (apoio abaixo de 10, 10–25, 25–40, 40–55 e a partir de 55%; contribuição abaixo de 0,1, 0,1–0,5, 0,5–2, 2–10 e a partir de 10%; votos por décadas de mil a um milhão); a legenda nomeia a candidatura, a área da contribuição e a base dos percentuais. O mapa de contribuição compara a área selecionada com as vizinhas: com o grão municipal, um município, zona ou seção usa o total da UF; com o grão estadual, o total do Brasil (nunca além da disputa). O cartão continua a medir em relação ao nível imediatamente acima.
+
+A lista de distribuição mostra o nível abaixo da área (estados com o exterior, municípios, zonas ou seções), com votos, apoio, contribuição e as marcas "sem dados", "parcial" e "contada com a seção". **Ordenar por** votos, apoio, contribuição ou código da área fica fora da URL; "Mostrar mais" carrega a próxima página de 25. Estados e municípios selecionam a área mantendo o foco; zonas e seções aparecem também na lista de navegação. Na folha inferior recolhida aparecem nome, número e apoio.
+
+### Celular e teclado
+
+Abaixo de 640 px o painel é uma folha inferior. Recolhida, mostra o mais votado e o percentual, ou nome, número e apoio da candidatura em foco; abaixo do município, o nível vem antes ("Seção 0472 · …"). O cabeçalho da folha a expande até 60% da altura, com rolagem própria. Os controles de zoom, a legenda e o rodapé sobem acima da folha. Não há gestos de arrastar.
+
+Seletores, cargos, linhas de candidatura, listas, alternâncias de grão e métrica e "Tentar novamente" são botões alcançáveis por Tab. Nos grupos segmentados (cargos, grão, métrica) as setas movem entre opções e Enter ou Espaço escolhe. Linhas de candidatura indicam o foco com `aria-pressed`. Ao escolher uma área numa lista, o foco do teclado vai para o título do painel; o resultado novo é anunciado numa região de status, também com a folha recolhida.
+
+## Zonas, seções e exterior
+
+Abaixo do município, o painel lista as **zonas eleitorais**; abaixo da zona, as **seções**. As listas seguem a ordem da API em páginas de 100 com "Carregar mais"; não há busca por zona ou seção. Escolher uma linha carrega só o resultado daquela área. O mapa continua enquadrado no município, com a mesma camada e legenda; o breadcrumb ganha "Zona 0004" e "Seção 0077", e cada ancestral volta ao seu nível.
+
+- **Zona**: totalização oficial (EA20), com seções apuradas sobre o total e percentuais sobre os votos nominais registrados.
+- **Seção**: boletim de urna (BU), com percentuais sobre os votos nominais impressos e a hora local da urna. Os totais impressos (nominais, legenda, brancos, nulos e sem candidato) somam o total de votos; "válidos" não existe no BU. Votáveis sem candidatura verificada aparecem em nota ("nº 55 (1 voto)"); quando podem mudar a ordem, o mais votado fica indeterminado.
+- **Seção agregada**: votos contados junto com outra seção. A lista marca "agregada → Seção 0471"; o painel mostra a faixa "Votos contados junto com a Seção 0471", os totais e candidatos da principal e um link para ela. URL e breadcrumb ficam na seção agregada.
+
+Exterior e regiões só têm resultados para **Presidente**. O painel nacional de presidente traz o bloco "Regiões e exterior": Norte, Nordeste, Centro-Oeste, Sudeste e Sul como soma das UFs (o exterior não entra; a cobertura vem declarada, por exemplo "7/7") e o Exterior com suas seções apuradas. Nenhum deles tem geometria: o mapa volta à visão do país. O Exterior lista as localidades (cidades com seções no exterior); cada localidade lista suas zonas e seções como um município. Uma região lista seus estados, que levam ao mapa.
+
+| Exemplo                                                                                          | Painel                      |
+| ------------------------------------------------------------------------------------------------ | --------------------------- |
+| `/br?collection=elections&office=president&state=12&municipality=1200393&zone=0004`              | Zona 0004 de Porto Walter   |
+| `/br?collection=elections&office=president&state=12&municipality=1200393&zone=0004&section=0077` | Seção 0077 (BU)             |
+| `/br?collection=elections&office=president&area=exterior`                                        | Exterior e localidades      |
+| `/br?collection=elections&office=president&area=zz:29262`                                        | Abu Dhabi                   |
+| `/br?collection=elections&office=president&area=region:north`                                    | Região Norte (soma das UFs) |
+
+Uma combinação que a API recusa mostra "Combinação não disponível" sem nova tentativa.
+
 ## URLs
 
 | Exemplo                               | Seleção                          |
@@ -39,6 +101,37 @@ Os caminhos de país são minúsculos e os parâmetros são em inglês. Códigos
 
 A seleção escreve parâmetros canônicos do estado da área. Remove parâmetros antigos, incluindo nomes anteriores em português, e preserva parâmetros não relacionados e o fragmento. Voltar/avançar no navegador restaura seleções. A raiz e países desconhecidos normalizam para Brasil; o mapa não tem página 404 separada. A base do Vite serve para navegação e assets.
 
+### Parâmetros eleitorais
+
+Só valem em `/br` e se somam a `state` e `municipality`. Sem `collection=elections`, os demais são ignorados e `/br` é o mapa geográfico. Valores inválidos são ignorados; o explorador só escreve valores diferentes do padrão.
+
+| Parâmetro     | Valores                                                                                                                 | Regra                                                                                                                                                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `collection`  | `elections`                                                                                                             | Ausente: geografia. Escolher Geografia remove os demais parâmetros eleitorais, exceto `publication` e `round`.                                                                                                          |
+| `office`      | `president`, `governor`, `senator`, `federal-deputy`, `state-deputy`, `district-deputy`, `council`                      | Ausente: coleção aberta sem cargo. Um cargo sem disputa na área é removido com aviso. Trocar de cargo remove `candidate`.                                                                                               |
+| `level`       | `state`                                                                                                                 | Grão do mapa. Ausente: municípios, também na visão nacional.                                                                                                                                                            |
+| `metric`      | `leader`, `margin`, `turnout`, `votes`, `share`, `contribution`                                                         | Padrão `leader` sem candidatura e `share` com ela. `votes`, `share` e `contribution` exigem `candidate`; sem ela voltam a `leader`.                                                                                     |
+| `candidate`   | identificador oficial do TSE (dígitos)                                                                                  | Candidatura da disputa derivada do cargo e da área. Desconhecida: aviso e foco ignorado. Removido ao trocar de cargo ou a área da disputa (a UF para governador, o município para o Conselho).                          |
+| `zone`        | quatro dígitos                                                                                                          | Exige `municipality` ou uma localidade `area=zz:…`. Inexistente: removido com aviso. Trocar de município remove `zone` e `section`.                                                                                     |
+| `section`     | quatro dígitos                                                                                                          | Exige `zone`. Inexistente: removido com aviso, mantendo a zona. Trocar de zona remove a seção.                                                                                                                          |
+| `area`        | `exterior`, `zz:<código>`, `region:north`, `region:northeast`, `region:centralwest`, `region:southeast`, `region:south` | Área sem geometria, só com Presidente; com outro cargo ou sem cargo é ignorada com aviso. Substitui e remove `state` e `municipality`; escolher um estado ou município a remove. Desconhecida: aviso e volta ao Brasil. |
+| `publication` | UUID                                                                                                                    | Só lido, nunca escrito; preservado na navegação. Inexistente: aviso e publicação ativa.                                                                                                                                 |
+| `round`       | `2`                                                                                                                     | Reservado. Ausente é o 1º turno, e links sem `round` mantêm esse significado. Hoje `round=2` avisa que não há edição publicada.                                                                                         |
+
+Todas as requisições de uma sessão usam a mesma publicação, fixada na primeira consulta; uma publicação nova aparece ao recarregar. Ir para `/us` remove todos os parâmetros eleitorais; a navegação geográfica preserva os demais; voltar e avançar restauram tudo.
+
+| Exemplo                                                                                         | Painel                                                               |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `/br?collection=elections&office=president`                                                     | Presidente no Brasil, mapa municipal, estados abaixo                 |
+| `/br?collection=elections&office=president&level=state`                                         | Presidente no Brasil, mapa por estado                                |
+| `/br?collection=elections&office=governor`                                                      | Governador por UF (visão nacional)                                   |
+| `/br?collection=elections&office=senator&state=12`                                              | Senadores do Acre, com corte da 2ª vaga                              |
+| `/br?collection=elections&office=federal-deputy&state=12`                                       | Deputados federais do Acre (ranking)                                 |
+| `/br?collection=elections&office=federal-deputy&state=12&metric=turnout`                        | Mesmo ranking, mapa de comparecimento                                |
+| `/br?collection=elections&state=12`                                                             | Coleção aberta sem cargo (geografia)                                 |
+| `/br?collection=elections&office=president&candidate=280002542548`                              | Foco em Lula, mapa de apoio                                          |
+| `/br?collection=elections&office=president&state=12&candidate=280002542548&metric=contribution` | Contribuição de cada município do Acre para os votos de Lula no Acre |
+
 ## Níveis geográficos
 
 O Brasil inclui estados e municípios. Os EUA incluem 50 estados mais Distrito de Columbia, counties/equivalentes, lugares e subdivisões. Alaska e Hawaii aparecem em encaixes; a composição nacional não preserva sua posição real ou escala relativa. Territórios dos EUA são excluídos.
@@ -47,4 +140,4 @@ No zoom nacional, aparecem limites estaduais. Limites municipais/counties começ
 
 ## Carregamento e erros
 
-O skeleton com a silhueta permanece até o primeiro desenho Canvas. Os controles ficam desativados enquanto o mapa está indisponível. Falhas de download/preparação oferecem tentativa novamente; falhas de detalhes e busca são separadas. Carregamento de detalhes não significa ausência de geografia. O rodapé identifica fonte e edição.
+O skeleton com a silhueta permanece até o primeiro desenho Canvas. Os controles ficam desativados enquanto o mapa está indisponível. Falhas de download/preparação oferecem tentativa novamente; falhas de detalhes e busca são separadas. Carregamento de detalhes não significa ausência de geografia. O rodapé identifica fonte e edição. Na coleção de eleições, a API indisponível afeta só o painel e a legenda, cada um com o erro e "Tentar novamente"; mapa, busca e seleção continuam funcionando.

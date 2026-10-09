@@ -42,7 +42,7 @@ O desenvolvimento integrado usa a TUI nativa do Turborepo em um terminal interat
 
 `pnpm run setup` prepara `apps/api/.env` ignorado, cluster PostgreSQL nativo gerenciado pelo projeto, migrações, piloto oficial limitado e duas fotos. `pnpm dev` recarrega a configuração, garante o banco gerenciado ativo e inicia web/API via Turbo, que recebe as variáveis explicitamente. Vite usa porta fixa 5173; API `PORT` tem padrão 3000. Portas IPv4/IPv6 localhost ocupadas causam erro claro.
 
-`@datara/api` usa Hono/PostgreSQL. `DATABASE_URL` é obrigatório e salvo pelo setup. O mapa geográfico continua independente da API. O backend importa e serve o primeiro turno brasileiro oficial de 2026 por publicações locais; não busca fontes durante requisições.
+`@datara/api` usa Hono/PostgreSQL. `DATABASE_URL` é obrigatório e salvo pelo setup. O mapa geográfico não depende da API; só a coleção de eleições a consulta. O backend importa e serve o primeiro turno brasileiro oficial de 2026 por publicações locais; não busca fontes durante requisições.
 
 Veja [ingestão e publicação](/development/ingestion) para PostgreSQL nativo/Compose, migração, aquisição e replay. Veja [consultas da API](/api/usage), [interpretação](/api/interpretation) e [apresentação](/development/presentation).
 
@@ -56,6 +56,8 @@ curl -fsS 'http://localhost:3000/elections?country=BR&year=2026&round=1'
 curl -fsS 'http://localhost:3000/openapi.json'
 ```
 
+A web lê a API em `VITE_API_URL` (padrão `http://localhost:3000`). `pnpm dev` deriva o valor de `PORT` em `apps/api/.env` e o Turbo o repassa ao Vite. Para rodar só a web contra uma API em outra porta, use `VITE_API_URL=http://localhost:3001 pnpm --filter @datara/web dev`. A API precisa aceitar a origem da web em `CORS_ORIGIN` (padrão `http://localhost:5173`). Um valor inválido de `VITE_API_URL` aparece como erro `INVALID_API_URL` no painel; sem a API, o mapa, a busca e a seleção continuam funcionando.
+
 A raiz continua `{"message":"datara"}`. Comandos locais e runtime/ingestão leem `apps/api/.env` nativamente; variáveis do shell têm prioridade. Checks de banco exigem `TEST_DATABASE_URL` escolhido explicitamente. Build copia migrações para `dist/db`; produção precisa preservar apresentação validada e fotos ou equivalentes duráveis.
 
 ## Verificação da web
@@ -65,11 +67,35 @@ pnpm --filter @datara/web build
 pnpm --filter @datara/web lint
 pnpm --filter @datara/web typecheck
 pnpm --filter @datara/web map:check
+pnpm --filter @datara/web election:check
+pnpm --filter @datara/web api:types:check
 ```
 
-Build inclui TypeScript. Checks geográficos usam assertions Node e assets versionados, sem downloads. Vite pode avisar sobre chunk acima de 500 kB sem falhar. Build bem-sucedida não comprova fluxos no navegador.
+Build inclui TypeScript. Vite pode avisar sobre chunk acima de 500 kB sem falhar. Build bem-sucedida não comprova fluxos no navegador. Os checks Node não precisam de API, banco nem downloads:
 
-Checks de navegador são ferramentas de desenvolvimento servidas pelo Vite e executadas no console. Inicie a web, abra-a e use os checks relevantes:
+| Comando           | Scripts                                                                                      | Cobre                                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `map:check`       | `check-map.mjs`, `check-us-map.mjs`, `check-map-location.mjs`, `check-map-layer.mjs`         | Assets geográficos do Brasil e dos EUA, URL geográfica, classificação da camada (faixas fixas, classes e contagens da legenda) |
+| `election:check`  | `check-election-location.mjs`, `check-election-depth-rules.mjs`, `check-candidate-focus.mjs` | URL eleitoral e limpezas; regras de zonas, seções, exterior e regiões; apoio, contribuição e escopo do mapa de contribuição    |
+| `api:types:check` | `check-api-types.mjs`                                                                        | Tipos gerados iguais ao OpenAPI atual da API                                                                                   |
+
+`pnpm --filter @datara/web api:types` regenera `src/features/elections/api-types.generated.ts` a partir do registro de rotas da API (sem banco); rode-o depois de mudar o contrato da API e versione o resultado.
+
+### Checks de navegador
+
+Checks de navegador são ferramentas de desenvolvimento servidas pelo Vite e executadas no console da página aberta. Use uma aba visível: numa página oculta o navegador reduz `requestAnimationFrame` e os passos que esperam o Canvas expiram. Eles alteram view e histórico e criam Canvas temporários; não são rotas de produção nem testes CLI Node. Cada função lança erro na primeira asserção falha e devolve um resumo.
+
+| Script                        | Dados                                         | Larguras                   |
+| ----------------------------- | --------------------------------------------- | -------------------------- |
+| `check-map-navigation.mjs`    | assets locais                                 | desktop                    |
+| `check-map-browser.mjs`       | assets locais                                 | desktop                    |
+| `check-map-layer-browser.mjs` | fixture sintética; API para a página          | desktop                    |
+| `check-election-state.mjs`    | API com a publicação piloto                   | desktop                    |
+| `check-election-panel.mjs`    | fixtures em `scripts/fixtures/election-panel` | desktop e abaixo de 640 px |
+| `check-election-depth.mjs`    | as mesmas fixtures e respostas sintéticas     | desktop e abaixo de 640 px |
+| `check-election-focus.mjs`    | API com a publicação piloto                   | desktop e abaixo de 640 px |
+
+Os checks que usam a API esperam a publicação piloto (AC/DF/PE/ZZ) em `VITE_API_URL` e afirmam valores dela; os de fixtures substituem `fetch` para a origem de `VITE_API_URL` e não precisam da API.
 
 ```js
 const navigation = await import('/scripts/check-map-navigation.mjs')
@@ -85,35 +111,62 @@ await canvas.checkMap('US')
 canvas.checkTooltip()
 ```
 
-Eles alteram view/histórico e criam Canvas temporários. O teste de cache solicita intencionalmente o estado inexistente `99` dos EUA e espera rejeição. Cobrem reutilização/retry, seleção/histórico, animação inicial fria/quente, detalhes, retenção por país, controles, resize e cleanup. Não são rotas de produção nem testes CLI Node.
+O teste de cache solicita intencionalmente o estado inexistente `99` dos EUA e espera rejeição. Os dois módulos cobrem reutilização/retry, seleção/histórico, animação inicial fria/quente, detalhes, retenção por país, controles, resize e cleanup.
+
+```js
+const layer = await import('/scripts/check-map-layer-browser.mjs')
+await layer.checkMapLayer()
+layer.checkMapLayerContrast()
+await layer.checkMapLayerPage()
+```
+
+`checkMapLayer` pinta uma fixture sintética de 5.571 municípios num Canvas oculto: grupos fundidos por classe e estado, véus de parcial, contornos, destaque só por contorno, regra de hit testing por zoom, grão estadual, remoção e cleanup. `checkMapLayerContrast` mede a luminosidade das faixas nos dois temas. `checkMapLayerPage` serve a fixture no lugar de `/map` na página real: contagens da legenda, alternância de grão e `level=state`, dica no zoom nacional, uma só `publicationId`, sem legenda em `/us` nem sem cargo.
+
+Os checks eleitorais exportam só funções de check; rode todas com:
+
+```js
+for (const name of ['state', 'panel', 'depth', 'focus']) {
+  const checks = await import(`/scripts/check-election-${name}.mjs`)
+  for (const check of Object.values(checks)) console.log(await check())
+}
+```
+
+- **Estado** (`check-election-state.mjs`): disputa e área derivadas, leitura do mais votado, limpezas por cargo, município e país com histórico, `/us` e `/br?state=35` sem requisições à API, uma só `publicationId`, publicação inexistente e `round=2` anunciados, resposta atrasada descartada, API indisponível com retry enquanto mapa e seleção funcionam, cache compartilhado e falhas removidas.
+- **Painel** (`check-election-panel.mjs`): seletores sem requisição, resumo de presidente e Senado (vantagem, corte da 2ª vaga, situação com escopo), ranking paginado com votos por partido, visão nacional de governador, área sem resultado, erro 503 e falha de rede com retry, resposta atrasada, cargo desmarcado com aviso, `/us` sem painel e as variáveis `--panel-inset`. Abaixo de 640 px entram as asserções da folha inferior. Os passos que dependem do Canvas só correm com a página visível.
+- **Zonas, seções, exterior e regiões** (`check-election-depth.mjs`): ida e volta da URL de seção, breadcrumb e listas, a faixa "Votos contados junto com a Seção 0471" e seu link, `zone=9999` e `section=9999` com aviso, as linhas "Regiões e exterior", `area=exterior`, `area=zz:29262` e `area=region:north`, a limpeza ao trocar município ou escolher um estado, `area` com outro cargo, o escopo municipal numa zona, um `LEVEL_TOO_DEEP` sem nova tentativa, o foco em candidato numa seção cuja primeira página de `/results` não traz a candidatura (lida na página seguinte, ou traço com o motivo) e o mesmo `publicationId` em todos os pedidos.
+- **Foco em candidato** (`check-election-focus.mjs`): só registra as requisições e os preenchimentos do Canvas, sem alterar respostas. Ida e volta pela URL, `aria-pressed` na linha, tokens de métrica, saída, troca de cargo e histórico, uma só `publicationId`, cores e faixas do mapa de apoio, escopo e base do mapa de contribuição nos dois grãos, valores do cartão e da lista iguais a `/results` e `/distribution` em Porto Walter, ordenação e paginação, a nota da visão nacional e o foco no ranking de deputados.
+
+Para medições de desempenho:
 
 ```js
 const benchmark = await import('/scripts/benchmark-map.mjs')
 await benchmark.benchmarkMap()
+await benchmark.benchmarkMap('BR national pan layer')
 ```
 
-O benchmark compara seleção fria/quente de Massachusetts, um diagnóstico sem desenho Canvas e São Paulo. Registra RAF, tarefas longas, frames longos e CPU Canvas quando suportados; use Chromium para as medições completas. Recarregue para execução fria e mantenha viewport, pixel ratio e CPU iguais. Não execute enquanto builds/trabalho pesado competem por recursos.
+O benchmark compara seleção fria/quente de Massachusetts, um diagnóstico sem desenho Canvas, São Paulo sem e com a camada municipal sintética e um pan nacional com a camada. O argumento escolhe um caso pelo rótulo exato ou vários por trecho; janelas com o navegador reduzido aparecem como `throttled`, não como frames lentos. Registra RAF, tarefas longas, frames longos e CPU Canvas quando suportados; use Chromium para as medições completas. Recarregue para execução fria e mantenha viewport, pixel ratio e CPU iguais. Não execute enquanto builds/trabalho pesado competem por recursos.
 
 Nas verificações relevantes, inclua temas, mobile, labels longos, links diretos, troca de países, movimento reduzido, downloads lentos/falhos e retry. Evite mudanças de UI não relacionadas ao medir desempenho.
 
 ## Build e hospedagem
 
-A web produz arquivos estáticos em `apps/web/dist`; `public/maps` é copiado e worker é asset separado. Preview: `pnpm --filter @datara/web preview`. Hospedagem estática precisa retornar `index.html` para caminhos como `/br` e `/us`, preservando assets reais; sem fallback, recarregar links falha.
+A web produz arquivos estáticos em `apps/web/dist`; `public/maps` é copiado e worker é asset separado. `VITE_API_URL` é lido na build: para outro ambiente, defina a origem absoluta da API antes de `build`, e configure `CORS_ORIGIN` da API com a origem da web. Preview: `pnpm --filter @datara/web preview`. Hospedagem estática precisa retornar `index.html` para caminhos como `/br` e `/us`, preservando assets reais; sem fallback, recarregar links falha.
 
 A navegação/assets usa `import.meta.env.BASE_URL`. Para subpath, configure a base Vite e verifique worker/mapas. Exemplos de checks assumem raiz. CSP do host precisa permitir worker/mapas da mesma origem. Nenhum destino de deploy, CI de produção ou provisionamento de secrets está configurado.
 
 ## Diagnóstico e contribuição
 
-| Sintoma                     | Verifique                                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| Mapa indisponível           | Caminho JSON, HTTP, worker e console                                                    |
-| Skeleton não termina        | Worker/preparação, Canvas sem tamanho, asset ausente                                    |
-| Busca local dos EUA ausente | `search.json` e retry próprio da busca                                                  |
-| County sem limites locais   | Zoom, request de detalhes e retry                                                       |
-| Recarregar `/us?...` falha  | Fallback SPA na hospedagem                                                              |
-| Geometria angular           | Simplificação de origem, não necessariamente renderização                               |
-| Seleção fria trava          | Parsing, mensagens do worker, paths e frames; contagem de vetores não mede rasterização |
-| API não inicia              | Banco, `DATABASE_URL`, configuração e `PORT`                                            |
+| Sintoma                                 | Verifique                                                                               |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| Mapa indisponível                       | Caminho JSON, HTTP, worker e console                                                    |
+| Skeleton não termina                    | Worker/preparação, Canvas sem tamanho, asset ausente                                    |
+| Busca local dos EUA ausente             | `search.json` e retry próprio da busca                                                  |
+| County sem limites locais               | Zoom, request de detalhes e retry                                                       |
+| Recarregar `/us?...` falha              | Fallback SPA na hospedagem                                                              |
+| Geometria angular                       | Simplificação de origem, não necessariamente renderização                               |
+| Seleção fria trava                      | Parsing, mensagens do worker, paths e frames; contagem de vetores não mede rasterização |
+| API não inicia                          | Banco, `DATABASE_URL`, configuração e `PORT`                                            |
+| Painel sem resultados, com erro de rede | API em execução, `VITE_API_URL` da web e `CORS_ORIGIN` da API                           |
 
 Separe aquisição, preparação no worker, renderização e UI React. Reuse componentes/tokens. Preserve zeros iniciais e limites compartilhados. Mudanças de URL/cache/renderização precisam preservar teclado, movimento reduzido, retry e retenção por país.
 

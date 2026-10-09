@@ -1,0 +1,1017 @@
+{
+  "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+  "coverage": {
+    "scope": "pilot",
+    "complete": false,
+    "expected": 268,
+    "completed": 268,
+    "officialAbsences": 0,
+    "results": 293,
+    "buResults": 32,
+    "buFiles": 7,
+    "aggregates": 261,
+    "reconciliation": "total ballots in fully imported zones",
+    "reconciledZoneResults": 1,
+    "unreconciledZoneResults": null,
+    "discrepancies": [],
+    "officialSectionStatuses": null,
+    "sectionsWithoutAuxiliaryFile": null,
+    "selection": {
+      "ufs": ["ac", "df", "pe", "zz"],
+      "municipalitiesPerUf": 1,
+      "primarySectionsPerUf": 2
+    }
+  },
+  "items": [
+    {
+      "id": "BR-2026-1:6257:1:br",
+      "officeCode": "1",
+      "officeName": "Presidente",
+      "electionId": "6257",
+      "scopeAreaId": "br",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6261:25:pe:30015",
+      "officeCode": "25",
+      "officeName": "Conselheiro Distrital",
+      "electionId": "6261",
+      "scopeAreaId": "pe:30015",
+      "seats": 7,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ac",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ac",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:al",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "al",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:am",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "am",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ap",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ap",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ba",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ba",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ce",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ce",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:df",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "df",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:es",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "es",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:go",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "go",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ma",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ma",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:mg",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "mg",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ms",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ms",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:mt",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "mt",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pa",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pa",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pb",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pb",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pe",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pe",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pi",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pi",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pr",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pr",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:rj",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "rj",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:rn",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "rn",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ro",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ro",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:rr",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "rr",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:rs",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "rs",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:sc",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "sc",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:se",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "se",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:sp",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "sp",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:to",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "to",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:ac",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "ac",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:al",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "al",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:am",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "am",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:ap",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "ap",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:ba",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "ba",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:ce",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "ce",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:df",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "df",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:es",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "es",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:go",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "go",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:ma",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "ma",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:mg",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "mg",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:ms",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "ms",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:mt",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "mt",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:pa",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "pa",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:pb",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "pb",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:pe",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "pe",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:pi",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "pi",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:pr",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "pr",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:rj",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "rj",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:rn",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "rn",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:ro",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "ro",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:rr",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "rr",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:rs",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "rs",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:sc",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "sc",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:se",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "se",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:sp",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "sp",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:5:to",
+      "officeCode": "5",
+      "officeName": "Senador",
+      "electionId": "6259",
+      "scopeAreaId": "to",
+      "seats": 2,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:6:ac",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "ac",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:al",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "al",
+      "seats": 9,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:am",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "am",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:ap",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "ap",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:ba",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "ba",
+      "seats": 39,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:ce",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "ce",
+      "seats": 22,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:df",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "df",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:es",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "es",
+      "seats": 10,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:go",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "go",
+      "seats": 17,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:ma",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "ma",
+      "seats": 18,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:mg",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "mg",
+      "seats": 53,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:ms",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "ms",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:mt",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "mt",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:pa",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "pa",
+      "seats": 17,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:pb",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "pb",
+      "seats": 12,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:pe",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "pe",
+      "seats": 25,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:pi",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "pi",
+      "seats": 10,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:pr",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "pr",
+      "seats": 30,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:rj",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "rj",
+      "seats": 46,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:rn",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "rn",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:ro",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "ro",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:rr",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "rr",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:rs",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "rs",
+      "seats": 31,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:sc",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "sc",
+      "seats": 16,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:se",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "se",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:sp",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "sp",
+      "seats": 70,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:6:to",
+      "officeCode": "6",
+      "officeName": "Deputado Federal",
+      "electionId": "6259",
+      "scopeAreaId": "to",
+      "seats": 8,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:ac",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "ac",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:al",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "al",
+      "seats": 27,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:am",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "am",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:ap",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "ap",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:ba",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "ba",
+      "seats": 63,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:ce",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "ce",
+      "seats": 46,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:es",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "es",
+      "seats": 30,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:go",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "go",
+      "seats": 41,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:ma",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "ma",
+      "seats": 42,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:mg",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "mg",
+      "seats": 77,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:ms",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "ms",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:mt",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "mt",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:pa",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "pa",
+      "seats": 41,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:pb",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "pb",
+      "seats": 36,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:pe",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "pe",
+      "seats": 49,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:pi",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "pi",
+      "seats": 30,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:pr",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "pr",
+      "seats": 54,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:rj",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "rj",
+      "seats": 70,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:rn",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "rn",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:ro",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "ro",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:rr",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "rr",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:rs",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "rs",
+      "seats": 55,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:sc",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "sc",
+      "seats": 40,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:se",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "se",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:sp",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "sp",
+      "seats": 94,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:7:to",
+      "officeCode": "7",
+      "officeName": "Deputado Estadual",
+      "electionId": "6259",
+      "scopeAreaId": "to",
+      "seats": 24,
+      "voteType": "proportional"
+    },
+    {
+      "id": "BR-2026-1:6259:8:df",
+      "officeCode": "8",
+      "officeName": "Deputado Distrital",
+      "electionId": "6259",
+      "scopeAreaId": "df",
+      "seats": 24,
+      "voteType": "proportional"
+    }
+  ]
+}

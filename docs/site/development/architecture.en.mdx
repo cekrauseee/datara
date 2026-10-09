@@ -1,30 +1,57 @@
 ---
 title: Architecture and performance
-description: How geography rendering and the independent election API fit together.
+description: How the geographic map, the elections collection and the API fit together.
 ---
 
 ## Runtime boundaries
 
-`apps/web/src/main.tsx` mounts React in Strict Mode. `app/app.tsx` renders `MapExplorer`. Vite uses the React Compiler, Tailwind CSS v4 and the `@/` source alias. UI primitives are local shadcn/Base UI components; semantic CSS tokens and Geist typography are defined in `src/index.css`.
+`apps/web/src/main.tsx` mounts React in Strict Mode and `app/app.tsx` renders `MapExplorer`. Vite uses the React Compiler, Tailwind CSS v4 and the `@/` source alias. UI primitives are local shadcn/Base UI components under `components/ui`; semantic CSS tokens and Geist typography are defined in `src/index.css`. Each visited country keeps its page mounted and hidden while inactive, preserving camera and search without rebuilding geometry.
 
-The map feature is in `apps/web/src/features/map/`:
+The geographic map is in `apps/web/src/features/map/`:
 
-| Module                                     | Responsibility                                                                            |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `map-explorer.tsx`                         | country pages, search, selection, breadcrumbs, controls and feedback                      |
-| `use-map-location.ts`, `map-location.ts`   | History API subscription, country navigation and pure URL parsing/serialization           |
-| `use-map-data.ts`                          | React loading/error/retry state; ignores obsolete view results                            |
-| `map-countries.ts`                         | country labels, asset paths and attribution                                               |
-| `map-data.ts`                              | geographic types, TopoJSON decoding, source labels and search matching                    |
-| `map-cache.ts`, `map-requests.ts`          | deduplicated in-memory requests; rejected entries are evicted                             |
-| `map-worker-api.ts`, `map-worker-types.ts` | typed worker messages, pending requests, cancellation and worker lifecycle                |
-| `map-worker.ts`                            | downloads, JSON/TopoJSON decoding, boundary meshes and projection away from the UI thread |
-| `map-projection.ts`                        | projected-scene cache and paced `Path2D` creation on the UI thread                        |
-| `map-canvas.ts`                            | painting, hit testing, D3 pan/zoom, camera animation, resize and cleanup                  |
-| `map-geometry.ts`                          | projections, bounds, zoom limits and tooltip positioning                                  |
-| `map-skeleton.tsx`, `map-tooltip.tsx`      | loading silhouette and measured hover card                                                |
+| File                                       | Responsibility                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `map-explorer.tsx`                         | country pages, header, search, breadcrumbs, controls, panel, legend and feedback           |
+| `use-map-location.ts`, `map-location.ts`   | History API subscription, country navigation and pure geographic URL parsing/serialization |
+| `use-map-data.ts`                          | React loading/error/retry state; ignores obsolete view results                             |
+| `map-countries.ts`                         | country labels, asset paths and attribution                                                |
+| `map-data.ts`                              | geographic types, TopoJSON decoding, source labels and search matching                     |
+| `map-cache.ts`, `map-requests.ts`          | deduplicated in-memory requests; rejected entries are evicted                              |
+| `map-worker-api.ts`, `map-worker-types.ts` | typed worker messages, pending requests, cancellation and worker lifecycle                 |
+| `map-worker.ts`                            | downloads, JSON/TopoJSON decoding, boundary meshes and projection away from the UI thread  |
+| `map-projection.ts`                        | projected-scene cache and paced `Path2D` creation within the per-frame budget              |
+| `map-canvas.ts`                            | painting, the data layer, hit testing, D3 pan/zoom, camera animation, resize and cleanup   |
+| `map-layer.ts`                             | data layer model, `Path2D` groups per class and state, hit-testing rule                    |
+| `map-geometry.ts`                          | projections, bounds, zoom limits and tooltip positioning                                   |
+| `map-skeleton.tsx`, `map-tooltip.tsx`      | loading silhouette and measured hover card                                                 |
 
-The Hono API does not participate in the current web map flow. Its independent election module reads PostgreSQL publications through validated OpenAPI routes, explicit parameterized queries, electoral metrics and local presentation resolution. Ingestion scripts own acquisition, normalization, migrations and atomic publication; request handlers never fetch TSE or read raw BUs. Responses are compressed, reads pinned to an explicit publication are cacheable for an hour, territory queries expand only the levels above the requested one through the `areas_parent` index, and distribution and map refuse scopes beyond their depth and area limits instead of scanning them. See [API contracts](/api/usage) and [ingestion](/development/ingestion). The geographic web application uses no client-side router dependency, authentication or server-side rendering.
+The elections collection is in `apps/web/src/features/elections/`, exported through `index.ts`:
+
+| File                                                                                      | Responsibility                                                                                |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `election-location.ts`, `use-election-location.ts`                                        | election URL vocabulary, reading, writing, clearing rules and `navigateElection`              |
+| `api-client.ts`                                                                           | `VITE_API_URL`, requests with a 20 s timeout, `{code, message, requestId}` errors, `photoURL` |
+| `api-types.generated.ts`, `api-types.ts`                                                  | types generated from the API's OpenAPI document and the names the web uses                    |
+| `api-cache.ts`, `use-api-query.ts`                                                        | in-memory cache keyed by full URL and a request slot with a staleness guard and retry         |
+| `election-session.ts`                                                                     | edition and publication pinned per session; re-pinned when the publication disappears         |
+| `use-election-data.ts`                                                                    | hooks per route: contests, areas, map, results, candidates and distribution                   |
+| `election-model.ts`                                                                       | offices, contest derivation from the area, available offices and the map request              |
+| `use-election.ts`                                                                         | composed election state: session, contest, electoral area, zone/section/area and notices      |
+| `depth.ts`, `use-area-list.ts`                                                            | zone, section, exterior and region rules; resolution by code and paged lists                  |
+| `candidate-focus.ts`, `use-candidate-focus.ts`                                            | support and contribution rules and the candidate focus queries                                |
+| `map-classes.ts`, `use-map-layer.ts`                                                      | fixed-band classification, legend counts and the layer handed to the Canvas                   |
+| `map-legend.tsx`, `map-hover-detail.tsx`, `map-format.ts`                                 | legend, tooltip detail and metric labels                                                      |
+| `format.ts`, `use-media-query.ts`                                                         | pt-BR numbers, percentages and dates; width query                                             |
+| `collection-selector.tsx`                                                                 | collection and office selectors                                                               |
+| `panel/results-panel.tsx`, `panel/mobile-sheet.tsx`                                       | panel per level as a column or bottom sheet; geography card                                   |
+| `panel/panel-model.ts`, `panel/panel-states.tsx`                                          | summary or ranking mode, scope names, leaders; loading, empty, error and notices              |
+| `panel/candidate-list.tsx`, `panel/candidate-row.tsx`                                     | summary and paginated ranking with rows that open the focus                                   |
+| `panel/totals.tsx`, `panel/party-totals.tsx`                                              | area totals and votes by party                                                                |
+| `panel/area-list.tsx`, `panel/national-rows.tsx`                                          | mesh states and municipalities; region and exterior rows                                      |
+| `panel/depth-lists.tsx`, `panel/depth-view.ts`, `panel/section-panel.tsx`                 | zone, section and locality lists, titles and breadcrumbs, section notes and printed totals    |
+| `panel/candidate-card.tsx`, `panel/metric-toggle.tsx`, `panel/candidate-distribution.tsx` | focus card, map metric and distribution list                                                  |
+
+The Hono API is independent of the geographic map: without a collection, `/br` and `/us` make no API request. Its election module reads PostgreSQL publications through validated OpenAPI routes, explicit parameterized queries, electoral metrics and local presentation resolution. Ingestion scripts own acquisition, normalization, migrations and atomic publication; request handlers never fetch TSE or read raw BUs. Responses are compressed, reads pinned to an explicit publication are cacheable for an hour, territory queries expand only the levels above the requested one through the `areas_parent` index, and distribution and map refuse scopes beyond their depth and area limits instead of scanning them. See [API contracts](/api/usage) and [ingestion](/development/ingestion). The web application uses no client-side router dependency, authentication or server-side rendering.
 
 The documentation is a separate Next.js application: localized content and search indexes are prerendered during the build. Proxy negotiates `Accept-Language` only on unprefixed entry URLs; reading the documentation needs no API/database connection.
 
@@ -37,6 +64,14 @@ The documentation is a separate Next.js application: localized content and searc
 5. US details are downloaded by state and projected on demand. Selecting a locality can request that one feature first, so camera movement need not await preparation of every local shape.
 6. Canvas callbacks update selection, hover, readiness and completed zoom. Navigation writes the selection into the URL.
 
+With the elections collection:
+
+1. `useElection` reads the election parameters and resolves the session once: `/elections?country=BR&year=2026&round=1` gives the edition and the active publication, which then travels with every request as `publicationId`. If that publication disappears (404), the session is re-pinned once and the cache is cleared.
+2. `/contests` loads once per session. The contest is derived from the office and the current electoral area, found by the mesh `featureId` (or by `area`, zone and section), choosing the scope that contains the area.
+3. Each query is a slot keyed by its full URL. A new key discards the late response of the previous one; the in-memory cache shares promises and evicts failures, and "Tentar novamente" evicts the entry and repeats.
+4. `useMapLayer` requests the contest's `/map` (or the office map in the national view), classifies the items into colour classes and hands the layer to the Canvas through `setLayer`. At municipal grain in the national view, the state map comes along for the tooltip.
+5. The panel requests the area's `/results`, `/areas` for zones, sections and localities and, in focus, `/results` for the area, the level above and the contest scope, plus `/distribution` for the level below.
+
 ## Keeping interaction responsive
 
 - **Worker isolation:** network response parsing, topology decoding, mesh construction and bulk projection do not block the UI thread. Paths cross the boundary instead of large nested coordinate arrays.
@@ -46,6 +81,7 @@ The documentation is a separate Next.js application: localized content and searc
 - **Frame coalescing:** draw and hover work use `requestAnimationFrame`. Zoom avoids notifying React on every animation step. Progress is clamped to avoid a negative first frame when RAF timestamps precede animation creation.
 - **Picking on demand:** bounds and `isPointInPath` checks run for pointer interaction, rather than rebuilding clickable-area lists every animation frame.
 - **Stable geometry:** state outlines are unions of the same lower-level arcs. Opaque land fills remain stable during zoom; shared boundaries are stroked separately.
+- **Merged data layer:** the data layer merges one `Path2D` per colour class and state, so a national frame with 5,571 painted municipalities makes a few hundred `fill()` calls rather than one per municipality. Groups are built within the same 3 ms frame budget and swapped at once; while a new map loads, the previous layer stays painted.
 - **Bounded display work:** offscreen bounds are skipped where applicable; geographic labels are not painted; device pixel ratio is capped at 2.
 
 Cached geometry and visited pages trade memory for fast returns. Local details accumulate for explored states during a session. The implementation does not promise constant memory regardless of exploration, or a fixed frame rate on every device.
@@ -58,6 +94,6 @@ Deep-link initialization, reduced motion, retained-country navigation and resize
 
 ## Measuring changes
 
-Use the reproducible browser scenarios in [development.md](/development/setup), including cold and warm selections. Measure frame intervals and long tasks, not only time spent calling Canvas methods: rasterization may be deferred, and decoding can dominate before drawing begins.
+Use the reproducible browser scenarios in [development and verification](/development/setup), including cold and warm selections. Measure frame intervals and long tasks, not only time spent calling Canvas methods: rasterization may be deferred, and decoding can dominate before drawing begins.
 
 Keep viewport, pixel ratio, CPU settings and cold/warm state identical when comparing. Record measurements with those conditions; results from another machine are not a performance baseline for the current checkout.

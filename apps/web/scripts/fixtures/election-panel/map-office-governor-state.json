@@ -1,0 +1,1031 @@
+{
+  "publicationId": "2a4cee03-930c-4377-b383-fcb27f9da55d",
+  "coverage": {
+    "scope": "pilot",
+    "complete": false,
+    "expected": 268,
+    "completed": 268,
+    "officialAbsences": 0,
+    "results": 293,
+    "buResults": 32,
+    "buFiles": 7,
+    "aggregates": 261,
+    "reconciliation": "total ballots in fully imported zones",
+    "reconciledZoneResults": 1,
+    "unreconciledZoneResults": null,
+    "discrepancies": [],
+    "officialSectionStatuses": null,
+    "sectionsWithoutAuxiliaryFile": null,
+    "selection": {
+      "ufs": ["ac", "df", "pe", "zz"],
+      "municipalitiesPerUf": 1,
+      "primarySectionsPerUf": 2
+    }
+  },
+  "tseElectionId": "6259",
+  "officeCode": "3",
+  "level": "state",
+  "metric": "leader",
+  "contests": [
+    {
+      "id": "BR-2026-1:6259:3:ac",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ac",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:al",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "al",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:am",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "am",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ap",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ap",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ba",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ba",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ce",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ce",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:df",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "df",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:es",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "es",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:go",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "go",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ma",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ma",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:mg",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "mg",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ms",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ms",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:mt",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "mt",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pa",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pa",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pb",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pb",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pe",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pe",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pi",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pi",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:pr",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "pr",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:rj",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "rj",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:rn",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "rn",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:ro",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "ro",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:rr",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "rr",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:rs",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "rs",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:sc",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "sc",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:se",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "se",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:sp",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "sp",
+      "seats": 1,
+      "voteType": "majoritarian"
+    },
+    {
+      "id": "BR-2026-1:6259:3:to",
+      "officeCode": "3",
+      "officeName": "Governador",
+      "electionId": "6259",
+      "scopeAreaId": "to",
+      "seats": 1,
+      "voteType": "majoritarian"
+    }
+  ],
+  "items": [
+    {
+      "areaId": "ac",
+      "featureId": "12",
+      "value": 218760,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:ac:10002544107"],
+      "tie": false,
+      "complete": true,
+      "margin": 17.49153297986794,
+      "contestId": "BR-2026-1:6259:3:ac"
+    },
+    {
+      "areaId": "al",
+      "featureId": "27",
+      "value": 892484,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:al:20002553350"],
+      "tie": false,
+      "complete": true,
+      "margin": 4.836647336767247,
+      "contestId": "BR-2026-1:6259:3:al"
+    },
+    {
+      "areaId": "am",
+      "featureId": "13",
+      "value": 841846,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:am:40002532272"],
+      "tie": false,
+      "complete": true,
+      "margin": 16.144470157843806,
+      "contestId": "BR-2026-1:6259:3:am"
+    },
+    {
+      "areaId": "ap",
+      "featureId": "16",
+      "value": 281595,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:ap:30002530014"],
+      "tie": false,
+      "complete": true,
+      "margin": 25.781787956242603,
+      "contestId": "BR-2026-1:6259:3:ap"
+    },
+    {
+      "areaId": "ba",
+      "featureId": "29",
+      "value": 4626509,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:ba:50002536314"],
+      "tie": false,
+      "complete": true,
+      "margin": 12.076602714480243,
+      "contestId": "BR-2026-1:6259:3:ba"
+    },
+    {
+      "areaId": "ce",
+      "featureId": "23",
+      "value": 2875573,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:ce:60002543969"],
+      "tie": false,
+      "complete": true,
+      "margin": 6.9677280920886515,
+      "contestId": "BR-2026-1:6259:3:ce"
+    },
+    {
+      "areaId": "df",
+      "featureId": "53",
+      "value": 825530,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:df:70002553055"],
+      "tie": false,
+      "complete": true,
+      "margin": 15.460578247401916,
+      "contestId": "BR-2026-1:6259:3:df"
+    },
+    {
+      "areaId": "es",
+      "featureId": "32",
+      "value": 1048633,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:es:80002552682"],
+      "tie": false,
+      "complete": true,
+      "margin": 15.587563696310575,
+      "contestId": "BR-2026-1:6259:3:es"
+    },
+    {
+      "areaId": "go",
+      "featureId": "52",
+      "value": 2148218,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:go:90002540993"],
+      "tie": false,
+      "complete": true,
+      "margin": 37.21384705897907,
+      "contestId": "BR-2026-1:6259:3:go"
+    },
+    {
+      "areaId": "ma",
+      "featureId": "21",
+      "value": 2104122,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:ma:100002545679"],
+      "tie": false,
+      "complete": true,
+      "margin": 19.2570627560923,
+      "contestId": "BR-2026-1:6259:3:ma"
+    },
+    {
+      "areaId": "mg",
+      "featureId": "31",
+      "value": 6321590,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:mg:130002552296"],
+      "tie": false,
+      "complete": true,
+      "margin": 29.05318907958273,
+      "contestId": "BR-2026-1:6259:3:mg"
+    },
+    {
+      "areaId": "ms",
+      "featureId": "50",
+      "value": 914323,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:ms:120002536582"],
+      "tie": false,
+      "complete": true,
+      "margin": 43.38860615947504,
+      "contestId": "BR-2026-1:6259:3:ms"
+    },
+    {
+      "areaId": "mt",
+      "featureId": "51",
+      "value": 1128099,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:mt:110002551480"],
+      "tie": false,
+      "complete": true,
+      "margin": 37.58334487066428,
+      "contestId": "BR-2026-1:6259:3:mt"
+    },
+    {
+      "areaId": "pa",
+      "featureId": "15",
+      "value": 2345721,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:pa:140002549930"],
+      "tie": false,
+      "complete": true,
+      "margin": 4.831296470985989,
+      "contestId": "BR-2026-1:6259:3:pa"
+    },
+    {
+      "areaId": "pb",
+      "featureId": "25",
+      "value": 1470252,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:pb:150002551789"],
+      "tie": false,
+      "complete": true,
+      "margin": 40.121016941147246,
+      "contestId": "BR-2026-1:6259:3:pb"
+    },
+    {
+      "areaId": "pe",
+      "featureId": "26",
+      "value": 2805438,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:pe:170002537227"],
+      "tie": false,
+      "complete": true,
+      "margin": 8.448481180029361,
+      "contestId": "BR-2026-1:6259:3:pe"
+    },
+    {
+      "areaId": "pi",
+      "featureId": "22",
+      "value": 1436697,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:pi:180002532987"],
+      "tie": false,
+      "complete": true,
+      "margin": 43.3665223131115,
+      "contestId": "BR-2026-1:6259:3:pi"
+    },
+    {
+      "areaId": "pr",
+      "featureId": "41",
+      "value": 3127911,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:pr:160002540833"],
+      "tie": false,
+      "complete": true,
+      "margin": 24.73088899882908,
+      "contestId": "BR-2026-1:6259:3:pr"
+    },
+    {
+      "areaId": "rj",
+      "featureId": "33",
+      "value": 4271199,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:rj:190002542887"],
+      "tie": false,
+      "complete": true,
+      "margin": 6.508392280665974,
+      "contestId": "BR-2026-1:6259:3:rj"
+    },
+    {
+      "areaId": "rn",
+      "featureId": "24",
+      "value": 733809,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:rn:200002535255"],
+      "tie": false,
+      "complete": true,
+      "margin": 0.7806538384873567,
+      "contestId": "BR-2026-1:6259:3:rn"
+    },
+    {
+      "areaId": "ro",
+      "featureId": "11",
+      "value": 537370,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:ro:220002541939"],
+      "tie": false,
+      "complete": true,
+      "margin": 36.80440777179813,
+      "contestId": "BR-2026-1:6259:3:ro"
+    },
+    {
+      "areaId": "rr",
+      "featureId": "14",
+      "value": 220809,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:rr:230002549223"],
+      "tie": false,
+      "complete": true,
+      "margin": 39.87783840983304,
+      "contestId": "BR-2026-1:6259:3:rr"
+    },
+    {
+      "areaId": "rs",
+      "featureId": "43",
+      "value": 3516048,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:rs:210002547857"],
+      "tie": false,
+      "complete": true,
+      "margin": 26.391895061992326,
+      "contestId": "BR-2026-1:6259:3:rs"
+    },
+    {
+      "areaId": "sc",
+      "featureId": "42",
+      "value": 2942386,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:sc:240002537073"],
+      "tie": false,
+      "complete": true,
+      "margin": 53.3182468941948,
+      "contestId": "BR-2026-1:6259:3:sc"
+    },
+    {
+      "areaId": "se",
+      "featureId": "28",
+      "value": 727291,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:se:260002542491"],
+      "tie": false,
+      "complete": true,
+      "margin": 21.791463462340914,
+      "contestId": "BR-2026-1:6259:3:se"
+    },
+    {
+      "areaId": "sp",
+      "featureId": "35",
+      "value": 14491874,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:sp:250002541303"],
+      "tie": false,
+      "complete": true,
+      "margin": 26.234688352999346,
+      "contestId": "BR-2026-1:6259:3:sp"
+    },
+    {
+      "areaId": "to",
+      "featureId": "17",
+      "value": 386260,
+      "state": "available",
+      "sourceKind": "EA20",
+      "basis": "recordedCandidateVotesSum",
+      "leaders": ["BR-2026-1:6259:3:to:270002544599"],
+      "tie": false,
+      "complete": true,
+      "margin": 1.5804314959776296,
+      "contestId": "BR-2026-1:6259:3:to"
+    }
+  ],
+  "candidates": {
+    "BR-2026-1:6259:3:ac:10002544107": {
+      "id": "BR-2026-1:6259:3:ac:10002544107",
+      "officialId": "10002544107",
+      "number": "11",
+      "displayName": "MAILZA ASSIS",
+      "color": "#0090a8",
+      "photoUrl": null,
+      "party": {
+        "number": "11",
+        "abbreviation": "PP",
+        "name": "PROGRESSISTAS",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:ac"
+    },
+    "BR-2026-1:6259:3:al:20002553350": {
+      "id": "BR-2026-1:6259:3:al:20002553350",
+      "officialId": "20002553350",
+      "number": "45",
+      "displayName": "JHC",
+      "color": "#2c88f2",
+      "photoUrl": null,
+      "party": {
+        "number": "45",
+        "abbreviation": "PSDB",
+        "name": "PARTIDO DA SOCIAL DEMOCRACIA BRASILEIRA",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:al"
+    },
+    "BR-2026-1:6259:3:am:40002532272": {
+      "id": "BR-2026-1:6259:3:am:40002532272",
+      "officialId": "40002532272",
+      "number": "55",
+      "displayName": "OMAR AZIZ",
+      "color": "#5d9d31",
+      "photoUrl": null,
+      "party": {
+        "number": "55",
+        "abbreviation": "PSD",
+        "name": "PARTIDO SOCIAL DEMOCRÁTICO",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:am"
+    },
+    "BR-2026-1:6259:3:ap:30002530014": {
+      "id": "BR-2026-1:6259:3:ap:30002530014",
+      "officialId": "30002530014",
+      "number": "55",
+      "displayName": "DR. FURLAN",
+      "color": "#5d9d31",
+      "photoUrl": null,
+      "party": {
+        "number": "55",
+        "abbreviation": "PSD",
+        "name": "PARTIDO SOCIAL DEMOCRÁTICO",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:ap"
+    },
+    "BR-2026-1:6259:3:ba:50002536314": {
+      "id": "BR-2026-1:6259:3:ba:50002536314",
+      "officialId": "50002536314",
+      "number": "13",
+      "displayName": "JERÔNIMO RODRIGUES",
+      "color": "#ee2d35",
+      "photoUrl": null,
+      "party": {
+        "number": "13",
+        "abbreviation": "PT",
+        "name": "PARTIDO DOS TRABALHADORES",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:ba"
+    },
+    "BR-2026-1:6259:3:ce:60002543969": {
+      "id": "BR-2026-1:6259:3:ce:60002543969",
+      "officialId": "60002543969",
+      "number": "13",
+      "displayName": "ELMANO DE FREITAS",
+      "color": "#ee2d35",
+      "photoUrl": null,
+      "party": {
+        "number": "13",
+        "abbreviation": "PT",
+        "name": "PARTIDO DOS TRABALHADORES",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:ce"
+    },
+    "BR-2026-1:6259:3:df:70002553055": {
+      "id": "BR-2026-1:6259:3:df:70002553055",
+      "officialId": "70002553055",
+      "number": "11",
+      "displayName": "CELINA LEÃO",
+      "color": "#0090a8",
+      "photoUrl": null,
+      "party": {
+        "number": "11",
+        "abbreviation": "PP",
+        "name": "PROGRESSISTAS",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:df"
+    },
+    "BR-2026-1:6259:3:es:80002552682": {
+      "id": "BR-2026-1:6259:3:es:80002552682",
+      "officialId": "80002552682",
+      "number": "10",
+      "displayName": "LORENZO PAZOLINI",
+      "color": "#2f7fb2",
+      "photoUrl": null,
+      "party": {
+        "number": "10",
+        "abbreviation": "REPUBLICANOS",
+        "name": "REPUBLICANOS",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:es"
+    },
+    "BR-2026-1:6259:3:go:90002540993": {
+      "id": "BR-2026-1:6259:3:go:90002540993",
+      "officialId": "90002540993",
+      "number": "15",
+      "displayName": "DANIEL VILELA",
+      "color": "#198b43",
+      "photoUrl": null,
+      "party": {
+        "number": "15",
+        "abbreviation": "MDB",
+        "name": "MOVIMENTO DEMOCRÁTICO BRASILEIRO",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:go"
+    },
+    "BR-2026-1:6259:3:ma:100002545679": {
+      "id": "BR-2026-1:6259:3:ma:100002545679",
+      "officialId": "100002545679",
+      "number": "55",
+      "displayName": "EDUARDO BRAIDE",
+      "color": "#5d9d31",
+      "photoUrl": null,
+      "party": {
+        "number": "55",
+        "abbreviation": "PSD",
+        "name": "PARTIDO SOCIAL DEMOCRÁTICO",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:ma"
+    },
+    "BR-2026-1:6259:3:mg:130002552296": {
+      "id": "BR-2026-1:6259:3:mg:130002552296",
+      "officialId": "130002552296",
+      "number": "10",
+      "displayName": "CLEITINHO AZEVEDO",
+      "color": "#2f7fb2",
+      "photoUrl": null,
+      "party": {
+        "number": "10",
+        "abbreviation": "REPUBLICANOS",
+        "name": "REPUBLICANOS",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:mg"
+    },
+    "BR-2026-1:6259:3:ms:120002536582": {
+      "id": "BR-2026-1:6259:3:ms:120002536582",
+      "officialId": "120002536582",
+      "number": "11",
+      "displayName": "EDUARDO RIEDEL",
+      "color": "#0090a8",
+      "photoUrl": null,
+      "party": {
+        "number": "11",
+        "abbreviation": "PP",
+        "name": "PROGRESSISTAS",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:ms"
+    },
+    "BR-2026-1:6259:3:mt:110002551480": {
+      "id": "BR-2026-1:6259:3:mt:110002551480",
+      "officialId": "110002551480",
+      "number": "10",
+      "displayName": "OTAVIANO PIVETTA",
+      "color": "#2f7fb2",
+      "photoUrl": null,
+      "party": {
+        "number": "10",
+        "abbreviation": "REPUBLICANOS",
+        "name": "REPUBLICANOS",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:mt"
+    },
+    "BR-2026-1:6259:3:pa:140002549930": {
+      "id": "BR-2026-1:6259:3:pa:140002549930",
+      "officialId": "140002549930",
+      "number": "20",
+      "displayName": "DR. DANIEL",
+      "color": "#a569d5",
+      "photoUrl": null,
+      "party": { "number": "20", "abbreviation": "PODE", "name": "PODEMOS", "displayName": null },
+      "contestId": "BR-2026-1:6259:3:pa"
+    },
+    "BR-2026-1:6259:3:pb:150002551789": {
+      "id": "BR-2026-1:6259:3:pb:150002551789",
+      "officialId": "150002551789",
+      "number": "11",
+      "displayName": "LUCAS RIBEIRO",
+      "color": "#0090a8",
+      "photoUrl": null,
+      "party": {
+        "number": "11",
+        "abbreviation": "PP",
+        "name": "PROGRESSISTAS",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:pb"
+    },
+    "BR-2026-1:6259:3:pe:170002537227": {
+      "id": "BR-2026-1:6259:3:pe:170002537227",
+      "officialId": "170002537227",
+      "number": "55",
+      "displayName": "RAQUEL LYRA",
+      "color": "#5d9d31",
+      "photoUrl": null,
+      "party": {
+        "number": "55",
+        "abbreviation": "PSD",
+        "name": "PARTIDO SOCIAL DEMOCRÁTICO",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:pe"
+    },
+    "BR-2026-1:6259:3:pi:180002532987": {
+      "id": "BR-2026-1:6259:3:pi:180002532987",
+      "officialId": "180002532987",
+      "number": "13",
+      "displayName": "RAFAEL FONTELES",
+      "color": "#ee2d35",
+      "photoUrl": null,
+      "party": {
+        "number": "13",
+        "abbreviation": "PT",
+        "name": "PARTIDO DOS TRABALHADORES",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:pi"
+    },
+    "BR-2026-1:6259:3:pr:160002540833": {
+      "id": "BR-2026-1:6259:3:pr:160002540833",
+      "officialId": "160002540833",
+      "number": "22",
+      "displayName": "SERGIO MORO",
+      "color": "#4466e7",
+      "photoUrl": null,
+      "party": {
+        "number": "22",
+        "abbreviation": "PL",
+        "name": "PARTIDO LIBERAL",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:pr"
+    },
+    "BR-2026-1:6259:3:rj:190002542887": {
+      "id": "BR-2026-1:6259:3:rj:190002542887",
+      "officialId": "190002542887",
+      "number": "22",
+      "displayName": "DOUGLAS RUAS",
+      "color": "#4466e7",
+      "photoUrl": null,
+      "party": {
+        "number": "22",
+        "abbreviation": "PL",
+        "name": "PARTIDO LIBERAL",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:rj"
+    },
+    "BR-2026-1:6259:3:rn:200002535255": {
+      "id": "BR-2026-1:6259:3:rn:200002535255",
+      "officialId": "200002535255",
+      "number": "44",
+      "displayName": "ALLYSON",
+      "color": "#0395c9",
+      "photoUrl": null,
+      "party": {
+        "number": "44",
+        "abbreviation": "UNIÃO",
+        "name": "UNIÃO BRASIL",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:rn"
+    },
+    "BR-2026-1:6259:3:ro:220002541939": {
+      "id": "BR-2026-1:6259:3:ro:220002541939",
+      "officialId": "220002541939",
+      "number": "22",
+      "displayName": "MARCOS ROGÉRIO",
+      "color": "#4466e7",
+      "photoUrl": null,
+      "party": {
+        "number": "22",
+        "abbreviation": "PL",
+        "name": "PARTIDO LIBERAL",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:ro"
+    },
+    "BR-2026-1:6259:3:rr:230002549223": {
+      "id": "BR-2026-1:6259:3:rr:230002549223",
+      "officialId": "230002549223",
+      "number": "22",
+      "displayName": "ARTHUR HENRIQUE",
+      "color": "#4466e7",
+      "photoUrl": null,
+      "party": {
+        "number": "22",
+        "abbreviation": "PL",
+        "name": "PARTIDO LIBERAL",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:rr"
+    },
+    "BR-2026-1:6259:3:rs:210002547857": {
+      "id": "BR-2026-1:6259:3:rs:210002547857",
+      "officialId": "210002547857",
+      "number": "22",
+      "displayName": "ZUCCO",
+      "color": "#4466e7",
+      "photoUrl": null,
+      "party": {
+        "number": "22",
+        "abbreviation": "PL",
+        "name": "PARTIDO LIBERAL",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:rs"
+    },
+    "BR-2026-1:6259:3:sc:240002537073": {
+      "id": "BR-2026-1:6259:3:sc:240002537073",
+      "officialId": "240002537073",
+      "number": "22",
+      "displayName": "JORGINHO MELLO",
+      "color": "#4466e7",
+      "photoUrl": null,
+      "party": {
+        "number": "22",
+        "abbreviation": "PL",
+        "name": "PARTIDO LIBERAL",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:sc"
+    },
+    "BR-2026-1:6259:3:se:260002542491": {
+      "id": "BR-2026-1:6259:3:se:260002542491",
+      "officialId": "260002542491",
+      "number": "55",
+      "displayName": "FÁBIO",
+      "color": "#5d9d31",
+      "photoUrl": null,
+      "party": {
+        "number": "55",
+        "abbreviation": "PSD",
+        "name": "PARTIDO SOCIAL DEMOCRÁTICO",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:se"
+    },
+    "BR-2026-1:6259:3:sp:250002541303": {
+      "id": "BR-2026-1:6259:3:sp:250002541303",
+      "officialId": "250002541303",
+      "number": "10",
+      "displayName": "TARCÍSIO",
+      "color": "#2f7fb2",
+      "photoUrl": null,
+      "party": {
+        "number": "10",
+        "abbreviation": "REPUBLICANOS",
+        "name": "REPUBLICANOS",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:sp"
+    },
+    "BR-2026-1:6259:3:to:270002544599": {
+      "id": "BR-2026-1:6259:3:to:270002544599",
+      "officialId": "270002544599",
+      "number": "44",
+      "displayName": "PROFESSORA DORINHA",
+      "color": "#0395c9",
+      "photoUrl": null,
+      "party": {
+        "number": "44",
+        "abbreviation": "UNIÃO",
+        "name": "UNIÃO BRASIL",
+        "displayName": null
+      },
+      "contestId": "BR-2026-1:6259:3:to"
+    }
+  },
+  "omittedWithoutGeometry": 0,
+  "missingResults": 0
+}

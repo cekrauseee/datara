@@ -304,6 +304,8 @@ export async function dev() {
   } finally {
     await pool.end()
   }
+  // The web reads the API origin at build time; derive it from PORT unless the shell sets it.
+  config.env.VITE_API_URL ??= `http://localhost:${config.env.PORT}`
   const child = spawn('pnpm', ['exec', 'turbo', 'run', 'dev'], {
     cwd: repository,
     env: config.env,

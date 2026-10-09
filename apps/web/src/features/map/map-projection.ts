@@ -65,7 +65,8 @@ export function projectFeature(feature: MapFeature, projection: Projection): Sha
   return { feature, ...project(feature, projection) }
 }
 
-async function projectItems<T, R>(items: T[], convert: (item: T) => R, signal?: AbortSignal) {
+/** Converts items in slices of about 3 ms per animation frame, so long batches never block paint. */
+export async function budgeted<T, R>(items: T[], convert: (item: T) => R, signal?: AbortSignal) {
   const result: R[] = []
   for (const item of items) {
     signal?.throwIfAborted()
@@ -113,14 +114,14 @@ export function prepareScene(data: MapViewData, width: number, height: number): 
     const projection = createProjection(data.countryCode)
       .scale(serialized.projection.scale)
       .translate(serialized.projection.translate)
-    const states = await projectItems(serialized.states, decodeShape, controller.signal)
-    const regions = await projectItems(serialized.regions, decodeShape, controller.signal)
-    const regionBorders = await projectItems(
+    const states = await budgeted(serialized.states, decodeShape, controller.signal)
+    const regions = await budgeted(serialized.regions, decodeShape, controller.signal)
+    const regionBorders = await budgeted(
       serialized.regionBorders,
       (border) => ({ path: new Path2D(border.svg), bounds: border.bounds }),
       controller.signal,
     )
-    const [stateBorders] = await projectItems(
+    const [stateBorders] = await budgeted(
       [serialized.stateBorders],
       (border) => new Path2D(border.svg),
       controller.signal,
@@ -154,9 +155,9 @@ export function prepareDetails(scene: MapScene, stateCode: string): Promise<Proj
         translate: scene.projection.translate(),
       },
     })
-    const places = await projectItems(serialized.places, decodeShape)
-    const subdivisions = await projectItems(serialized.subdivisions, decodeShape)
-    const [placeBorders, subdivisionBorders] = await projectItems(
+    const places = await budgeted(serialized.places, decodeShape)
+    const subdivisions = await budgeted(serialized.subdivisions, decodeShape)
+    const [placeBorders, subdivisionBorders] = await budgeted(
       [serialized.placeBorders, serialized.subdivisionBorders],
       (border) => new Path2D(border.svg),
     )

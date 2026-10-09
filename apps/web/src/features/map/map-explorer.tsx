@@ -1,5 +1,6 @@
-import { MapPinIcon, MinusIcon, PlusIcon, ScanIcon, XIcon } from 'lucide-react'
-import { useDeferredValue, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { cn } from 'cn'
+import { MapPinIcon, MinusIcon, PlusIcon, ScanIcon } from 'lucide-react'
+import { Fragment, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from 'react'
 
 import {
   Breadcrumb,
@@ -9,14 +10,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Combobox,
   ComboboxContent,
@@ -28,6 +22,18 @@ import {
 
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
+import {
+  CollectionSelector,
+  depthCrumbs,
+  hoverTarget,
+  MapHoverDetail,
+  MapLegend,
+  navigateElection,
+  ResultsPanel,
+  useElection,
+  useMapLayer,
+  useMediaQuery,
+} from '../elections'
 import { loadDetailFeature } from './map-cache'
 import { createMap, type MapControls, type MapHover } from './map-canvas'
 import { countries, type CountryCode } from './map-countries'
@@ -115,6 +121,14 @@ function CountryMap({
   const [scale, setScale] = useState(1)
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const election = useElection({ countryCode, selectionId })
+  const mapLayer = useMapLayer(election, selected?.stateCode ?? null)
+  const desktop = useMediaQuery('(min-width: 40rem)')
+  // Notice of the office selector when the new area does not contest the office.
+  const [officeNotice, setOfficeNotice] = useState<string | null>(null)
+  useEffect(() => {
+    if (election.office || !election.active) setOfficeNotice(null)
+  }, [election.office, election.active])
 
   const deferredQuery = useDeferredValue(query)
 
@@ -179,6 +193,9 @@ function CountryMap({
       controls.current = null
     }
   }, [data])
+  useEffect(() => {
+    controls.current?.setLayer(mapLayer.layer)
+  }, [mapLayer.layer, data])
 
   const areas = data
     ? [...data.states, ...data.regions].map((feature) => feature.properties).concat(localAreas)
@@ -190,6 +207,39 @@ function CountryMap({
     ? data?.states.find((feature) => feature.properties.stateCode === selected.stateCode)
         ?.properties
     : null
+
+  // Breadcrumb: country, state and municipality from the mesh, then the electoral levels below
+  // (zone, section) or outside it (exterior, locality, region). Below `sm` only the last two show.
+  const electionArea = election.active ? election.state.area : null
+  const crumbs: { key: string; label: string; onClick: (() => void) | null }[] = [
+    {
+      key: 'country',
+      label: country.name,
+      onClick: electionArea
+        ? () => navigateElection({ area: null })
+        : selected
+          ? () => choose(null)
+          : null,
+    },
+  ]
+  if (state)
+    crumbs.push({
+      key: 'state',
+      label: state.name,
+      onClick: selected && selected.type !== 'state' ? () => choose(state) : null,
+    })
+  if (selected && selected.type !== 'state')
+    crumbs.push({
+      key: 'municipality',
+      label: selected.name,
+      onClick: election.state.zone ? () => navigateElection({ zone: null, section: null }) : null,
+    })
+  for (const crumb of depthCrumbs(election))
+    crumbs.push({
+      key: crumb.key,
+      label: crumb.label,
+      onClick: crumb.patch ? () => navigateElection(crumb.patch!) : null,
+    })
 
   const restoreSelection = useEffectEvent(applySelection)
   const canonicalSelection = useEffectEvent((area: Area) => onSelect(area, true))
@@ -213,31 +263,40 @@ function CountryMap({
     <div className="flex h-dvh min-h-[28rem] flex-col bg-background text-foreground">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4 sm:px-7">
         <h1 className="sr-only">datara</h1>
-        <ToggleGroup
-          aria-label="País"
-          variant="outline"
-          spacing={0}
-          value={[countryCode]}
-          onValueChange={(values) => {
-            const code = values[0]
-            if (code === 'BR' || code === 'US') onCountryChange(code)
-          }}
-        >
-          <ToggleGroupItem
-            ref={countryCode === 'BR' ? countryButton : undefined}
-            value="BR"
-            className="h-10 px-4"
+        <div className="flex flex-wrap items-center gap-4">
+          <ToggleGroup
+            aria-label="País"
+            variant="outline"
+            spacing={0}
+            value={[countryCode]}
+            onValueChange={(values) => {
+              const code = values[0]
+              if (code === 'BR' || code === 'US') onCountryChange(code)
+            }}
           >
-            Brasil
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            ref={countryCode === 'US' ? countryButton : undefined}
-            value="US"
-            className="h-10 px-4"
-          >
-            Estados Unidos
-          </ToggleGroupItem>
-        </ToggleGroup>
+            <ToggleGroupItem
+              ref={countryCode === 'BR' ? countryButton : undefined}
+              value="BR"
+              className="h-10 px-4"
+            >
+              Brasil
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              ref={countryCode === 'US' ? countryButton : undefined}
+              value="US"
+              className="h-10 px-4"
+            >
+              Estados Unidos
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {countryCode === 'BR' && (
+            <CollectionSelector
+              election={election}
+              areaName={selected?.name ?? country.name}
+              onOfficeCleared={setOfficeNotice}
+            />
+          )}
+        </div>
         <div className="w-full sm:w-80">
           <label htmlFor={`map-search-${countryCode}`} className="sr-only">
             {country.searchPlaceholder}
@@ -294,7 +353,15 @@ function CountryMap({
       </header>
 
       <main
-        className="relative min-h-0 flex-1 overflow-hidden"
+        className={cn(
+          'relative min-h-0 flex-1 overflow-hidden [--panel-inset-bottom:0px] [--panel-inset:0px]',
+          // `--panel-inset`: width of the results column (plus its gap) at `sm+`, consumed by the
+          // legend and the overlays on the right; `--panel-inset-bottom`: height of the collapsed
+          // mobile sheet, consumed by the controls, the footer and the status chip.
+          election.active && election.office
+            ? 'max-sm:[--panel-inset-bottom:3.5rem] sm:[--panel-inset:20.75rem] lg:[--panel-inset:22.75rem]'
+            : selected && 'sm:[--panel-inset:15.75rem]',
+        )}
         aria-label={`Explorar ${country.name}`}
       >
         <canvas
@@ -327,88 +394,61 @@ function CountryMap({
           Use a busca para selecionar uma localidade.
         </canvas>
 
-        <div className="pointer-events-none absolute top-5 right-5 left-5 flex items-start justify-between gap-3 sm:right-7 sm:left-7">
+        <div className="pointer-events-none absolute top-5 right-5 left-5 flex flex-col items-start gap-2 sm:right-7 sm:left-7">
           <Breadcrumb
             aria-label="Localidade selecionada"
             className="pointer-events-auto rounded-md bg-background/90 px-2 py-1"
           >
             <BreadcrumbList>
-              <BreadcrumbItem>
-                {selected ? (
-                  <Button variant="ghost" size="lg" onClick={() => choose(null)}>
-                    {country.name}
-                  </Button>
-                ) : (
-                  <BreadcrumbPage className="inline-flex min-h-8 items-center border border-transparent px-2.5 font-medium">
-                    {country.name}
-                  </BreadcrumbPage>
-                )}
-              </BreadcrumbItem>
-              {state && (
-                <>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    {selected && selected.type !== 'state' ? (
-                      <Button variant="ghost" size="lg" onClick={() => choose(state)}>
-                        {state.name}
+              {crumbs.map((crumb, index) => (
+                <Fragment key={crumb.key}>
+                  {index > 0 && (
+                    <BreadcrumbSeparator
+                      className={cn(index < crumbs.length - 1 && 'max-sm:hidden')}
+                    />
+                  )}
+                  <BreadcrumbItem className={cn(index < crumbs.length - 2 && 'max-sm:hidden')}>
+                    {crumb.onClick && index < crumbs.length - 1 ? (
+                      <Button variant="ghost" size="lg" onClick={crumb.onClick}>
+                        {crumb.label}
                       </Button>
                     ) : (
                       <BreadcrumbPage className="inline-flex min-h-8 items-center border border-transparent px-2.5 font-medium">
-                        {state.name}
+                        {crumb.label}
                       </BreadcrumbPage>
                     )}
                   </BreadcrumbItem>
-                </>
-              )}
-              {selected && selected.type !== 'state' && (
-                <>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage className="inline-flex min-h-8 items-center border border-transparent px-2.5 font-medium">
-                      {selected.name}
-                    </BreadcrumbPage>
-                  </BreadcrumbItem>
-                </>
-              )}
+                </Fragment>
+              ))}
             </BreadcrumbList>
           </Breadcrumb>
         </div>
 
-        {selected && (
-          <Card size="sm" className="absolute top-20 right-7 hidden w-60 sm:flex">
-            <CardHeader>
-              <CardTitle>{selected.name}</CardTitle>
-              <CardDescription>
-                {areaLabel(selected)}
-                {selected.type !== 'state' && ` · ${state?.name}`}
-              </CardDescription>
-              <CardAction>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Limpar seleção"
-                  onClick={() => choose(null)}
-                >
-                  <XIcon aria-hidden="true" />
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardContent>
-              <dl className="flex flex-col gap-2">
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Estado</dt>
-                  <dd>{selected.stateAbbr}</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">{country.codeLabel}</dt>
-                  <dd className="tabular-nums">{selected.geoid}</dd>
-                </div>
-              </dl>
-            </CardContent>
-          </Card>
-        )}
+        <ResultsPanel
+          election={election}
+          selection={selected}
+          state={state ?? null}
+          countryName={country.name}
+          codeLabel={country.codeLabel}
+          data={data}
+          notices={officeNotice ? [officeNotice] : []}
+          desktop={desktop}
+          onSelect={choose}
+        />
 
-        {hover && <MapTooltip hover={hover} />}
+        {hover && (
+          <MapTooltip hover={hover}>
+            {(() => {
+              const target = hoverTarget(
+                mapLayer,
+                hover.area,
+                data?.states.find((item) => item.properties.stateCode === hover.area.stateCode)
+                  ?.properties.name,
+              )
+              return target && <MapHoverDetail target={target} />
+            })()}
+          </MapTooltip>
+        )}
 
         {!ready && !error && <MapSkeleton outline={country.outline} />}
 
@@ -433,7 +473,7 @@ function CountryMap({
         )}
 
         <div
-          className="absolute bottom-5 left-5 flex flex-col gap-1 rounded-lg border bg-card p-1 shadow-sm sm:left-7"
+          className="absolute bottom-[calc(var(--panel-inset-bottom)+1.25rem)] left-5 flex flex-col gap-1 rounded-lg border bg-card p-1 shadow-sm sm:left-7"
           role="group"
           aria-label="Navegação do mapa"
         >
@@ -474,7 +514,7 @@ function CountryMap({
 
         {(loadingDetails > 0 || detailError || locationMissing) && (
           <div
-            className="absolute right-5 bottom-24 max-w-64 rounded-md bg-background/95 px-3 py-2 text-xs text-muted-foreground sm:right-7"
+            className="absolute right-[calc(var(--panel-inset)+1.25rem)] bottom-[calc(var(--panel-inset-bottom)+6rem)] max-w-64 rounded-md bg-background/95 px-3 py-2 text-xs text-muted-foreground sm:right-[calc(var(--panel-inset)+1.75rem)]"
             role={detailError || locationMissing ? 'alert' : 'status'}
           >
             {locationMissing
@@ -506,7 +546,20 @@ function CountryMap({
           </div>
         )}
 
-        <footer className="pointer-events-none absolute right-5 bottom-5 flex max-w-[calc(100%-6rem)] flex-col items-end gap-1 text-right text-xs text-muted-foreground sm:right-7">
+        {ready && mapLayer.active && (
+          <MapLegend
+            layer={mapLayer}
+            scopeLabel={(selected && state?.name) || country.name}
+            focusAreas={[
+              ...(election.results.data ? [election.results.data.area] : []),
+              ...(state
+                ? [{ id: state.stateAbbr.toLowerCase(), level: 'state' as const, name: state.name }]
+                : []),
+            ]}
+          />
+        )}
+
+        <footer className="pointer-events-none absolute right-5 bottom-[calc(var(--panel-inset-bottom)+1.25rem)] flex max-w-[calc(100%-6rem)] flex-col items-end gap-1 text-right text-xs text-muted-foreground sm:right-7">
           <p id={`map-instructions-${countryCode}`} className="sr-only">
             Use as setas para mover o mapa, + e − para ajustar o zoom e Home para voltar à visão do
             país. Use a busca para selecionar uma localidade.
